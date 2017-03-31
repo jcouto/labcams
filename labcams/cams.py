@@ -49,8 +49,27 @@ class DummyCam(GenericCam):
         self.h = 400
         self.w = 500
         self.initVariables()
-    
-debug = False
+
+from pymba import *
+class AVTCam(Process):
+    def __init__(self, camera = 0, outQ = None):
+        super(AVTCam,self).__init__()        
+        self.vimba = Vimba()
+        self.vimba.startup()
+        system = vimba.getSystem()
+        if system.GeVTLIsPresent:
+            system.runFeatureCommand("GeVDiscoveryAllOnce")
+        time.sleep(0.2)
+        cameraIds = vimba.getCameraIds()
+        self.camera = vimba.getCamera(cameraIds[0])
+            
+        display("Connected to AVT camera (name: {0}, uid: {1})".format(
+            self.camera.DeviceModelName, self.camera.uid))
+        # Get the frame shape
+        # Get the frame rate, exposure and all that jazz
+        
+            
+debug = True
 if not debug:
     class QCam(GenericCam):
         def __init__(self, outQ = None):
