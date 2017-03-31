@@ -50,7 +50,7 @@ class DummyCam(GenericCam):
         self.w = 500
         self.initVariables()
     
-debug = True
+debug = False
 if not debug:
     class QCam(GenericCam):
         def __init__(self, outQ = None):
@@ -63,21 +63,22 @@ if not debug:
 
     def listAVTCams():
         driver = PvAPI(libpath=os.path.dirname(sys.modules[__name__].__file__))
-        print(driver.camera_list())
+        for d in driver.camera_list():
+            display(str(d))
     
 
-        class AVTCam(Process):
-            def __init__(self, camera = 0, outQ = None):
-                self.driver = PvAPI(libpath=os.path.dirname(
+    class AVTCam(Process):
+        def __init__(self, camera = 0, outQ = None):
+            self.driver = PvAPI(libpath=os.path.dirname(
                     sys.modules[__name__].__file__))
-                self.camera = PvCam(self.driver, camera)
-                display("Connected to PvAPI camera (name: {0}, uid: {1})".format(
+            self.camera = PvCam(self.driver, camera)
+            display("Connected to PvAPI camera (name: {0}, uid: {1})".format(
                     self.camera.name, self.camera.uid))
-                # Get the frame shape
-                # Get the frame rate, exposure and all that jazz
-                self.w,self.h = self.camera.attr_uint32_get("ImageSize")
-        
-                GenericCam.__init__(self)
+            # Get the frame shape
+            # Get the frame rate, exposure and all that jazz
+            self.w,self.h = self.camera.attr_uint32_get("ImageSize")
+            
+            GenericCam.__init__(self)
 
         
         

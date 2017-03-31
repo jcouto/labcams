@@ -58,7 +58,7 @@ class LabCamsGUI(QMainWindow):
     cams = []
     def __init__(self,app = None, camDescriptions = []):
         super(LabCamsGUI,self).__init__()
-        print('Starting labcams interface.')
+        display('Starting labcams interface.')
         self.app = app
         self.cam_descriptions = camDescriptions
         # Init cameras
@@ -70,7 +70,7 @@ class LabCamsGUI(QMainWindow):
         self.initUI()
 
     def experimentMenuTrigger(self,q):
-        print(q.text()+ "clicked. ")
+        display(q.text()+ "clicked. ")
         
     def initUI(self):
         # Menu
@@ -101,5 +101,4 @@ def main():
     sys.exit(app.exec_())
 
 if __name__ == '__main__':
-    print('GUI test.')
     main()
