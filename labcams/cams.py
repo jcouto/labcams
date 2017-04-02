@@ -57,7 +57,7 @@ class DummyCam(GenericCam):
             time.sleep(1./30)
         display('Stopped...')
 
-'''
+
 from pymba import *
 def AVT_get_ids():
     with Vimba() as vimba:
@@ -95,7 +95,10 @@ class AVTCam(Process):
             frame.waitFrameCapture()
             self.h = frame.height
             self.w = frame.width
-            self.frame = frame.getBufferByteData()
+            frame = frame.getBufferByteData()
+            buf = np.frombuffer(self.frame.get_obj(),
+                                dtype = np.uint8).reshape([self.h,self.w])
+            buf[:,:] = frame[:,:]
             cam.endCapture()
             cam.revokeAllFrames()
             display("Got info from camera (name: {0}, uid: {1})".format(
@@ -180,4 +183,4 @@ class AVTCam(Process):
 class QCam(GenericCam):
     def __init__(self, outQ = None):
         super(GenericCam,self).__init__()
-'''
+
