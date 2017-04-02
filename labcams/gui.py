@@ -4,7 +4,7 @@ import os
 from .utils import display
 from .cams import *
 import cv2
-from multiprocessing import Lock
+import ctypes
 try:
     from PyQt5.QtWidgets import (QWidget,
                                  QApplication,
@@ -64,7 +64,6 @@ class LabCamsGUI(QMainWindow):
         self.cam_descriptions = camDescriptions
         # Init cameras
         self.cam_descriptions = range(3)
-        self.lock = Lock()
         for c,cam in enumerate(self.cam_descriptions):
             display("Connecting to " + str(c) + ' camera')
             self.cams.append(DummyCam())
@@ -99,11 +98,14 @@ class LabCamsGUI(QMainWindow):
         self.timer = QTimer()
         self.timer.timeout.connect(self.timerUpdate)
         self.timer.start(30)
-    def timerUpdate(self):
-        display("Updated")
+        self.camframes = []
         for c,cam in enumerate(self.cams):
-            display(str(cam.frame.value[0,0]))
-            self.camwidgets[c].image(cam.frame.value)
+            self.camframes.append(np.frombuffer(cam.frame.get_obj(),
+                                                dtype = ctypes.c_ubyte).reshape(
+                                                    [cam.h,cam.w]))
+    def timerUpdate(self):
+        for c,frame in enumerate(self.camframes):
+            self.camwidgets[c].image(frame)
 class CamWidget(QWidget):
     def __init__(self,frame):
         super(CamWidget,self).__init__()

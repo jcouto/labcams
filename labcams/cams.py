@@ -12,6 +12,7 @@ import time
 import sys
 from .io import CamWriter
 from .utils import *
+import ctypes
 # 
 # Has last frame on multiprocessing array
 # 
@@ -29,7 +30,7 @@ class GenericCam(Process):
         Process.__init__(self)
         self.queue = outQ
     def initVariables(self):
-        self.frame = Array('i',[self.h,self.w])
+        self.frame = Array('i',self.h*self.w)
     def stop_acquisition(self):
         self.close.set()
 
@@ -38,20 +39,22 @@ class DummyCam(GenericCam):
         super(DummyCam,self).__init__()
         self.h = 600
         self.w = 900
-        self.initVariables()
-        self.frame.value = (np.random.rand(self.h,self.w)*100).astype(int)
+        self.frame = Array(ctypes.c_ubyte,
+                           np.zeros([self.h,self.w],dtype = np.uint8).flatten())
     def run(self):
         # Open camera and do all settings magic
         # Start and stop the process between runs?
         display('Set {0} camera properties'.format(self.name))
         self.nframes.value = 0
+        buf = np.frombuffer(self.frame.get_obj(),
+                            dtype = np.uint8).reshape([self.h,self.w])
         while not self.close.is_set(): 
             # Acquire a frame and place in queue
-            display('running dummy cam {0}'.format(self.nframes.value))
-            self.frame.value = np.zeros([self.h,self.w],
-                                        dtype=int)+np.int(np.mod(self.nframes.value,128))
+            #display('running dummy cam {0}'.format(self.nframes.value))
+            frame = (np.ones([self.h,self.w],dtype = np.uint8)*np.mod(self.nframes.value,128)).astype(ctypes.c_ubyte)
+            buf[:,:] = frame[:,:]
             self.nframes.value += 1
-            time.sleep(0.030)
+            time.sleep(1./30)
         display('Stopped...')
 
 '''
@@ -101,6 +104,8 @@ class AVTCam(Process):
         self.cameraReady = Event()
         
     def run(self):
+        buf = np.frombuffer(self.frame.get_obj(),
+                            dtype = np.uint8).reshape([self.h,self.w])
         with Vimba() as vimba:
             while not self.close.is_set():
                 if not self.cameraReady.is_set():
@@ -141,7 +146,7 @@ class AVTCam(Process):
                             f.queueFrameCapture()
                             if self.saving.is_set():
                                 self.outQ.put([timestamp,frame])
-                            self.frame = frame
+                            buf[:,:] = frame[:,:]
                             self.nframe.value += 1
                         except VimbaException as err:
                             display('VimbaException: ' + err)
