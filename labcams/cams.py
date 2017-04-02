@@ -11,7 +11,7 @@ from datetime import datetime
 import time
 import sys
 from .io import CamWriter
-
+from .utils import *
 # 
 # Has last frame on multiprocessing array
 # 
@@ -25,15 +25,21 @@ class GenericCam(Process):
     stopTrigger = Event()
     saving = Event()
 
-    def __init__(self, outQ = None):
+    def __init__(self, outQ = None,lock = None):
         Process.__init__(self)
         self.queue = outQ
-
     def initVariables(self):
         self.frame = Array('i',[self.h,self.w])
     def stop_acquisition(self):
         self.close.set()
 
+class DummyCam(GenericCam):
+    def __init__(self,outQ = None,lock = None):
+        super(DummyCam,self).__init__()
+        self.h = 600
+        self.w = 900
+        self.initVariables()
+        self.frame.value = (np.random.rand(self.h,self.w)*100).astype(int)
     def run(self):
         # Open camera and do all settings magic
         # Start and stop the process between runs?
@@ -41,15 +47,13 @@ class GenericCam(Process):
         self.nframes.value = 0
         while not self.close.is_set(): 
             # Acquire a frame and place in queue
-            print('{0} - frame {1}'.format(self.frameCount))
-            self.nframe.value += 1
+            display('running dummy cam {0}'.format(self.nframes.value))
+            self.frame.value = np.zeros([self.h,self.w],
+                                        dtype=int)+np.int(np.mod(self.nframes.value,128))
+            self.nframes.value += 1
+            time.sleep(0.030)
+        display('Stopped...')
 
-class DummyCam(GenericCam):
-    def __init__(self,outQ = None):
-        super(DummyCam,self).__init__()
-        self.h = 400
-        self.w = 500
-        self.initVariables()
 '''
 from pymba import *
 def AVT_get_ids():
