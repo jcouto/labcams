@@ -19,17 +19,18 @@ class GenericCam(Process):
     name = None
     h = None
     w = None
-    frameCount = Value('i',0)
+    nframes = Value('i',0)
     close = Event()
-    def __init__(self, outQ = None, trigger='software'):
+    startTrigger = Event()
+    stopTrigger = Event()
+    saving = Event()
+
+    def __init__(self, outQ = None):
         Process.__init__(self)
         self.queue = outQ
-        self.acquiring = Event()
-        self.trigger = trigger
-        # Image dimensions
-    def initVariables(self):
-        self.lastframe = Array('i',[self.h,self.w])
 
+    def initVariables(self):
+        self.frame = Array('i',[self.h,self.w])
     def stop_acquisition(self):
         self.close.set()
 
@@ -37,11 +38,11 @@ class GenericCam(Process):
         # Open camera and do all settings magic
         # Start and stop the process between runs?
         display('Set {0} camera properties'.format(self.name))
-        self.frameCount.value = 0
+        self.nframes.value = 0
         while not self.close.is_set(): 
             # Acquire a frame and place in queue
             print('{0} - frame {1}'.format(self.frameCount))
-            self.frameCount.value += 1
+            self.nframe.value += 1
 
 class DummyCam(GenericCam):
     def __init__(self,outQ = None):
@@ -49,55 +50,125 @@ class DummyCam(GenericCam):
         self.h = 400
         self.w = 500
         self.initVariables()
-
+'''
 from pymba import *
-class AVTCam(Process):
-    def __init__(self, camera = 0, outQ = None):
-        super(AVTCam,self).__init__()        
-        self.vimba = Vimba()
-        self.vimba.startup()
+def AVT_get_ids():
+    with Vimba() as vimba:
+        # get system object
         system = vimba.getSystem()
+        # list available cameras (after enabling discovery for GigE cameras)
         if system.GeVTLIsPresent:
             system.runFeatureCommand("GeVDiscoveryAllOnce")
         time.sleep(0.2)
-        cameraIds = vimba.getCameraIds()
-        self.camera = vimba.getCamera(cameraIds[0])
-            
-        display("Connected to AVT camera (name: {0}, uid: {1})".format(
-            self.camera.DeviceModelName, self.camera.uid))
-        # Get the frame shape
-        # Get the frame rate, exposure and all that jazz
-        
-            
-debug = True
-if not debug:
-    class QCam(GenericCam):
-        def __init__(self, outQ = None):
-            GenericCam.__init__(self)
-        
-        
+        camsIds = vimba.getCameraIds()
+        cams = [vimba.getCamera(id) for id in camsIds]
+        camsModel = [cam.deviceModelName() for cam in cams]
+    return camsIds,camsModel
 
-    from pvapi import Camera as PvCam
-    from pvapi import PvAPI
-
-    def listAVTCams():
-        driver = PvAPI(libpath=os.path.dirname(sys.modules[__name__].__file__))
-        for d in driver.camera_list():
-            display(str(d))
-    
-
-    class AVTCam(Process):
-        def __init__(self, camera = 0, outQ = None):
-            self.driver = PvAPI(libpath=os.path.dirname(
-                    sys.modules[__name__].__file__))
-            self.camera = PvCam(self.driver, camera)
-            display("Connected to PvAPI camera (name: {0}, uid: {1})".format(
-                    self.camera.name, self.camera.uid))
-            # Get the frame shape
-            # Get the frame rate, exposure and all that jazz
-            self.w,self.h = self.camera.attr_uint32_get("ImageSize")
-            
-            GenericCam.__init__(self)
-
+class AVTCam(Process):
+    def __init__(self, camId = None, outQ = None,exposure = 29000,
+                 frameRate = 30., gain = 10):
+        super(AVTCam,self).__init__()
+        if camId is None:
+            display('Need to supply a camera ID.')
+        self.camId = camId
+        self.exposure = exposure
+        self.frameRate = frameRate
+        self.gain = gain
+        with Vimba() as vimba:
+            cam = vimba.getCamera(camId)
+            # get a frame
+            cam.acquisitionMode = 'SingleFrame'
+            frame = cam.getFrame()
+            frame.announceFrame()
+            cam.startCapture()
+            frame.queueFrameCapture()
+            cam.runFeatureCommand('AcquisitionStart')
+            cam.runFeatureCommand('AcquisitionStop')
+            frame.waitFrameCapture()
+            self.h = frame.height
+            self.w = frame.width
+            self.frame = frame.getBufferByteData()
+            cam.endCapture()
+            cam.revokeAllFrames()
+            display("Got info from camera (name: {0}, uid: {1})".format(
+                cam.DeviceModelName, cam.uid))
+        self.initVariables()
+        self.cameraReady = Event()
         
-        
+    def run(self):
+        with Vimba() as vimba:
+            while not self.close.is_set():
+                if not self.cameraReady.is_set():
+                    # prepare camera
+                    cam = vimba.getCamera(self.camId)
+                    cam.EventSelector = 'FrameTrigger'
+                    cam.EventNotification = 'On'
+                    cam.PixelFormat = 'Mono8'
+                    cameraFeatureNames = cam.getFeatureNames()
+                    cam.AcquisitionMode = 'Continuous'
+                    cam.AcquisitionFrameRateAbs = self.frameRate
+                    cam.ExposureTimeAbs = self.exposureTime 
+                    cam.GainRaw = self.gain 
+                    cam.TriggerSource = 'FixedRate'
+                    cam.TriggerMode = 'Off'
+                    cam.TriggerSelector = 'FrameStart'
+                    # create new frames for the camera
+                    frames = [cam.getFrame() for f in xrange(100)]
+                    for f in frames:
+                        f.announceFrame()
+                    self.cameraReady.set()
+                    cam.startCapture()
+                    for f in frames:
+                        f.queueFrameCapture()
+                    self.nframes.value = 0
+                # Wait for trigger
+                while not self.startTrigger.is_set():
+                    time.sleep(0.001)
+                cam.runFeatureCommand('AcquisitionStart')
+                while not self.stopTrigger.is_set():
+                    # run and acquire frames
+                    for f in frames:
+                        try:
+                            f.waitFrameCapture(timeout = 10)
+                            timestamp = ff._frame.timestamp
+                            frameID = ff._frame.frameID
+                            frame =  f.getBufferByteData()
+                            f.queueFrameCapture()
+                            if self.saving.is_set():
+                                self.outQ.put([timestamp,frame])
+                            self.frame = frame
+                            self.nframe.value += 1
+                        except VimbaException as err:
+                            display('VimbaException: ' + err)
+                cam.runFeatureCommand('AcquisitionStop')
+                # Check if all frames are done...
+                for f in frames:
+                    try:
+                        f.waitFrameCapture(timeout = 10)
+                        timestamp = ff._frame.timestamp
+                        frameID = ff._frame.frameID
+                        frame =  f.getBufferByteData()
+                        f.queueFrameCapture()
+                        if self.saving.is_set():
+                            self.outQ.put(frame)
+                        self.frame = frame
+                        self.nframe.value += 1
+                    except VimbaException as err:
+                display('VimbaException: ' + err)
+                display('{4} delivered:{0},dropped:{1},saved:{4},time:{2}'.format(
+                    cam.StatFrameDelivered,
+                    cam.StatFrameDropped,
+                    cam.StatTimeElapsed,
+                    cam.DeviceModelName,
+                    self.nframes.value))
+                cam.endCapture()
+                cam.revokeAllFrames()
+                self.cameraReady.clear()
+                self.startTrigger.clear()
+                self.stopTrigger.clear()
+
+class QCam(GenericCam):
+    def __init__(self, outQ = None):
+        super(GenericCam,self).__init__()
+'''
