@@ -34,6 +34,8 @@ except:
     from PyQt4.QtGui import (QWidget,
                              QApplication,
                              QAction,
+                             QMainWindow,
+                             QDockWidget,
                              QMenuBar,
                              QGridLayout,
                              QFormLayout,
@@ -51,7 +53,7 @@ except:
                              QFileDialog,
                              QImage,
                              QPixmap)
-    from PyQt4.QtCore import Qt,QSize,QRectF,QLineF,QPointF
+    from PyQt4.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
 
 
 class LabCamsGUI(QMainWindow):
@@ -63,17 +65,28 @@ class LabCamsGUI(QMainWindow):
         self.app = app
         self.cam_descriptions = camDescriptions
         # Init cameras
-        self.cam_descriptions = range(3)
-        for c,cam in enumerate(self.cam_descriptions):
+        avtids,avtname = AVT_get_ids()
+        
+#        self.cam_descriptions = range(3)
+#        for c,cam in enumerate(self.cam_descriptions):
+        for c,(cam,frate) in enumerate(zip(avtids,[250,30])):
             display("Connecting to " + str(c) + ' camera')
-            self.cams.append(DummyCam())
+#            self.cams.append(DummyCam())
+            self.cams.append(AVTCam(camId=cam,frameRate=frate,exposure = 3000,gain=10))
             self.cams[-1].daemon = True
-        self.resize(900,200)
+        self.resize(500,700)
 
         self.initUI()
         for cam in self.cams:
             cam.start()
-            
+        camready = 0
+        while camready<len(self.cams):
+            camready = np.sum([cam.cameraReady.is_set() for cam in self.cams])
+        display('All cameras ready!')
+        for c,cam in enumerate(self.cams):
+            cam.startTrigger.set()
+        display('Triggered cameras.')
+
     def experimentMenuTrigger(self,q):
         display(q.text()+ "clicked. ")
         
@@ -104,18 +117,20 @@ class LabCamsGUI(QMainWindow):
                                                 dtype = ctypes.c_ubyte).reshape(
                                                     [cam.h,cam.w]))
     def timerUpdate(self):
-        for c,frame in enumerate(self.camframes):
-            self.camwidgets[c].image(frame)
+        for c,(cam,frame) in enumerate(zip(self.cams,self.camframes)):
+            self.camwidgets[c].image(frame,cam.nframes.value)
+
 class CamWidget(QWidget):
     def __init__(self,frame):
         super(CamWidget,self).__init__()
-        self.scene=QGraphicsScene(self)
+        self.scene=QGraphicsScene(0,0,500,500,self)
         self.view = QGraphicsView(self.scene, self)
-        self.image(np.array(frame))
+        self.image(np.array(frame),-1)
         self.show()
-    def image(self,image):
+    def image(self,image,nframe):
         self.scene.clear()
         frame = cv2.cvtColor(image.astype(np.uint8), cv2.COLOR_GRAY2BGR)
+        cv2.putText(frame,str(nframe), (10,100), cv2.FONT_HERSHEY_SIMPLEX, 1, 105)
         self.qimage = QImage(frame, frame.shape[1], frame.shape[0], 
                              frame.strides[0], QImage.Format_RGB888)
         self.scene.addPixmap(QPixmap.fromImage(self.qimage))

@@ -17,20 +17,19 @@ import ctypes
 # Has last frame on multiprocessing array
 # 
 class GenericCam(Process):
-    name = None
-    h = None
-    w = None
-    nframes = Value('i',0)
-    close = Event()
-    startTrigger = Event()
-    stopTrigger = Event()
-    saving = Event()
-
     def __init__(self, outQ = None,lock = None):
         Process.__init__(self)
+        self.name = ''
+        self.h = None
+        self.w = None
+        self.close = Event()
+        self.startTrigger = Event()
+        self.stopTrigger = Event()
+        self.saving = Event()
+        self.nframes = Value('i',0)
         self.queue = outQ
     def initVariables(self):
-        self.frame = Array('i',self.h*self.w)
+        self.frame = Array(ctypes.c_ubyte,np.zeros([self.h,self.w],dtype = np.uint8).flatten())
     def stop_acquisition(self):
         self.close.set()
 
@@ -69,10 +68,12 @@ def AVT_get_ids():
         time.sleep(0.2)
         camsIds = vimba.getCameraIds()
         cams = [vimba.getCamera(id) for id in camsIds]
-        camsModel = [cam.deviceModelName() for cam in cams]
+        [cam.openCamera() for cam in cams]
+        camsModel = [cam.DeviceModelName for cam in cams]
+        
     return camsIds,camsModel
 
-class AVTCam(Process):
+class AVTCam(GenericCam):
     def __init__(self, camId = None, outQ = None,exposure = 29000,
                  frameRate = 30., gain = 10):
         super(AVTCam,self).__init__()
@@ -83,7 +84,12 @@ class AVTCam(Process):
         self.frameRate = frameRate
         self.gain = gain
         with Vimba() as vimba:
+            system = vimba.getSystem()
+            if system.GeVTLIsPresent:
+                system.runFeatureCommand("GeVDiscoveryAllOnce")
+            time.sleep(0.2)
             cam = vimba.getCamera(camId)
+            cam.openCamera()
             # get a frame
             cam.acquisitionMode = 'SingleFrame'
             frame = cam.getFrame()
@@ -95,79 +101,111 @@ class AVTCam(Process):
             frame.waitFrameCapture()
             self.h = frame.height
             self.w = frame.width
-            frame = frame.getBufferByteData()
+            self.initVariables()
+            framedata = np.ndarray(buffer = frame.getBufferByteData(),
+                                   dtype = np.uint8,
+                                   shape = (frame.height,
+                                            frame.width)).copy()
             buf = np.frombuffer(self.frame.get_obj(),
                                 dtype = np.uint8).reshape([self.h,self.w])
-            buf[:,:] = frame[:,:]
+
+            buf[:,:] = framedata[:,:]
             cam.endCapture()
             cam.revokeAllFrames()
-            display("Got info from camera (name: {0}, uid: {1})".format(
-                cam.DeviceModelName, cam.uid))
-        self.initVariables()
+            display("Got info from camera (name: {0})".format(
+                cam.DeviceModelName))
         self.cameraReady = Event()
         
     def run(self):
         buf = np.frombuffer(self.frame.get_obj(),
                             dtype = np.uint8).reshape([self.h,self.w])
         with Vimba() as vimba:
+            system = vimba.getSystem()
+            if system.GeVTLIsPresent:
+                system.runFeatureCommand("GeVDiscoveryAllOnce")
+            time.sleep(0.2)
             while not self.close.is_set():
                 if not self.cameraReady.is_set():
                     # prepare camera
                     cam = vimba.getCamera(self.camId)
+                    cam.openCamera()
                     cam.EventSelector = 'FrameTrigger'
                     cam.EventNotification = 'On'
                     cam.PixelFormat = 'Mono8'
                     cameraFeatureNames = cam.getFeatureNames()
                     cam.AcquisitionMode = 'Continuous'
                     cam.AcquisitionFrameRateAbs = self.frameRate
-                    cam.ExposureTimeAbs = self.exposureTime 
+                    cam.ExposureTimeAbs = self.exposure 
                     cam.GainRaw = self.gain 
                     cam.TriggerSource = 'FixedRate'
                     cam.TriggerMode = 'Off'
-                    cam.TriggerSelector = 'FrameStart'
+                    cam.TriggerSelector = 'AcquisitionStart'
                     # create new frames for the camera
-                    frames = [cam.getFrame() for f in xrange(100)]
-                    for f in frames:
-                        f.announceFrame()
-                    self.cameraReady.set()
+                    frames = []
+                    nbuffers = 1
+                    for i in range(nbuffers):
+                        frames.append(cam.getFrame())    # creates a frame
+                        frames[i].announceFrame()
                     cam.startCapture()
-                    for f in frames:
-                        f.queueFrameCapture()
+                    for f,ff in enumerate(frames):
+                        try:
+                            ff.queueFrameCapture()
+                        except:
+                            display('Queue frame: '+ str(f))
+                            continue
+                    display('Camera ready!')
+                    self.cameraReady.set()
                     self.nframes.value = 0
                 # Wait for trigger
                 while not self.startTrigger.is_set():
                     time.sleep(0.001)
                 cam.runFeatureCommand('AcquisitionStart')
+                tstart = time.time()
                 while not self.stopTrigger.is_set():
                     # run and acquire frames
                     for f in frames:
                         try:
-                            f.waitFrameCapture(timeout = 10)
-                            timestamp = ff._frame.timestamp
-                            frameID = ff._frame.frameID
-                            frame =  f.getBufferByteData()
-                            f.queueFrameCapture()
-                            if self.saving.is_set():
-                                self.outQ.put([timestamp,frame])
-                            buf[:,:] = frame[:,:]
-                            self.nframe.value += 1
+                            f.waitFrameCapture(timeout = 1000)
                         except VimbaException as err:
-                            display('VimbaException: ' + err)
+                            display('VimbaException: ' +  str(err))
+                            continue
+                        timestamp = f._frame.timestamp
+                        frameID = f._frame.frameID
+                        frame = np.ndarray(buffer = f.getBufferByteData(),
+                                           dtype = np.uint8,
+                                           shape = (f.height,
+                                                    f.width)).copy()
+                        self.nframes.value += 1
+                        if self.saving.is_set():
+                            self.outQ.put([timestamp,frame])
+                        #display("Time {0} - {1}:".format(str(1./(time.time()-tstart)),self.nframes.value))
+                        tstart = time.time()
+                        try:
+                            f.queueFrameCapture()
+                        except:
+                            display('Queue frame failed: '+ str(f))
+                            pass
+                        buf[:,:] = frame[:,:]
+
+
                 cam.runFeatureCommand('AcquisitionStop')
                 # Check if all frames are done...
                 for f in frames:
                     try:
                         f.waitFrameCapture(timeout = 10)
-                        timestamp = ff._frame.timestamp
-                        frameID = ff._frame.frameID
-                        frame =  f.getBufferByteData()
+                        timestamp = f._frame.timestamp
+                        frameID = f._frame.frameID
+                        frame = np.ndarray(buffer = f.getBufferByteData(),
+                                           dtype = np.uint8,
+                                           shape = (f.height,
+                                                    f.width)).copy()
                         f.queueFrameCapture()
                         if self.saving.is_set():
                             self.outQ.put(frame)
                         self.frame = frame
-                        self.nframe.value += 1
+                        self.nframes.value += 1
                     except VimbaException as err:
-                display('VimbaException: ' + err)
+                        display('VimbaException: ' + str(err))
                 display('{4} delivered:{0},dropped:{1},saved:{4},time:{2}'.format(
                     cam.StatFrameDelivered,
                     cam.StatFrameDropped,
