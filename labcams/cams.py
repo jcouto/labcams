@@ -75,7 +75,8 @@ def AVT_get_ids():
 
 class AVTCam(GenericCam):
     def __init__(self, camId = None, outQ = None,exposure = 29000,
-                 frameRate = 30., gain = 10):
+                 frameRate = 30., gain = 10,frameTimeout = 100,
+                 nFrameBuffers = 1):
         super(AVTCam,self).__init__()
         if camId is None:
             display('Need to supply a camera ID.')
@@ -83,6 +84,9 @@ class AVTCam(GenericCam):
         self.exposure = exposure
         self.frameRate = frameRate
         self.gain = gain
+        self.frameTimeout = frameTimeout
+        self.nbuffers = nFrameBuffers
+
         with Vimba() as vimba:
             system = vimba.getSystem()
             if system.GeVTLIsPresent:
@@ -142,8 +146,7 @@ class AVTCam(GenericCam):
                     cam.TriggerSelector = 'AcquisitionStart'
                     # create new frames for the camera
                     frames = []
-                    nbuffers = 1
-                    for i in range(nbuffers):
+                    for i in range(self.nbuffers):
                         frames.append(cam.getFrame())    # creates a frame
                         frames[i].announceFrame()
                     cam.startCapture()
@@ -151,21 +154,23 @@ class AVTCam(GenericCam):
                         try:
                             ff.queueFrameCapture()
                         except:
-                            display('Queue frame: '+ str(f))
+                            display('Queue frame error while getting cam ready: '+ str(f))
                             continue
                     display('Camera ready!')
                     self.cameraReady.set()
                     self.nframes.value = 0
                 # Wait for trigger
                 while not self.startTrigger.is_set():
+                    # limits resolution to 1 ms 
                     time.sleep(0.001)
                 cam.runFeatureCommand('AcquisitionStart')
                 tstart = time.time()
+                display('Started acquisition.')
                 while not self.stopTrigger.is_set():
                     # run and acquire frames
                     for f in frames:
                         try:
-                            f.waitFrameCapture(timeout = 1000)
+                            f.waitFrameCapture(timeout = self.frameTimeout)
                         except VimbaException as err:
                             display('VimbaException: ' +  str(err))
                             continue
@@ -177,7 +182,7 @@ class AVTCam(GenericCam):
                                                     f.width)).copy()
                         self.nframes.value += 1
                         if self.saving.is_set():
-                            self.outQ.put([timestamp,frame])
+                            self.outQ.put((frame.copy(),timestamp))
                         #display("Time {0} - {1}:".format(str(1./(time.time()-tstart)),self.nframes.value))
                         tstart = time.time()
                         try:
@@ -186,9 +191,9 @@ class AVTCam(GenericCam):
                             display('Queue frame failed: '+ str(f))
                             pass
                         buf[:,:] = frame[:,:]
-
-
+                
                 cam.runFeatureCommand('AcquisitionStop')
+                print('Stopped acquisition.')
                 # Check if all frames are done...
                 for f in frames:
                     try:
@@ -206,7 +211,7 @@ class AVTCam(GenericCam):
                         self.nframes.value += 1
                     except VimbaException as err:
                         display('VimbaException: ' + str(err))
-                display('{4} delivered:{0},dropped:{1},saved:{4},time:{2}'.format(
+                display('{4} delivered:{0},dropped:{1},queued:{4},time:{2}'.format(
                     cam.StatFrameDelivered,
                     cam.StatFrameDropped,
                     cam.StatTimeElapsed,
@@ -214,6 +219,7 @@ class AVTCam(GenericCam):
                     self.nframes.value))
                 cam.endCapture()
                 cam.revokeAllFrames()
+                self.saving.clear()
                 self.cameraReady.clear()
                 self.startTrigger.clear()
                 self.stopTrigger.clear()

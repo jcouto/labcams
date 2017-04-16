@@ -83,10 +83,17 @@ class LabCamsGUI(QMainWindow):
         while camready<len(self.cams):
             camready = np.sum([cam.cameraReady.is_set() for cam in self.cams])
         display('All cameras ready!')
+        self.triggerCams()
+        
+    def triggerCams(self,save=False):
+        if save:
+            for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
+                cam.saving.set()
+                writer.write.set()
         for c,cam in enumerate(self.cams):
             cam.startTrigger.set()
         display('Triggered cameras.')
-
+        
     def experimentMenuTrigger(self,q):
         display(q.text()+ "clicked. ")
         
@@ -134,10 +141,10 @@ class CamWidget(QWidget):
         self.qimage = QImage(frame, frame.shape[1], frame.shape[0], 
                              frame.strides[0], QImage.Format_RGB888)
         self.scene.addPixmap(QPixmap.fromImage(self.qimage))
-        #self.view.fitInView(QRectF(0,0,
-        #                           frame.shape[1],
-        #                           frame.shape[0]),
-        #                    Qt.KeepAspectRatio)
+        self.view.fitInView(QRectF(0,0,
+                                   frame.shape[1],
+                                   frame.shape[0]),
+                            Qt.KeepAspectRatio)
         self.scene.update()
 
 def main():
