@@ -72,7 +72,8 @@ class LabCamsGUI(QMainWindow):
         for c,(cam,frate) in enumerate(zip(avtids,[250,30])):
             display("Connecting to " + str(c) + ' camera')
 #            self.cams.append(DummyCam())
-            self.cams.append(AVTCam(camId=cam,frameRate=frate,exposure = 3000,gain=10))
+            self.cams.append(AVTCam(camId=cam,frameRate=frate,
+                                    exposure = 3000,gain=10))
             self.cams[-1].daemon = True
         self.resize(500,700)
 
@@ -109,10 +110,12 @@ class LabCamsGUI(QMainWindow):
         for c,cam in enumerate(self.cams):
             self.tabs.append(QDockWidget("Camera: "+str(c),self))
             layout = QVBoxLayout()
-            self.camwidgets.append(CamWidget(frame = np.zeros([200,200],dtype=np.float32)))
+            self.camwidgets.append(CamWidget(frame = np.zeros((cam.h,cam.w),
+                                                              dtype=np.uint8)))
             self.tabs[-1].setWidget(self.camwidgets[-1])
             self.tabs[-1].setFloating(False)
-            self.addDockWidget(Qt.RightDockWidgetArea,self.tabs[-1])
+            self.addDockWidget(Qt.RightDockWidgetArea and Qt.TopDockWidgetArea,self.tabs[-1])
+            self.tabs[-1].setFixedSize(cam.w,cam.h)
             display('Init view: ' + str(c))
         self.show()
         self.timer = QTimer()
@@ -126,25 +129,36 @@ class LabCamsGUI(QMainWindow):
     def timerUpdate(self):
         for c,(cam,frame) in enumerate(zip(self.cams,self.camframes)):
             self.camwidgets[c].image(frame,cam.nframes.value)
+    def closeEvent(self,event):
+        for cam in self.cams:
+            cam.stop_acquisition()
+        print('Acquisition duration.')
+        for cam,srate in zip(self.cams,[250.,30.]):
+            print(cam.nframes.value/srate)
+
+        event.accept()
 
 class CamWidget(QWidget):
     def __init__(self,frame):
         super(CamWidget,self).__init__()
-        self.scene=QGraphicsScene(0,0,500,500,self)
+        print(frame.shape)
+        self.scene=QGraphicsScene(0,0,frame.shape[1],
+                                  frame.shape[0],self)
         self.view = QGraphicsView(self.scene, self)
         self.image(np.array(frame),-1)
         self.show()
     def image(self,image,nframe):
         self.scene.clear()
         frame = cv2.cvtColor(image.astype(np.uint8), cv2.COLOR_GRAY2BGR)
-        cv2.putText(frame,str(nframe), (10,100), cv2.FONT_HERSHEY_SIMPLEX, 1, 105)
+        cv2.putText(frame,str(nframe), (10,100), cv2.FONT_HERSHEY_SIMPLEX,
+                    1, 105,2)
         self.qimage = QImage(frame, frame.shape[1], frame.shape[0], 
                              frame.strides[0], QImage.Format_RGB888)
         self.scene.addPixmap(QPixmap.fromImage(self.qimage))
-        self.view.fitInView(QRectF(0,0,
-                                   frame.shape[1],
-                                   frame.shape[0]),
-                            Qt.KeepAspectRatio)
+        #self.view.fitInView(QRectF(0,0,
+        #                           10,
+        #                           10),
+        #                    Qt.KeepAspectRatio)
         self.scene.update()
 
 def main():

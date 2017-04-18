@@ -10,7 +10,7 @@ import numpy as np
 from datetime import datetime
 import time
 import sys
-from .io import CamWriter
+from .io import TiffWriter
 from .utils import *
 import ctypes
 # 
@@ -32,6 +32,8 @@ class GenericCam(Process):
         self.frame = Array(ctypes.c_ubyte,np.zeros([self.h,self.w],dtype = np.uint8).flatten())
     def stop_acquisition(self):
         self.close.set()
+        self.stopTrigger.set()
+        time.sleep(0.5)
 
 class DummyCam(GenericCam):
     def __init__(self,outQ = None,lock = None):
@@ -94,6 +96,8 @@ class AVTCam(GenericCam):
             time.sleep(0.2)
             cam = vimba.getCamera(camId)
             cam.openCamera()
+            names = cam.getFeatureNames()
+            print(names)
             # get a frame
             cam.acquisitionMode = 'SingleFrame'
             frame = cam.getFrame()
@@ -123,12 +127,13 @@ class AVTCam(GenericCam):
     def run(self):
         buf = np.frombuffer(self.frame.get_obj(),
                             dtype = np.uint8).reshape([self.h,self.w])
-        with Vimba() as vimba:
-            system = vimba.getSystem()
-            if system.GeVTLIsPresent:
-                system.runFeatureCommand("GeVDiscoveryAllOnce")
-            time.sleep(0.2)
-            while not self.close.is_set():
+        while not self.close.is_set():
+
+            with Vimba() as vimba:
+                system = vimba.getSystem()
+                if system.GeVTLIsPresent:
+                    system.runFeatureCommand("GeVDiscoveryAllOnce")
+                time.sleep(0.2)
                 if not self.cameraReady.is_set():
                     # prepare camera
                     cam = vimba.getCamera(self.camId)
@@ -139,7 +144,8 @@ class AVTCam(GenericCam):
                     cameraFeatureNames = cam.getFeatureNames()
                     cam.AcquisitionMode = 'Continuous'
                     cam.AcquisitionFrameRateAbs = self.frameRate
-                    cam.ExposureTimeAbs = self.exposure 
+                    
+#                    cam.ExposureTimeAbs =  
                     cam.GainRaw = self.gain 
                     cam.TriggerSource = 'FixedRate'
                     cam.TriggerMode = 'Off'
@@ -204,11 +210,11 @@ class AVTCam(GenericCam):
                                            dtype = np.uint8,
                                            shape = (f.height,
                                                     f.width)).copy()
-                        f.queueFrameCapture()
+                        #f.queueFrameCapture()
                         if self.saving.is_set():
                             self.outQ.put(frame)
-                        self.frame = frame
                         self.nframes.value += 1
+                        self.frame = frame
                     except VimbaException as err:
                         display('VimbaException: ' + str(err))
                 display('{4} delivered:{0},dropped:{1},queued:{4},time:{2}'.format(
@@ -217,8 +223,11 @@ class AVTCam(GenericCam):
                     cam.StatTimeElapsed,
                     cam.DeviceModelName,
                     self.nframes.value))
+                try:
+                    cam.revokeAllFrames()
+                except:
+                    display('Failed to revoke frames.')
                 cam.endCapture()
-                cam.revokeAllFrames()
                 self.saving.clear()
                 self.cameraReady.clear()
                 self.startTrigger.clear()

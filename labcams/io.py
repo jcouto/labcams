@@ -61,13 +61,13 @@ class TiffWriter(Process):
                     continue
                 frame,timestamp = buff
                 self.frameCount.value += 1
-                 if np.mod(self.frameCount.value,self.framesPerFile):
+                if np.mod(self.frameCount.value,self.framesPerFile):
                     self.closeFile()
                     self.nFiles += 1
-               if self.fd is None:
+                if self.fd is None:
                     self.openFile()
                 self.write_image(frame,compression=self.compression)
-            display("Wrote {0} frames on {1} ({2} files).".format(
+                display("Wrote {0} frames on {1} ({2} files).".format(
                 self.frameCount.value,
                 self.dataName,
                 self.nFiles))
