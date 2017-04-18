@@ -83,7 +83,7 @@ class AVTCam(GenericCam):
         if camId is None:
             display('Need to supply a camera ID.')
         self.camId = camId
-        self.exposure = exposure
+        self.exposure = (1000000/int(frameRate)) - 150
         self.frameRate = frameRate
         self.gain = gain
         self.frameTimeout = frameTimeout
@@ -97,9 +97,11 @@ class AVTCam(GenericCam):
             cam = vimba.getCamera(camId)
             cam.openCamera()
             names = cam.getFeatureNames()
-            print(names)
             # get a frame
             cam.acquisitionMode = 'SingleFrame'
+            cam.AcquisitionFrameRateAbs = self.frameRate
+            cam.ExposureTimeAbs =  self.exposure
+            cam.GainRaw = self.gain 
             frame = cam.getFrame()
             frame.announceFrame()
             cam.startCapture()
@@ -144,8 +146,7 @@ class AVTCam(GenericCam):
                     cameraFeatureNames = cam.getFeatureNames()
                     cam.AcquisitionMode = 'Continuous'
                     cam.AcquisitionFrameRateAbs = self.frameRate
-                    
-#                    cam.ExposureTimeAbs =  
+                    cam.ExposureTimeAbs =  self.exposure
                     cam.GainRaw = self.gain 
                     cam.TriggerSource = 'FixedRate'
                     cam.TriggerMode = 'Off'
