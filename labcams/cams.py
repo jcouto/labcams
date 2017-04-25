@@ -144,6 +144,7 @@ class AVTCam(GenericCam):
                     cam.EventNotification = 'On'
                     cam.PixelFormat = 'Mono8'
                     cameraFeatureNames = cam.getFeatureNames()
+                    #print('\n'.join(cameraFeatureNames))
                     cam.AcquisitionMode = 'Continuous'
                     cam.AcquisitionFrameRateAbs = self.frameRate
                     cam.ExposureTimeAbs =  self.exposure
@@ -170,6 +171,7 @@ class AVTCam(GenericCam):
                 while not self.startTrigger.is_set():
                     # limits resolution to 1 ms 
                     time.sleep(0.001)
+                cam.runFeatureCommand("GevTimestampControlReset")
                 cam.runFeatureCommand('AcquisitionStart')
                 tstart = time.time()
                 display('Started acquisition.')
