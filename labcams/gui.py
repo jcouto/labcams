@@ -5,6 +5,7 @@ from .utils import display
 from .cams import *
 import cv2
 import ctypes
+from mptracker import MPTracker
 try:
     from PyQt5.QtWidgets import (QWidget,
                                  QApplication,
@@ -110,8 +111,13 @@ class LabCamsGUI(QMainWindow):
         for c,cam in enumerate(self.cams):
             self.tabs.append(QDockWidget("Camera: "+str(c),self))
             layout = QVBoxLayout()
+            if c == 1:
+                trackeye = True
+            else:
+                trackeye = None
             self.camwidgets.append(CamWidget(frame = np.zeros((cam.h,cam.w),
-                                                              dtype=np.uint8)))
+                                                              dtype=np.uint8),
+                                             trackeye=trackeye))
             self.tabs[-1].setWidget(self.camwidgets[-1])
             self.tabs[-1].setFloating(False)
             self.addDockWidget(Qt.RightDockWidgetArea and Qt.TopDockWidgetArea,self.tabs[-1])
@@ -139,17 +145,30 @@ class LabCamsGUI(QMainWindow):
         event.accept()
 
 class CamWidget(QWidget):
-    def __init__(self,frame):
+    def __init__(self,frame,trackeye=None):
         super(CamWidget,self).__init__()
         print(frame.shape)
         self.scene=QGraphicsScene(0,0,frame.shape[1],
                                   frame.shape[0],self)
         self.view = QGraphicsView(self.scene, self)
+        self.lastFrame = None
+        if not trackeye is None:
+            trackeye = MPTracker()
+        self.eyeTracker = trackeye
         self.image(np.array(frame),-1)
         self.show()
     def image(self,image,nframe):
         self.scene.clear()
-        frame = cv2.cvtColor(image.astype(np.uint8), cv2.COLOR_GRAY2BGR)
+        if not self.eyeTracker is None:
+            img = self.eyeTracker.apply(image.copy()) 
+            frame = img[0]
+        else:
+            if not self.lastFrame is None:
+                frame = 2*(image.copy() - self.lastFrame) + 128
+            else:
+                frame = image
+        if len(frame.shape) == 2:
+            frame = cv2.cvtColor(frame.astype(np.uint8), cv2.COLOR_GRAY2BGR)
         cv2.putText(frame,str(nframe), (10,100), cv2.FONT_HERSHEY_SIMPLEX,
                     1, 105,2)
         self.qimage = QImage(frame, frame.shape[1], frame.shape[0], 
@@ -159,7 +178,9 @@ class CamWidget(QWidget):
         #                           10,
         #                           10),
         #                    Qt.KeepAspectRatio)
+        
         self.scene.update()
+        self.lastFrame = image.copy()
 
 def main():
     app = QApplication(sys.argv)
