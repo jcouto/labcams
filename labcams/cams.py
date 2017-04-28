@@ -88,7 +88,7 @@ class AVTCam(GenericCam):
         self.gain = gain
         self.frameTimeout = frameTimeout
         self.nbuffers = nFrameBuffers
-
+        self.queue = outQ
         with Vimba() as vimba:
             system = vimba.getSystem()
             if system.GeVTLIsPresent:
@@ -125,7 +125,7 @@ class AVTCam(GenericCam):
             display("Got info from camera (name: {0})".format(
                 cam.DeviceModelName))
         self.cameraReady = Event()
-        
+
     def run(self):
         buf = np.frombuffer(self.frame.get_obj(),
                             dtype = np.uint8).reshape([self.h,self.w])
@@ -190,15 +190,16 @@ class AVTCam(GenericCam):
                                            shape = (f.height,
                                                     f.width)).copy()
                         self.nframes.value += 1
-                        if self.saving.is_set():
-                            self.outQ.put((frame.copy(),timestamp))
+                        newframe = frame.copy()
                         #display("Time {0} - {1}:".format(str(1./(time.time()-tstart)),self.nframes.value))
                         tstart = time.time()
                         try:
                             f.queueFrameCapture()
                         except:
-                            display('Queue frame failed: '+ str(f))
-                            pass
+                            display('Queue frame failed: '+ str(f) + 'Stopping!')
+                            self.stopTrigger.set()
+                        if self.saving.is_set():
+                            self.queue.put((frame.copy(),(frameID,timestamp)))
                         buf[:,:] = frame[:,:]
                 
                 cam.runFeatureCommand('AcquisitionStop')
@@ -215,7 +216,7 @@ class AVTCam(GenericCam):
                                                     f.width)).copy()
                         #f.queueFrameCapture()
                         if self.saving.is_set():
-                            self.outQ.put(frame)
+                            self.queue.put((frame.copy(),(frameID,timestamp)))
                         self.nframes.value += 1
                         self.frame = frame
                     except VimbaException as err:

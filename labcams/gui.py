@@ -3,8 +3,10 @@ import sys
 import os
 from .utils import display
 from .cams import *
+from .io import *
 import cv2
 import ctypes
+
 from mptracker import MPTracker
 try:
     from PyQt5.QtWidgets import (QWidget,
@@ -56,36 +58,60 @@ except:
                              QPixmap)
     from PyQt4.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
 
+from multiprocessing import Queue
 
 class LabCamsGUI(QMainWindow):
     app = None
     cams = []
-    def __init__(self,app = None, camDescriptions = []):
+    def __init__(self,app = None, expName = 'test',
+                 camDescriptions = [{'description':'eyecam',
+                                     'name':'GC660M',
+                                     'driver':'AVT',
+                                     'frameRate':30.,
+                                     'gain':10,
+                                     'trackEye':True},
+                                    {'description':'facecam',
+                                     'name':'Mako G-030B',
+                                     'driver':'AVT',
+                                     'gain':10,
+                                     'frameRate':250.}]):
         super(LabCamsGUI,self).__init__()
         display('Starting labcams interface.')
         self.app = app
         self.cam_descriptions = camDescriptions
         # Init cameras
-        avtids,avtname = AVT_get_ids()
-        
-#        self.cam_descriptions = range(3)
-#        for c,cam in enumerate(self.cam_descriptions):
-        for c,(cam,frate) in enumerate(zip(avtids,[250,30])):
-            display("Connecting to " + str(c) + ' camera')
-#            self.cams.append(DummyCam())
-            self.cams.append(AVTCam(camId=cam,frameRate=frate,
-                                    exposure = 3000,gain=10))
+        avtids,avtnames = AVT_get_ids()
+        self.camQueues = []
+        self.writers = []
+        for c,cam in enumerate(self.cam_descriptions):
+            display("Connecting to camera [" + str(c) + '] : '+cam['name'])
+            if cam['driver'] == 'AVT':
+                camids = [camid for (camid,name) in zip(avtids,avtnames) 
+                          if cam['name'] in name]
+                if len(camids) == 0:
+                    display('Could not find: '+cam['name'])
+                self.camQueues.append(Queue())
+                self.writers.append(TiffWriter(inQ = self.camQueues[-1],
+                                                  expName = expName,
+                                                  dataName = cam['description']))
+                self.cams.append(AVTCam(camId=camids[0],
+                                        outQ = self.camQueues[-1],
+                                        frameRate=cam['frameRate'],
+                                        gain=cam['gain']))
+            self.writers[-1].daemon = True
             self.cams[-1].daemon = True
         self.resize(500,700)
 
         self.initUI()
-        for cam in self.cams:
+        for cam,writer in zip(self.cams,self.writers):
             cam.start()
+            writer.start()
         camready = 0
         while camready<len(self.cams):
             camready = np.sum([cam.cameraReady.is_set() for cam in self.cams])
         display('All cameras ready!')
-        self.triggerCams()
+        self.triggerCams(save=True)
+        
         
     def triggerCams(self,save=False):
         if save:
@@ -111,7 +137,7 @@ class LabCamsGUI(QMainWindow):
         for c,cam in enumerate(self.cams):
             self.tabs.append(QDockWidget("Camera: "+str(c),self))
             layout = QVBoxLayout()
-            if c == 1:
+            if 'trackEye' in self.cam_descriptions[c].keys():
                 trackeye = True
             else:
                 trackeye = None
@@ -126,7 +152,7 @@ class LabCamsGUI(QMainWindow):
         self.show()
         self.timer = QTimer()
         self.timer.timeout.connect(self.timerUpdate)
-        self.timer.start(30)
+        self.timer.start(500)
         self.camframes = []
         for c,cam in enumerate(self.cams):
             self.camframes.append(np.frombuffer(cam.frame.get_obj(),
@@ -138,9 +164,18 @@ class LabCamsGUI(QMainWindow):
     def closeEvent(self,event):
         for cam in self.cams:
             cam.stop_acquisition()
-        print('Acquisition duration.')
-        for cam,srate in zip(self.cams,[250.,30.]):
-            print(cam.nframes.value/srate)
+        print('Acquisition duration:')
+        for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
+            if cam.saving.is_set():
+                cam.saving.clear()
+                writer.stop()
+        for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
+            print('   ' + self.cam_descriptions[c]['name']+
+                  ' [ Acquired:'+
+                  str(cam.nframes.value) + ' - Saved: ' + 
+                  str(writer.frameCount.value) + ' - Frames/rate: '
+                  +str(cam.nframes.value/
+                       self.cam_descriptions[c]['frameRate']) +']')
 
         event.accept()
 
@@ -155,16 +190,18 @@ class CamWidget(QWidget):
         if not trackeye is None:
             trackeye = MPTracker()
         self.eyeTracker = trackeye
+        self.trackEye = True
         self.image(np.array(frame),-1)
         self.show()
     def image(self,image,nframe):
         self.scene.clear()
-        if not self.eyeTracker is None:
+        if not self.eyeTracker is None and self.trackEye:
             img = self.eyeTracker.apply(image.copy()) 
             frame = img[0]
         else:
             if not self.lastFrame is None:
-                frame = 2*(image.copy() - self.lastFrame) + 128
+                frame = 2*(image.copy().astype(np.int16) -
+                           self.lastFrame.astype(np.int16)) + 128
             else:
                 frame = image
         if len(frame.shape) == 2:
@@ -180,7 +217,7 @@ class CamWidget(QWidget):
         #                    Qt.KeepAspectRatio)
         
         self.scene.update()
-        self.lastFrame = image.copy()
+        #self.lastFrame = image.copy()
 
 def main():
     app = QApplication(sys.argv)
