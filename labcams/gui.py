@@ -74,10 +74,12 @@ class LabCamsGUI(QMainWindow):
                                      'name':'Mako G-030B',
                                      'driver':'AVT',
                                      'gain':10,
-                                     'frameRate':250.}]):
+                                     'frameRate':30.}],
+                 saveOnStart = False):
         super(LabCamsGUI,self).__init__()
         display('Starting labcams interface.')
         self.app = app
+        self.defaultSaveOption = saveOnStart
         self.cam_descriptions = camDescriptions
         # Init cameras
         avtids,avtnames = AVT_get_ids()
@@ -110,7 +112,7 @@ class LabCamsGUI(QMainWindow):
         while camready<len(self.cams):
             camready = np.sum([cam.cameraReady.is_set() for cam in self.cams])
         display('All cameras ready!')
-        self.triggerCams(save=True)
+        self.triggerCams(save=self.defaultSaveOption)
         
         
     def triggerCams(self,save=False):
@@ -152,7 +154,7 @@ class LabCamsGUI(QMainWindow):
         self.show()
         self.timer = QTimer()
         self.timer.timeout.connect(self.timerUpdate)
-        self.timer.start(500)
+        self.timer.start(50)
         self.camframes = []
         for c,cam in enumerate(self.cams):
             self.camframes.append(np.frombuffer(cam.frame.get_obj(),
