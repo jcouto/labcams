@@ -64,17 +64,23 @@ class LabCamsGUI(QMainWindow):
     app = None
     cams = []
     def __init__(self,app = None, expName = 'test',
-                 camDescriptions = [{'description':'eyecam',
-                                     'name':'GC660M',
-                                     'driver':'AVT',
-                                     'frameRate':30.,
-                                     'gain':10,
-                                     'trackEye':True},
-                                    {'description':'facecam',
+                 camDescriptions = [{'description':'facecam',
                                      'name':'Mako G-030B',
                                      'driver':'AVT',
                                      'gain':10,
-                                     'frameRate':30.}],
+                                     'frameRate':120.},
+                                     {'description':'eyecam',
+                                     'name':'GC660M',
+                                     'driver':'AVT',
+                                     'gain':10,
+                                     'frameRate':30.},
+									{'description':'1photon',
+                                     'name':'qcam',
+                                     'id':0,
+                                     'driver':'QImaging',
+                                     'gain':3600,
+                                     'exposure':100000}],
+                                     
                  saveOnStart = False):
         super(LabCamsGUI,self).__init__()
         display('Starting labcams interface.')
@@ -100,6 +106,18 @@ class LabCamsGUI(QMainWindow):
                                         outQ = self.camQueues[-1],
                                         frameRate=cam['frameRate'],
                                         gain=cam['gain']))
+            elif cam['driver'] == 'QImaging':
+            	display('Connecting to Qimaging camera.')
+                self.camQueues.append(Queue())
+                self.writers.append(TiffWriter(inQ = self.camQueues[-1],
+                                                  expName = expName,
+                                                  dataName = cam['description']))
+                self.cams.append(QImagingCam(camId=cam['id'],
+                                        outQ = self.camQueues[-1],
+                                        exposure=cam['exposure'],
+                                        gain=cam['gain']))
+            else:
+            	display('Unknown camera driver' + cam['driver'])
             self.writers[-1].daemon = True
             self.cams[-1].daemon = True
         self.resize(500,700)
@@ -144,7 +162,7 @@ class LabCamsGUI(QMainWindow):
             else:
                 trackeye = None
             self.camwidgets.append(CamWidget(frame = np.zeros((cam.h,cam.w),
-                                                              dtype=np.uint8),
+                                                              dtype=cam.dtype),
                                              trackeye=trackeye))
             self.tabs[-1].setWidget(self.camwidgets[-1])
             self.tabs[-1].setFloating(False)
@@ -157,22 +175,24 @@ class LabCamsGUI(QMainWindow):
         self.timer.start(50)
         self.camframes = []
         for c,cam in enumerate(self.cams):
-            self.camframes.append(np.frombuffer(cam.frame.get_obj(),
-                                                dtype = ctypes.c_ubyte).reshape(
-                                                    [cam.h,cam.w]))
+        	if cam.dtype == np.uint8:
+        		self.camframes.append(np.frombuffer(cam.frame.get_obj(),dtype = ctypes.c_ubyte).reshape([cam.h,cam.w]))
+        	else:
+        		self.camframes.append(np.frombuffer(cam.frame.get_obj(),dtype = ctypes.c_ushort).reshape([cam.h,cam.w]))
+            	
     def timerUpdate(self):
         for c,(cam,frame) in enumerate(zip(self.cams,self.camframes)):
             self.camwidgets[c].image(frame,cam.nframes.value)
     def closeEvent(self,event):
         for cam in self.cams:
             cam.stop_acquisition()
-        print('Acquisition duration:')
+        display('Acquisition duration:')
         for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
             if cam.saving.is_set():
                 cam.saving.clear()
                 writer.stop()
         for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
-            print('   ' + self.cam_descriptions[c]['name']+
+            display('   ' + self.cam_descriptions[c]['name']+
                   ' [ Acquired:'+
                   str(cam.nframes.value) + ' - Saved: ' + 
                   str(writer.frameCount.value) + ' - Frames/rate: '
@@ -184,7 +204,6 @@ class LabCamsGUI(QMainWindow):
 class CamWidget(QWidget):
     def __init__(self,frame,trackeye=None):
         super(CamWidget,self).__init__()
-        print(frame.shape)
         self.scene=QGraphicsScene(0,0,frame.shape[1],
                                   frame.shape[0],self)
         self.view = QGraphicsView(self.scene, self)
