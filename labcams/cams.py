@@ -13,6 +13,7 @@ import sys
 from .io import TiffWriter
 from .utils import *
 import ctypes
+import Image
 # 
 # Has last frame on multiprocessing array
 # 
@@ -237,7 +238,59 @@ class AVTCam(GenericCam):
                 self.startTrigger.clear()
                 self.stopTrigger.clear()
 
-class QCam(GenericCam):
-    def __init__(self, outQ = None):
-        super(GenericCam,self).__init__()
 
+def QCamframeCallback(pointer,data,error,flags):
+    frame = ctypes.cast(pointer,ctypes.POINTER(QCam.Frame)).contents
+    if error != QCam.qerrSuccess:
+        raise(QCam.Error(error))
+    BufferType = ctypes.c_char * frame.bufferSize
+
+    frame.stringBuffer = BufferType.from_address(frame.pBuffer)
+    frame.formatString = QCam.image_fmt_to_string(frame.format)		
+    
+    gainExposureFloat, = struct.unpack('f',struct.pack('L',data))
+    frame.intensity = gainExposureFloat # normalized intensity of the frame
+    
+    img_buf = Image.frombytes('I;16',(frame.width,frame.height),frame.stringBuffer)
+    
+    img=np.array(img_buf)
+    if np.max(img)==16383:
+	print('Warning: saturation')
+    
+from .qimaging import QCam
+class QImagingCam(GenericCam):
+    def __init__(self, camId = None,
+                 outQ = None,
+                 exposure = 100000,
+                 gain = 3500,frameTimeout = 100,
+                 nFrameBuffers = 1,
+                 binning = 2,
+                 triggerType = 0):
+        '''
+        triggerType (0=freerun,1=hardware,5=software)
+        '''
+        
+        super(QImagingCam,self).__init__()
+        if camId is None:
+            display('Need to supply a camera ID.')
+            raise
+        self.camId = camId
+        self.estimated_readout_lag = 1257 # microseconds
+        self.binning = binning
+        self.exposure = exposure
+        self.gain = gain
+        QCam.ReleaseDriver()
+        QCam.LoadDriver()
+        cam = QCam.OpenCamera(QCam.ListCameras()[camId])
+        if cam.settings.coolerActive:
+            print('Qcam cooler active.')
+        cam.settings.readoutSpeed=0 # 0=20MHz, 1=10MHz, 7=40MHz
+        cam.settings.imageFormat = 'mono16'
+        cam.settings.binning = self.binning
+        cam.settings.emGain = gain
+        cam.settings.exposure = self.exposure - self.estimated_readout_lag
+        cam.settings.blackoutMode=True
+        cam.settings.Flush()
+
+        
+        
