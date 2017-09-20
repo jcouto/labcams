@@ -267,9 +267,9 @@ _dll.QCam_QueueSettings.argtypes = [QCam_Handle,
 import ctypes
 
 # data types
-CamListItem = _qcam.QCam_CamListItem
-Frame = _qcam.QCam_Frame
-AsyncCallback =_qcam.QCam_AsyncCallback
+CamListItem = QCam_CamListItem
+Frame = QCam_Frame
+AsyncCallback =QCam_AsyncCallback
 #
 # CONSTANTS
 #
@@ -848,110 +848,110 @@ class Settings:
 
     def GetParam(self, paramKey):
         ulong = ctypes.c_ulong(0)
-        _check_error(_qcam._dll.QCam_GetParam(ctypes.pointer(self._settings),
+        _check_error(_dll.QCam_GetParam(ctypes.pointer(self._settings),
                                               paramKey,
                                               ctypes.pointer(ulong)))
         return ulong.value
 
     def GetParamS32(self, paramKey):
         slong = ctypes.c_long(0)
-        _check_error(_qcam._dll.QCam_GetParamS32(ctypes.pointer(self._settings),
+        _check_error(_dll.QCam_GetParamS32(ctypes.pointer(self._settings),
                                                  paramKey,
                                                  ctypes.pointer(slong)))
         return slong.value
 
     def GetParam64(self, paramKey):
-        u64 = _qcam.UNSIGNED64(0)
-        _check_error(_qcam._dll.QCam_GetParam64(ctypes.pointer(self._settings),
+        u64 = UNSIGNED64(0)
+        _check_error(_dll.QCam_GetParam64(ctypes.pointer(self._settings),
                                                 paramKey,
                                                 ctypes.pointer(u64)))
         return u64.value
 
     def SetParam(self, paramKey, value):
         ulong = ctypes.c_ulong(value)
-        _check_error(_qcam._dll.QCam_SetParam(ctypes.pointer(self._settings),
+        _check_error(_dll.QCam_SetParam(ctypes.pointer(self._settings),
                                               paramKey,
                                               ulong))
 
     def SetParamS32(self, paramKey, value):
         slong = ctypes.c_long(value)
-        _check_error(_qcam._dll.QCam_SetParamS32(ctypes.pointer(self._settings),
+        _check_error(_dll.QCam_SetParamS32(ctypes.pointer(self._settings),
                                                  paramKey,
                                                  slong))
 
     def SetParam64(self, paramKey, value):
         u64 = ctypes.c_ulonglong(value)
-        _check_error(_qcam._dll.QCam_SetParam64(ctypes.pointer(self._settings),
+        _check_error(_dll.QCam_SetParam64(ctypes.pointer(self._settings),
                                                 paramKey,
                                                 u64))
 
     def GetParamMin(self, paramKey):
         ulong = ctypes.c_ulong(0)
-        _check_error(_qcam._dll.QCam_GetParamMin(ctypes.pointer(self._settings),
+        _check_error(_dll.QCam_GetParamMin(ctypes.pointer(self._settings),
                                                  paramKey,
                                                  ctypes.pointer(ulong)))
         return ulong.value
 
     def GetParamS32Min(self, paramKey):
         slong = ctypes.c_long(0)
-        _check_error(_qcam._dll.QCam_GetParamS32Min(ctypes.pointer(self._settings),
+        _check_error(_dll.QCam_GetParamS32Min(ctypes.pointer(self._settings),
                                                     paramKey,
                                                     ctypes.pointer(slong)))
         return slong.value
 
     def GetParam64Min(self, paramKey):
-        u64 = _qcam.UNSIGNED64(0)
-        _check_error(_qcam._dll.QCam_GetParam64Min(ctypes.pointer(self._settings),
+        u64 = UNSIGNED64(0)
+        _check_error(_dll.QCam_GetParam64Min(ctypes.pointer(self._settings),
                                                    paramKey,
                                                    ctypes.pointer(u64)))
         return u64.value
         
     def GetParamMax(self, paramKey):
         ulong = ctypes.c_ulong(0)
-        _check_error(_qcam._dll.QCam_GetParamMax(ctypes.pointer(self._settings),
+        _check_error(_dll.QCam_GetParamMax(ctypes.pointer(self._settings),
                                                  paramKey,
                                                  ctypes.pointer(ulong)))
         return ulong.value
 
     def GetParamS32Max(self, paramKey):
         slong = ctypes.c_long(0)
-        _check_error(_qcam._dll.QCam_GetParamS32Max(ctypes.pointer(self._settings),
+        _check_error(_dll.QCam_GetParamS32Max(ctypes.pointer(self._settings),
                                                     paramKey,
                                                     ctypes.pointer(slong)))
         return slong.value
 
     def GetParam64Max(self, paramKey):
-        u64 = _qcam.UNSIGNED64(0)
-        _check_error(_qcam._dll.QCam_GetParam64Max(ctypes.pointer(self._settings),
+        u64 = UNSIGNED64(0)
+        _check_error(_dll.QCam_GetParam64Max(ctypes.pointer(self._settings),
                                                    paramKey,
                                                    ctypes.pointer(u64)))
         return u64.value
 
     def IsSparseTable(self, paramKey):
-        return (_qcam._dll.QCam_IsSparseTable(ctypes.pointer(self._settings),
+        return (_dll.QCam_IsSparseTable(ctypes.pointer(self._settings),
                                               paramKey) == qerrSuccess)
 
     def IsSparseTable64(self, paramKey):
-        return (_qcam._dll.QCam_IsSparseTable64(ctypes.pointer(self._settings),
+        return (_dll.QCam_IsSparseTable64(ctypes.pointer(self._settings),
                                                 paramKey) == qerrSuccess)
     
     def IsSparseTableS32(self, paramKey):
-        return (_qcam._dll.QCam_IsSparseTableS32(ctypes.pointer(self._settings),
+        return (_dll.QCam_IsSparseTableS32(ctypes.pointer(self._settings),
                                                  paramKey) == qerrSuccess)
 
     def GetParamSparseTable(self, paramKey, maxEntries):
         pSparseTable = (ctypes.c_ulong*maxEntries)(0)
         uSize = ctypes.c_int(maxEntries)
-        _check_error(_qcam._dll.QCam_GetParamSparseTable(ctypes.pointer(self._settings),
+        _check_error(_dll.QCam_GetParamSparseTable(ctypes.pointer(self._settings),
                                                     paramKey,
                                                     pSparseTable,
                                                     ctypes.pointer(uSize)))
         return list(pSparseTable[0:uSize.value])
 
     def GetParamSparseTable64(self, paramKey, maxEntries):
-        pSparseTable = (_qcam.UNSIGNED64*maxEntries)(0)
+        pSparseTable = (UNSIGNED64*maxEntries)(0)
         uSize = ctypes.c_int(maxEntries)
-        _check_error(_qcam._dll.QCam_GetParamSparseTable64(ctypes.pointer(self._settings),
+        _check_error(_dll.QCam_GetParamSparseTable64(ctypes.pointer(self._settings),
                                                       paramKey,
                                                       pSparseTable,
                                                       ctypes.pointer(uSize)))
@@ -960,7 +960,7 @@ class Settings:
     def GetParamSparseTableS32(self, paramKey, maxEntries):
         pSparseTable = (ctypes.c_long*maxEntries)(0)
         uSize = ctypes.c_int(maxEntries)
-        _check_error(_qcam._dll.QCam_GetParamSparseTableS32(ctypes.pointer(self._settings),
+        _check_error(_dll.QCam_GetParamSparseTableS32(ctypes.pointer(self._settings),
                                                        paramKey,
                                                        pSparseTable,
                                                        ctypes.pointer(uSize)))
@@ -982,7 +982,7 @@ class Settings:
         """
         Write the settings out to the camera
         """
-        settings_copy = _qcam.QCam_Settings()
+        settings_copy = QCam_Settings()
         ctypes.memmove(ctypes.pointer(settings_copy),
                        ctypes.pointer(self._settings),
                        ctypes.sizeof(settings_copy))
@@ -1167,13 +1167,13 @@ def LoadDriver():
 
     Raise an exception if the driver has already been loaded.
     """
-    _check_error(_qcam._dll.QCam_LoadDriver())
+    _check_error(_dll.QCam_LoadDriver())
 
 def ReleaseDriver():
     """
     Release the QCam driver.
     """
-    _qcam._dll.QCam_ReleaseDriver()
+    _dll.QCam_ReleaseDriver()
 
 def LibVersion():
     """
@@ -1187,7 +1187,7 @@ def LibVersion():
     verMajorPtr = ctypes.pointer(verMajor)
     verMinorPtr = ctypes.pointer(verMinor)
     verBuildPtr = ctypes.pointer(verBuild)
-    _check_error(_qcam._dll.QCam_LibVersion(verMajorPtr,
+    _check_error(_dll.QCam_LibVersion(verMajorPtr,
                                             verMinorPtr,
                                             verBuildPtr))
     return (verMajor.value,
@@ -1206,13 +1206,13 @@ def ListCameras():
     numberInList = ctypes.c_ulong(1)
     pNumberInList = ctypes.pointer(numberInList)
     # call the function
-    _check_error(_qcam._dll.QCam_ListCameras(pList,
+    _check_error(_dll.QCam_ListCameras(pList,
                                              pNumberInList))
     # create a camera list with the actual number of cameras
     arrayLength = numberInList.value
     pList = (CamListItem * arrayLength)()
     # call the function
-    _check_error(_qcam._dll.QCam_ListCameras(pList,
+    _check_error(_dll.QCam_ListCameras(pList,
                                              pNumberInList))
     # return a list of cameras
     num_cameras = min(numberInList.value,arrayLength)
@@ -1232,9 +1232,9 @@ def OpenCamera(camera):
             cameraId = int(camera)
     except Exception, e:
         raise Error('Could not extract the cameraId out of the input argument: '+str(e))
-    handle = _qcam.QCam_Handle()
+    handle = QCam_Handle()
     pHandle = ctypes.pointer(handle)
-    _check_error(_qcam._dll.QCam_OpenCamera(cameraId,
+    _check_error(_dll.QCam_OpenCamera(cameraId,
                                             pHandle))
     # return a new camera wrapper
     return QCam(handle)
@@ -1272,7 +1272,7 @@ class QCam:
         Will have no effect once the camera is closed
         """
         if self.open:
-            _check_error(_qcam._dll.QCam_CloseCamera(self.handle))
+            _check_error(_dll.QCam_CloseCamera(self.handle))
             self.open = False
         
     def GetSerialString(self):
@@ -1284,7 +1284,7 @@ class QCam:
         """
         string = ctypes.create_string_buffer(MAX_SERIAL_STRING_LENGTH)
         size = MAX_SERIAL_STRING_LENGTH
-        _check_error(_qcam._dll.QCam_GetSerialString(self.handle,
+        _check_error(_dll.QCam_GetSerialString(self.handle,
                                                      string,
                                                      size))
         return string.value
@@ -1299,7 +1299,7 @@ class QCam:
         """
         value=ctypes.c_ulong(0)
         pValue=ctypes.pointer(value)
-        _check_error(_qcam._dll.QCam_GetInfo(self.handle,
+        _check_error(_dll.QCam_GetInfo(self.handle,
                                              parameter,
                                              pValue))
         return value.value
@@ -1312,9 +1312,9 @@ class QCam:
         Pass in a previously allocated settings object to overwrite it.
         """
         if not settings:
-            settings = _qcam.QCam_Settings()
+            settings = QCam_Settings()
         pSettings = ctypes.pointer(settings)
-        _check_error(_qcam._dll.QCam_ReadDefaultSettings(self.handle,
+        _check_error(_dll.QCam_ReadDefaultSettings(self.handle,
                                                          pSettings))
         return settings
 
@@ -1326,9 +1326,9 @@ class QCam:
         Pass in a previously allocated settings object to overwrite it.
         """
         if not settings:
-            settings = _qcam.QCam_Settings()
+            settings = QCam_Settings()
         pSettings = ctypes.pointer(settings)
-        _check_error(_qcam._dll.QCam_ReadSettingsFromCam(self.handle,
+        _check_error(_dll.QCam_ReadSettingsFromCam(self.handle,
                                                          pSettings))
         return settings        
 
@@ -1338,7 +1338,7 @@ class QCam:
         (specifically, roi parameters).
         """
         pSettings = ctypes.pointer(settings)
-        _check_error(_qcam._dll.QCam_SendSettingsToCam(self.handle,
+        _check_error(_dll.QCam_SendSettingsToCam(self.handle,
                                                        pSettings))
         
     # TODO: Other settings functions
@@ -1347,7 +1347,7 @@ class QCam:
         """
         Returns True/False dependent on whether the parameter is supported
         """
-        result = _qcam._dll.QCam_IsParamSupported(self.handle,
+        result = _dll.QCam_IsParamSupported(self.handle,
                                                   paramKey)
         if result == qerrSuccess:
             return True
@@ -1360,7 +1360,7 @@ class QCam:
         """
         Returns True/False dependent on whether the parameter is supported
         """
-        result = _qcam._dll.QCam_IsParamS32Supported(self.handle,
+        result = _dll.QCam_IsParamS32Supported(self.handle,
                                                   paramKey)
         if result == qerrSuccess:
             return True
@@ -1373,7 +1373,7 @@ class QCam:
         """
         Returns True/False dependent on whether the parameter is supported
         """
-        result = _qcam._dll.QCam_IsParam64Supported(self.handle,
+        result = _dll.QCam_IsParam64Supported(self.handle,
                                                     paramKey)
         if result == qerrSuccess:
             return True
@@ -1395,7 +1395,7 @@ class QCam:
 
         enable -- non-zero to enable streaming, zero to disable streaming
         """
-        _check_error(_qcam._dll.QCam_SetStreaming(self.handle,
+        _check_error(_dll.QCam_SetStreaming(self.handle,
                                                   enable))
 
     def StartStreaming(self):
@@ -1425,7 +1425,7 @@ class QCam:
         (Model-A MicroPublishers also do not have reliable software
         triggering.)
         """
-        _check_error(_qcam._dll.QCam_Trigger(self.handle))
+        _check_error(_dll.QCam_Trigger(self.handle))
 
     def Abort(self):
         """
@@ -1433,7 +1433,7 @@ class QCam:
         not receive any more QueueFrame() and QueueSettings()
         callbacks after this function has returned.
         """
-        _check_error(_qcam._dll.QCam_Abort(self.handle))
+        _check_error(_dll.QCam_Abort(self.handle))
         
     def GrabFrame(self, frame=None):
         """
@@ -1453,7 +1453,7 @@ class QCam:
             frame.pBuffer = ctypes.cast(pBuffer,ctypes.c_void_p)
             frame.stringBuffer = pBuffer
         # grab the frame
-        _check_error(_qcam._dll.QCam_GrabFrame(self.handle,
+        _check_error(_dll.QCam_GrabFrame(self.handle,
                                                ctypes.pointer(frame)))
         return frame
 
@@ -1480,9 +1480,9 @@ class QCam:
             frame.bufferSize = bufferSize
             frame.pBuffer = ctypes.cast(pBuffer,ctypes.c_void_p)
         # queue up a frame
-        _check_error(_qcam._dll.QCam_QueueFrame(self.handle,
+        _check_error(_dll.QCam_QueueFrame(self.handle,
                                                 ctypes.pointer(frame),
-                                                ctypes.cast(callback,_qcam.QCam_AsyncCallback),
+                                                ctypes.cast(callback,QCam_AsyncCallback),
                                                 flags,
                                                 ctypes.pointer(frame),
                                                 data))
@@ -1494,9 +1494,9 @@ class QCam:
         Callback occurs when the settings are changed.  Your settings
         structure must persist until the settings have been changed.
         """
-        _check_error(_qcam._dll.QCam_QueueSettings(self.handle,
+        _check_error(_dll.QCam_QueueSettings(self.handle,
                                                    ctypes.pointer(settings),
-                                                   ctypes.cast(callback,_qcam.QCam_AsyncCallback),
+                                                   ctypes.cast(callback,QCam_AsyncCallback),
                                                    flags,
                                                    ctypes.pointer(settings),
                                                    data))

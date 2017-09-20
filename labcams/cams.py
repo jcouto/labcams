@@ -29,8 +29,11 @@ class GenericCam(Process):
         self.saving = Event()
         self.nframes = Value('i',0)
         self.queue = outQ
-    def initVariables(self):
-        self.frame = Array(ctypes.c_ubyte,np.zeros([self.h,self.w],dtype = np.uint8).flatten())
+    def initVariables(self,dtype=np.uint8):
+        if dtype == np.uint8:
+            self.frame = Array(ctypes.c_ubyte,np.zeros([self.h,self.w],dtype = dtype).flatten())
+        else:
+            self.frame = Array(ctypes.c_ushort,np.zeros([self.h,self.w],dtype = dtype).flatten())
     def stop_acquisition(self):
         self.close.set()
         self.stopTrigger.set()
@@ -90,6 +93,7 @@ class AVTCam(GenericCam):
         self.frameTimeout = frameTimeout
         self.nbuffers = nFrameBuffers
         self.queue = outQ
+        self.dtype = np.uint8
         with Vimba() as vimba:
             system = vimba.getSystem()
             if system.GeVTLIsPresent:
@@ -239,25 +243,9 @@ class AVTCam(GenericCam):
                 self.stopTrigger.clear()
 
 
-def QCamframeCallback(pointer,data,error,flags):
-    frame = ctypes.cast(pointer,ctypes.POINTER(QCam.Frame)).contents
-    if error != QCam.qerrSuccess:
-        raise(QCam.Error(error))
-    BufferType = ctypes.c_char * frame.bufferSize
 
-    frame.stringBuffer = BufferType.from_address(frame.pBuffer)
-    frame.formatString = QCam.image_fmt_to_string(frame.format)		
-    
-    gainExposureFloat, = struct.unpack('f',struct.pack('L',data))
-    frame.intensity = gainExposureFloat # normalized intensity of the frame
-    
-    img_buf = Image.frombytes('I;16',(frame.width,frame.height),frame.stringBuffer)
-    
-    img=np.array(img_buf)
-    if np.max(img)==16383:
-	print('Warning: saturation')
-    
-from .qimaging import QCam
+import qimaging  as QCam
+
 class QImagingCam(GenericCam):
     def __init__(self, camId = None,
                  outQ = None,
@@ -279,6 +267,10 @@ class QImagingCam(GenericCam):
         self.binning = binning
         self.exposure = exposure
         self.gain = gain
+        self.dtype = np.uint16
+        self.frameRate = 1./(self.exposure/1000.)
+        self.frameTimeout = frameTimeout
+        self.nbuffers = nFrameBuffers
         QCam.ReleaseDriver()
         QCam.LoadDriver()
         cam = QCam.OpenCamera(QCam.ListCameras()[camId])
@@ -291,6 +283,110 @@ class QImagingCam(GenericCam):
         cam.settings.exposure = self.exposure - self.estimated_readout_lag
         cam.settings.blackoutMode=True
         cam.settings.Flush()
+        cam.StartStreaming()
+        frame = cam.GrabFrame()
+        print('Grabbed frame.')
+        print(dir(frame))
+        buf = np.frombuffer(frame.stringBuffer,dtype = np.uint16).reshape((frame.width,frame.height))
+        cam.StopStreaming()
+        cam.CloseCamera()
+        QCam.ReleaseDriver()
+        self.h = buf.shape[0]
+        self.w = buf.shape[1]
+        self.initVariables(np.uint16)
 
-        
-        
+        framedata = np.ndarray(buffer = buf,
+                               dtype = np.uint16,
+                               shape = (self.h,
+                                        self.w)).copy()
+        buf = np.frombuffer(frame.stringBuffer,
+                            dtype = np.uint16).reshape([self.h,self.w])
+
+        buf[:,:] = framedata[:,:]
+        import pylab as plt
+        plt.imshow(buf)
+        plt.show()
+        display("Got info from camera (name: {0})".format(camId))
+        self.cameraReady = Event()
+
+    def run(self):
+        buf = np.frombuffer(self.frame.get_obj(),
+                            dtype = np.uint16).reshape([self.h,self.w])
+        while not self.close.is_set():
+                time.sleep(0.2)
+                if not self.cameraReady.is_set():
+                    # prepare camera
+                    # create new frames for the camera
+                    frames = []
+                    for i in range(self.nbuffers):
+                        frames.append([])    # creates a frame
+
+                    for f,ff in enumerate(frames):
+                        try:
+                            ff.queueFrameCapture()
+                        except:
+                            display('Queue frame error while getting cam ready: '+ str(f))
+                            continue
+                    display('Camera ready!')
+                    self.cameraReady.set()
+                    self.nframes.value = 0
+                # Wait for trigger
+                while not self.startTrigger.is_set():
+                    # limits resolution to 1 ms 
+                    time.sleep(0.001)
+                tstart = time.time()
+                display('Started acquisition.')
+                while not self.stopTrigger.is_set():
+                    # run and acquire frames
+                    for f in frames:
+                        #frame = np.ndarray(buffer = f.getBufferByteData(),
+                        #                   dtype = np.uint8,
+                        #                   shape = (f.height,
+                        #                            f.width)).copy()
+                        #self.nframes.value += 1
+                        #newframe = frame.copy()
+                        #display("Time {0} - {1}:".format(str(1./(time.time()-tstart)),self.nframes.value))
+                        #tstart = time.time()
+                        #try:
+                        #    f.queueFrameCapture()
+                        #except:
+                        #    display('Queue frame failed: '+ str(f) + 'Stopping!')
+                        #    self.stopTrigger.set()
+                        #if self.saving.is_set():
+                        #    self.queue.put((frame.copy(),(frameID,timestamp)))
+                        #buf[:,:] = frame[:,:]
+                        pass
+                #cam.runFeatureCommand('AcquisitionStop')
+                print('Stopped acquisition.')
+                # Check if all frames are done...
+                #for f in frames:
+                #    try:
+                #        f.waitFrameCapture(timeout = 10)
+                #        timestamp = f._frame.timestamp
+                #        frameID = f._frame.frameID
+                #        frame = np.ndarray(buffer = f.getBufferByteData(),
+                #                           dtype = np.uint8,
+                #                           shape = (f.height,
+                #                                    f.width)).copy()
+                        #f.queueFrameCapture()
+                #        if self.saving.is_set():
+                #            self.queue.put((frame.copy(),(frameID,timestamp)))
+                #        self.nframes.value += 1
+                 #       self.frame = frame
+                 #   except VimbaException as err:
+                 #       display('VimbaException: ' + str(err))
+                #display('{4} delivered:{0},dropped:{1},queued:{4},time:{2}'.format(
+                 #   cam.StatFrameDelivered,
+                 #   cam.StatFrameDropped,
+                  #  cam.StatTimeElapsed,
+                  #  cam.DeviceModelName,
+                  #  self.nframes.value))
+                #try:
+                #    cam.revokeAllFrames()
+                #except:
+                #    display('Failed to revoke frames.')
+                #cam.endCapture()
+                self.saving.clear()
+                self.cameraReady.clear()
+                self.startTrigger.clear()
+                self.stopTrigger.clear()
