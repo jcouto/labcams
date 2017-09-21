@@ -79,7 +79,8 @@ class LabCamsGUI(QMainWindow):
                                      'id':0,
                                      'driver':'QImaging',
                                      'gain':3600,
-                                     'exposure':100000}],
+                                     'exposure':100000,
+                                     'frameRate':0.1}],
                                      
                  saveOnStart = False):
         super(LabCamsGUI,self).__init__()
