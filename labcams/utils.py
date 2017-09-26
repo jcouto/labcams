@@ -5,7 +5,9 @@ if sys.executable.endswith("pythonw.exe"):
 from datetime import datetime
 
 def display(msg):
-	return
-	#sys.stdout.write('['+datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - ' + msg + '\n')
-    #sys.stdout.flush()
+	try:
+		sys.stdout.write('['+datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - ' + msg + '\n')
+		sys.stdout.flush()
+	except:
+		pass
     
