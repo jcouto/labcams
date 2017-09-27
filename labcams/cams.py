@@ -262,6 +262,7 @@ class QImagingCam(GenericCam):
         if camId is None:
             display('Need to supply a camera ID.')
             raise
+        self.triggerType = self.triggerType
         self.camId = camId
         self.estimated_readout_lag = 1257 # microseconds
         self.binning = binning
@@ -280,6 +281,7 @@ class QImagingCam(GenericCam):
         cam.settings.imageFormat = 'mono16'
         cam.settings.binning = self.binning
         cam.settings.emGain = gain
+        cam.settings.triggerType = 0
         cam.settings.exposure = self.exposure - self.estimated_readout_lag
         cam.settings.blackoutMode=True
         cam.settings.Flush()
@@ -322,6 +324,8 @@ class QImagingCam(GenericCam):
                     cam.settings.binning = self.binning
                     cam.settings.emGain = self.gain
                     cam.settings.exposure = self.exposure - self.estimated_readout_lag
+                    cam.settings.triggerType = self.triggerType
+
                     cam.settings.blackoutMode=True
                     cam.settings.Flush()
                     queue = QCam.CameraQueue(cam)
@@ -359,38 +363,14 @@ class QImagingCam(GenericCam):
 
                 #cam.runFeatureCommand('AcquisitionStop')
                 queue.stop()
+
                 cam.StopStreaming()
+                cam.settings.blackoutMode=False
+                cam.settings.Flush()
+
                 cam.CloseCamera()
                 QCam.ReleaseDriver()
                 print('Stopped acquisition.')
-                # Check if all frames are done...
-                #for f in frames:
-                #    try:
-                #        f.waitFrameCapture(timeout = 10)
-                #        timestamp = f._frame.timestamp
-                #        frameID = f._frame.frameID
-                #        frame = np.ndarray(buffer = f.getBufferByteData(),
-                #                           dtype = np.uint8,
-                #                           shape = (f.height,
-                #                                    f.width)).copy()
-                        #f.queueFrameCapture()
-                #        if self.saving.is_set():
-                #            self.queue.put((frame.copy(),(frameID,timestamp)))
-                #        self.nframes.value += 1
-                 #       self.frame = frame
-                 #   except VimbaException as err:
-                 #       display('VimbaException: ' + str(err))
-                #display('{4} delivered:{0},dropped:{1},queued:{4},time:{2}'.format(
-                 #   cam.StatFrameDelivered,
-                 #   cam.StatFrameDropped,
-                  #  cam.StatTimeElapsed,
-                  #  cam.DeviceModelName,
-                  #  self.nframes.value))
-                #try:
-                #    cam.revokeAllFrames()
-                #except:
-                #    display('Failed to revoke frames.')
-                #cam.endCapture()
                 self.saving.clear()
                 self.cameraReady.clear()
                 self.startTrigger.clear()
