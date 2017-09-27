@@ -17,7 +17,9 @@ try:
                                  QTabWidget,
                                  QCheckBox,
                                  QTextEdit,
+                                 QLineEdit,
                                  QSlider,
+                                 QPushButton,
                                  QLabel,
                                  QAction,
                                  QMenuBar,
@@ -32,7 +34,7 @@ try:
                                  QFileDialog)
     from PyQt5.QtGui import QImage, QPixmap,QBrush,QPen,QColor
     from PyQt5.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
-    print("Using Qt5 framework.")
+    display("Using Qt5 framework.")
 except:
     from PyQt4.QtGui import (QWidget,
                              QApplication,
@@ -42,11 +44,13 @@ except:
                              QMenuBar,
                              QGridLayout,
                              QFormLayout,
+                             QLineEdit,
                              QVBoxLayout,
                              QCheckBox,
                              QTextEdit,
                              QSlider,
                              QLabel,
+                             QPushButton,
                              QGraphicsView,
                              QGraphicsScene,
                              QGraphicsItem,
@@ -59,38 +63,24 @@ except:
     from PyQt4.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
 
 from multiprocessing import Queue
+import zmq
 
 class LabCamsGUI(QMainWindow):
     app = None
     cams = []
     def __init__(self,app = None, expName = 'test',
-                 camDescriptions = [{'description':'facecam',
-                                     'name':'Mako G-030B',
-                                     'driver':'AVT',
-                                     'gain':10,
-                                     'frameRate':30.},
-                                     {'description':'eyecam',
-                                     'name':'GC660M',
-                                     'driver':'AVT',
-                                     'gain':10,
-                                     'trackEye':True,
-                                     'frameRate':30.},
-									{'description':'1photon',
-                                     'name':'qcam',
-                                     'id':0,
-                                     'driver':'QImaging',
-                                     'gain':3600,
-                                     'exposure':100000,
-                                     'frameRate':0.1}],
-                                     
-                 saveOnStart = False):
+                 camDescriptions = [],server = True,
+                 saveOnStart = False,triggered = False):
         super(LabCamsGUI,self).__init__()
         display('Starting labcams interface.')
         self.app = app
-        self.defaultSaveOption = saveOnStart
+        self.saveOnStart = saveOnStart
         self.cam_descriptions = camDescriptions
         # Init cameras
-        avtids,avtnames = AVT_get_ids()
+        try:
+            avtids,avtnames = AVT_get_ids()
+        except:
+            display('AVT camera error? Connections? Parameters?')
         self.camQueues = []
         self.writers = []
         for c,cam in enumerate(self.cam_descriptions):
@@ -102,39 +92,68 @@ class LabCamsGUI(QMainWindow):
                     display('Could not find: '+cam['name'])
                 self.camQueues.append(Queue())
                 self.writers.append(TiffWriter(inQ = self.camQueues[-1],
-                                                  expName = expName,
+                                                  filename = expName,
                                                   dataName = cam['description']))
                 self.cams.append(AVTCam(camId=camids[0],
                                         outQ = self.camQueues[-1],
                                         frameRate=cam['frameRate'],
-                                        gain=cam['gain']))
+                                        gain=cam['gain'],
+                                        triggered = triggered,
+                                        triggerSource = cam['TriggerSource']))
             elif cam['driver'] == 'QImaging':
             	display('Connecting to Qimaging camera.')
                 self.camQueues.append(Queue())
                 self.writers.append(TiffWriter(inQ = self.camQueues[-1],
-                                                  expName = expName,
+                                                  filename = expName,
                                                   dataName = cam['description']))
                 self.cams.append(QImagingCam(camId=cam['id'],
                                         outQ = self.camQueues[-1],
                                         exposure=cam['exposure'],
-                                        gain=cam['gain']))
+                                        gain=cam['gain'],
+                                        triggered = triggered))
             else:
             	display('Unknown camera driver' + cam['driver'])
             self.writers[-1].daemon = True
             self.cams[-1].daemon = True
-        self.resize(500,700)
+#        self.resize(500,700)
 
         self.initUI()
+
+        if server:
+            self.zmqContext = zmq.Context()
+            self.zmqSocket = self.zmqContext.socket(zmq.REP)
+            port = 100000
+            self.zmqSocket.bind('tcp://0.0.0.0:{0}'.format(port))
+            display('Listening to port: {0}'.format(port))
+        self.camerasRunning = False
         for cam,writer in zip(self.cams,self.writers):
             cam.start()
             writer.start()
         camready = 0
-        while camready<len(self.cams):
+        while camready != len(self.cams):
             camready = np.sum([cam.cameraReady.is_set() for cam in self.cams])
-        display('All cameras ready!')
-        self.triggerCams(save=self.defaultSaveOption)
-        
-        
+        display('Initialized cameras.')
+        self.zmqTimer = QTimer()
+        self.zmqTimer.timeout.connect(self.zmqActions)
+        self.zmqTimer.start(1000)
+        self.triggerCams(save=self.saveOnStart)
+    def setExperimentName(self,expname):
+        for writer in self.writers:
+            writer.setFilename(expname)
+            
+    def zmqActions(self):
+        try:
+            message = self.zmqSocket.recv_pyobj(flags=zmq.NOBLOCK)
+        except zmq.error.Again:
+            return
+        try:
+            print(message)
+        except:
+            pass
+        if message['action'] == 'expName':
+            self.setExperimentName(message['value'])
+        self.zmqSocket.send_pyobj(dict(action='handshake'))
+
     def triggerCams(self,save=False):
         if save:
             for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
@@ -171,6 +190,12 @@ class LabCamsGUI(QMainWindow):
             self.addDockWidget(Qt.RightDockWidgetArea and Qt.TopDockWidgetArea,self.tabs[-1])
             self.tabs[-1].setFixedSize(cam.w,cam.h)
             display('Init view: ' + str(c))
+        self.tabs.append(QDockWidget("Controller",self))
+        self.recController = RecordingControlWidget(self)
+        self.tabs[-1].setWidget(self.recController)
+        self.tabs[-1].setFloating(False)
+        self.addDockWidget(Qt.RightDockWidgetArea and Qt.TopDockWidgetArea,self.tabs[-1])
+        
         self.show()
         self.timer = QTimer()
         self.timer.timeout.connect(self.timerUpdate)
@@ -185,6 +210,7 @@ class LabCamsGUI(QMainWindow):
     def timerUpdate(self):
         for c,(cam,frame) in enumerate(zip(self.cams,self.camframes)):
             self.camwidgets[c].image(frame,cam.nframes.value)
+
     def closeEvent(self,event):
         for cam in self.cams:
             cam.stop_acquisition()
@@ -192,7 +218,8 @@ class LabCamsGUI(QMainWindow):
         for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
             if cam.saving.is_set():
                 cam.saving.clear()
-                writer.stop()
+            writer.stop()
+            cam.stop()
         for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
             display('   ' + self.cam_descriptions[c]['name']+
                   ' [ Acquired:'+
@@ -203,6 +230,33 @@ class LabCamsGUI(QMainWindow):
 
         event.accept()
 
+class RecordingControlWidget(QWidget):
+    def __init__(self,parent):
+        super(RecordingControlWidget,self).__init__()	
+        self.parent = parent
+        form = QFormLayout()
+        self.experimentNameEdit = QLineEdit(' ')
+        self.changeNameButton = QPushButton('Set name')
+        form.addRow(self.experimentNameEdit,self.changeNameButton)
+        self.changeNameButton.clicked.connect(self.setExpName)
+        self.saveOnStartToggle = QCheckBox()
+        self.saveOnStartToggle.setChecked(False)
+        self.saveOnStartToggle.stateChanged.connect(self.toggleSaveOnStart)
+        form.addRow(QLabel("Save data: "),self.saveOnStartToggle)
+        
+        self.setLayout(form)
+    
+    def setExpName(self):
+        name = self.experimentNameEdit.text()
+        self.parent.setExperimentName(str(name))
+
+    def toggleSaveOnStart(self,state):
+        self.parent.saveOnStart = state
+        display('Save: {0}'.format(state))
+        for cam in self.parent.cams:
+            cam.stop_acquisition()
+        self.parent.triggerCams(save = state)
+        
 class CamWidget(QWidget):
     def __init__(self,frame,trackeye=None):
         super(CamWidget,self).__init__()
@@ -242,9 +296,78 @@ class CamWidget(QWidget):
         self.scene.update()
         #self.lastFrame = image.copy()
 
+DEFAULTS = [{'description':'facecam',
+             'name':'Mako G-030B',
+             'driver':'AVT',
+             'gain':10,
+             'frameRate':30.,
+             'TriggerSource':'Line1'},
+            {'description':'eyecam',
+             'name':'GC660M',
+             'driver':'AVT',
+             'gain':10,
+             'trackEye':True,
+             'frameRate':30.,
+             'TriggerSource':'Line2'},
+            {'description':'1photon',
+             'name':'qcam',
+             'id':0,
+             'driver':'QImaging',
+             'gain':3600,
+             'exposure':100000,
+             'frameRate':0.1}]
+
+
 def main():
+    from argparse import ArgumentParser
+    import os
+    import json
+    
+    parser = ArgumentParser(description='Script to control and record from cameras.')
+    parser.add_argument('preffile',
+                        metavar='configfile',
+                        type=str,
+                        default=None,
+                        nargs="?")
+    parser.add_argument('--make-default-config',
+                        default=False,
+                        action='store_true')
+    parser.add_argument('--triggered',
+                        default=False,
+                        action='store_true')
+    parser.add_argument('-c','--cam-select',
+                        type=int,
+                        nargs='+',
+                        action='store')
+    parser.add_argument('--no-server',
+                        default=False,
+                        action='store_true')
+    opts = parser.parse_args()
+    if opts.make_default_config:
+        if opts.preffile is None:
+            fname = 'default_labcams.json'
+        else:
+            fname = opts.preffile
+        if os.path.isfile(fname):
+            display(fname  + ' exists. Delete it first.')
+        else:
+            with open(fname,'w') as f:
+                json.dump(DEFAULTS,f,
+                          sort_keys=True,
+                          indent=4,)
+        sys.exit()
+    if not opts.preffile is None:
+        with open(opts.preffile,'r') as f:
+            parameters = json.load(f)
+    else:
+        display('Using default parameters.')
+        parameters = DEFAULTS
+    if not opts.cam_select is None:
+        params = [parameters[i] for i in opts.cam_select]
+        parameters = params
     app = QApplication(sys.argv)
-    w = LabCamsGUI(app = app)
+    w = LabCamsGUI(app = app,camDescriptions = parameters, 
+        server = not opts.no_server,triggered = opts.triggered)
     sys.exit(app.exec_())
 
 if __name__ == '__main__':

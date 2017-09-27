@@ -28,17 +28,19 @@ class GenericCam(Process):
         self.stopTrigger = Event()
         self.saving = Event()
         self.nframes = Value('i',0)
-        self.queue = outQ
     def initVariables(self,dtype=np.uint8):
         if dtype == np.uint8:
             self.frame = Array(ctypes.c_ubyte,np.zeros([self.h,self.w],dtype = dtype).flatten())
         else:
             self.frame = Array(ctypes.c_ushort,np.zeros([self.h,self.w],dtype = dtype).flatten())
     def stop_acquisition(self):
-        self.close.set()
         self.stopTrigger.set()
         time.sleep(0.5)
 
+    def stop(self):
+        self.close.set()
+        self.stopTrigger.set()
+        
 class DummyCam(GenericCam):
     def __init__(self,outQ = None,lock = None):
         super(DummyCam,self).__init__()
@@ -82,7 +84,7 @@ def AVT_get_ids():
 class AVTCam(GenericCam):
     def __init__(self, camId = None, outQ = None,exposure = 29000,
                  frameRate = 30., gain = 10,frameTimeout = 100,
-                 nFrameBuffers = 1):
+                 nFrameBuffers = 1,triggered = False,triggerSource = 'Line1'):
         super(AVTCam,self).__init__()
         if camId is None:
             display('Need to supply a camera ID.')
@@ -107,13 +109,16 @@ class AVTCam(GenericCam):
             cam.AcquisitionFrameRateAbs = self.frameRate
             cam.ExposureTimeAbs =  self.exposure
             cam.GainRaw = self.gain 
+            cam.TriggerSource = 'FixedRate'
+            cam.TriggerMode = 'Off'
+            cam.TriggerSelector = 'FrameStart'
             frame = cam.getFrame()
             frame.announceFrame()
             cam.startCapture()
             frame.queueFrameCapture()
             cam.runFeatureCommand('AcquisitionStart')
-            cam.runFeatureCommand('AcquisitionStop')
             frame.waitFrameCapture()
+            cam.runFeatureCommand('AcquisitionStop')
             self.h = frame.height
             self.w = frame.width
             self.initVariables()
@@ -130,6 +135,10 @@ class AVTCam(GenericCam):
             display("Got info from camera (name: {0})".format(
                 cam.DeviceModelName))
         self.cameraReady = Event()
+        self.triggered = triggered
+        if self.triggered:
+            display('Triggered mode ON.')
+            self.triggerSource = triggerSource
 
     def run(self):
         buf = np.frombuffer(self.frame.get_obj(),
@@ -145,18 +154,25 @@ class AVTCam(GenericCam):
                     # prepare camera
                     cam = vimba.getCamera(self.camId)
                     cam.openCamera()
-                    cam.EventSelector = 'FrameTrigger'
+#                    cam.EventSelector = 'FrameTrigger'
                     cam.EventNotification = 'On'
                     cam.PixelFormat = 'Mono8'
                     cameraFeatureNames = cam.getFeatureNames()
-                    #print('\n'.join(cameraFeatureNames))
+                    #display('\n'.join(cameraFeatureNames))
                     cam.AcquisitionMode = 'Continuous'
                     cam.AcquisitionFrameRateAbs = self.frameRate
                     cam.ExposureTimeAbs =  self.exposure
                     cam.GainRaw = self.gain 
-                    cam.TriggerSource = 'FixedRate'
-                    cam.TriggerMode = 'Off'
-                    cam.TriggerSelector = 'AcquisitionStart'
+                    if self.triggered :
+                        cam.TriggerSource = 'Line1'#self.triggerSource
+                        cam.TriggerMode = 'On'
+                        cam.TriggerOverlap = 'Off'
+                        cam.TriggerActivation = 'RisingEdge'
+                        cam.TriggerSelector = 'FrameStart'
+                    else:
+                        cam.TriggerSource = 'FixedRate'
+                        cam.TriggerMode = 'Off'
+                        cam.TriggerSelector = 'FrameStart'
                     # create new frames for the camera
                     frames = []
                     for i in range(self.nbuffers):
@@ -168,8 +184,7 @@ class AVTCam(GenericCam):
                             ff.queueFrameCapture()
                         except:
                             display('Queue frame error while getting cam ready: '+ str(f))
-                            continue
-                    display('Camera ready!')
+                            continue                    
                     self.cameraReady.set()
                     self.nframes.value = 0
                 # Wait for trigger
@@ -178,6 +193,9 @@ class AVTCam(GenericCam):
                     time.sleep(0.001)
                 cam.runFeatureCommand("GevTimestampControlReset")
                 cam.runFeatureCommand('AcquisitionStart')
+                if self.triggered:
+                    cam.TriggerMode = 'On'
+                    cam.TriggerSelector = 'FrameStart'
                 tstart = time.time()
                 display('Started acquisition.')
                 while not self.stopTrigger.is_set():
@@ -202,13 +220,13 @@ class AVTCam(GenericCam):
                             f.queueFrameCapture()
                         except:
                             display('Queue frame failed: '+ str(f) + 'Stopping!')
-                            self.stopTrigger.set()
+                            continue
                         if self.saving.is_set():
                             self.queue.put((frame.copy(),(frameID,timestamp)))
                         buf[:,:] = frame[:,:]
                 
                 cam.runFeatureCommand('AcquisitionStop')
-                print('Stopped acquisition.')
+                display('Stopped acquisition.')
                 # Check if all frames are done...
                 for f in frames:
                     try:
@@ -253,7 +271,8 @@ class QImagingCam(GenericCam):
                  gain = 3500,frameTimeout = 100,
                  nFrameBuffers = 1,
                  binning = 2,
-                 triggerType = 0):
+                 triggerType = 0,
+                 triggered = False):
         '''
         triggerType (0=freerun,1=hardware,5=software)
         '''
@@ -262,7 +281,11 @@ class QImagingCam(GenericCam):
         if camId is None:
             display('Need to supply a camera ID.')
             raise
-        self.triggerType = self.triggerType
+        self.queue = outQ
+        if triggered:
+            self.triggerType = 1
+        else:
+            self.triggerType = 0
         self.camId = camId
         self.estimated_readout_lag = 1257 # microseconds
         self.binning = binning
@@ -276,7 +299,7 @@ class QImagingCam(GenericCam):
         QCam.LoadDriver()
         cam = QCam.OpenCamera(QCam.ListCameras()[camId])
         if cam.settings.coolerActive:
-            print('Qcam cooler active.')
+            display('Qcam cooler active.')
         cam.settings.readoutSpeed=0 # 0=20MHz, 1=10MHz, 7=40MHz
         cam.settings.imageFormat = 'mono16'
         cam.settings.binning = self.binning
@@ -310,15 +333,15 @@ class QImagingCam(GenericCam):
     def run(self):
         buf = np.frombuffer(self.frame.get_obj(),
                             dtype = np.uint16).reshape([self.w,self.h])
+        QCam.ReleaseDriver()
+        QCam.LoadDriver()
         while not self.close.is_set():
                 time.sleep(0.2)
                 if not self.cameraReady.is_set():
                     # prepare camera
-                    QCam.ReleaseDriver()
-                    QCam.LoadDriver()
                     cam = QCam.OpenCamera(QCam.ListCameras()[self.camId])
                     if cam.settings.coolerActive:
-                        print('Qcam cooler active.')
+                        display('Qcam cooler active.')
                     cam.settings.readoutSpeed=0 # 0=20MHz, 1=10MHz, 7=40MHz
                     cam.settings.imageFormat = 'mono16'
                     cam.settings.binning = self.binning
@@ -349,15 +372,15 @@ class QImagingCam(GenericCam):
                     self.nframes.value += 1
                     frame = np.ndarray(buffer = f.stringBuffer,
                                         dtype = np.uint16,
-                                        shape = (f.width,
-                                                 f.height)).copy()
+                                        shape = (self.w,
+                                                 self.h)).copy()
                     
                     #display("Time {0} - {1}:".format(str(1./(time.time()-tstart)),self.nframes.value))
                     tstart = time.time()
-                    timestamp = 0
-                    frameID = 0
+                    timestamp = f.timeStamp
+                    frameID = f.frameNumber
                     if self.saving.is_set():
-                        self.queue.put((frame.copy(),(frameID,timestamp)))
+                        self.queue.put((frame.reshape([self.h,self.w]),(frameID,timestamp)))
                     buf[:,:] = frame[:,:]
                     queue.put(f)
 
@@ -365,13 +388,18 @@ class QImagingCam(GenericCam):
                 queue.stop()
 
                 cam.StopStreaming()
-                cam.settings.blackoutMode=False
-                cam.settings.Flush()
-
                 cam.CloseCamera()
-                QCam.ReleaseDriver()
-                print('Stopped acquisition.')
                 self.saving.clear()
                 self.cameraReady.clear()
                 self.startTrigger.clear()
                 self.stopTrigger.clear()
+                
+                #cam.settings.blackoutMode=False
+                #cam.settings.Flush()
+
+                display('Stopped acquisition.')
+        QCam.ReleaseDriver()
+
+    def stop(self):
+        self.close.set()
+        self.stop_acquisition()
