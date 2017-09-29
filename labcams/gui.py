@@ -18,6 +18,8 @@ try:
                                  QCheckBox,
                                  QTextEdit,
                                  QLineEdit,
+                                 QComboBox,
+                                 QFileDialog,
                                  QSlider,
                                  QPushButton,
                                  QLabel,
@@ -45,9 +47,11 @@ except:
                              QGridLayout,
                              QFormLayout,
                              QLineEdit,
+                             QFileDialog,
                              QVBoxLayout,
                              QCheckBox,
                              QTextEdit,
+                             QComboBox,
                              QSlider,
                              QLabel,
                              QPushButton,
@@ -140,19 +144,22 @@ class LabCamsGUI(QMainWindow):
     def setExperimentName(self,expname):
         for writer in self.writers:
             writer.setFilename(expname)
-            
+        time.sleep(1)
+        self.recController.experimentNameEdit.setText(expname)
+        
     def zmqActions(self):
         try:
             message = self.zmqSocket.recv_pyobj(flags=zmq.NOBLOCK)
         except zmq.error.Again:
             return
-        try:
-            print(message)
-        except:
-            pass
+        self.zmqSocket.send_pyobj(dict(action='handshake'))
         if message['action'] == 'expName':
             self.setExperimentName(message['value'])
-        self.zmqSocket.send_pyobj(dict(action='handshake'))
+        elif message['action'] == 'trigger':
+            for cam in self.cams:
+                cam.stop_acquisition()
+            time.sleep(1)
+            self.triggerCams(save = True)
 
     def triggerCams(self,save=False):
         if save:
@@ -187,25 +194,39 @@ class LabCamsGUI(QMainWindow):
                                              trackeye=trackeye))
             self.tabs[-1].setWidget(self.camwidgets[-1])
             self.tabs[-1].setFloating(False)
-            self.addDockWidget(Qt.RightDockWidgetArea and Qt.TopDockWidgetArea,self.tabs[-1])
+            if c < 2:
+                self.addDockWidget(
+                    Qt.RightDockWidgetArea and Qt.TopDockWidgetArea,
+                    self.tabs[-1])
+            else:
+                self.addDockWidget(
+                    Qt.RightDockWidgetArea and Qt.BottomDockWidgetArea,
+                    self.tabs[-1])
+                
             self.tabs[-1].setFixedSize(cam.w,cam.h)
             display('Init view: ' + str(c))
         self.tabs.append(QDockWidget("Controller",self))
         self.recController = RecordingControlWidget(self)
         self.tabs[-1].setWidget(self.recController)
         self.tabs[-1].setFloating(False)
-        self.addDockWidget(Qt.RightDockWidgetArea and Qt.TopDockWidgetArea,self.tabs[-1])
-        
-        self.show()
+        self.addDockWidget(
+            Qt.RightDockWidgetArea and Qt.BottomDockWidgetArea,
+            self.tabs[-1])
         self.timer = QTimer()
         self.timer.timeout.connect(self.timerUpdate)
         self.timer.start(50)
         self.camframes = []
         for c,cam in enumerate(self.cams):
         	if cam.dtype == np.uint8:
-        		self.camframes.append(np.frombuffer(cam.frame.get_obj(),dtype = ctypes.c_ubyte).reshape([cam.h,cam.w]))
+        		self.camframes.append(np.frombuffer(
+                            cam.frame.get_obj(),
+                            dtype = ctypes.c_ubyte).reshape([cam.h,cam.w]))
         	else:
-        		self.camframes.append(np.frombuffer(cam.frame.get_obj(),dtype = ctypes.c_ushort).reshape([cam.h,cam.w]))
+        		self.camframes.append(np.frombuffer(
+                            cam.frame.get_obj(),
+                            dtype = ctypes.c_ushort).reshape([cam.h,cam.w]))
+        self.move(0, 0)
+        self.show()
             	
     def timerUpdate(self):
         for c,(cam,frame) in enumerate(zip(self.cams,self.camframes)):
@@ -220,6 +241,8 @@ class LabCamsGUI(QMainWindow):
                 cam.saving.clear()
             writer.stop()
             cam.stop()
+        for c in self.cams:
+            c.join()
         for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
             display('   ' + self.cam_descriptions[c]['name']+
                   ' [ Acquired:'+
@@ -235,17 +258,43 @@ class RecordingControlWidget(QWidget):
         super(RecordingControlWidget,self).__init__()	
         self.parent = parent
         form = QFormLayout()
+
         self.experimentNameEdit = QLineEdit(' ')
         self.changeNameButton = QPushButton('Set name')
         form.addRow(self.experimentNameEdit,self.changeNameButton)
         self.changeNameButton.clicked.connect(self.setExpName)
+
         self.saveOnStartToggle = QCheckBox()
         self.saveOnStartToggle.setChecked(False)
         self.saveOnStartToggle.stateChanged.connect(self.toggleSaveOnStart)
         form.addRow(QLabel("Save data: "),self.saveOnStartToggle)
+
+        self.cameraSelector = QComboBox()
+        for i,c in enumerate(self.parent.cams):
+            self.cameraSelector.insertItem(i,'Camera {0}'.format(i))
+            
+        self.saveImageButton = QPushButton('Save image')
+        form.addRow(self.cameraSelector,self.saveImageButton)
+        self.saveImageButton.clicked.connect(self.saveImageFromCamera)
         
         self.setLayout(form)
-    
+
+    def saveImageFromCamera(self):
+        self.parent.timer.stop()
+        frame = self.parent.camframes[self.cameraSelector.currentIndex()]
+        filename = QFileDialog.getSaveFileName(self,
+                                               'Select filename to save.',
+                                               selectedFilter='*.tif')
+        if filename:
+            from tifffile import imsave
+            imsave(str(filename),
+                   frame,
+                   metadata = {
+                       'Camera':str(self.cameraSelector.currentIndex())})
+        else:
+            display('Aborted.')
+        self.parent.timer.start()
+        
     def setExpName(self):
         name = self.experimentNameEdit.text()
         self.parent.setExperimentName(str(name))
@@ -300,14 +349,14 @@ DEFAULTS = [{'description':'facecam',
              'name':'Mako G-030B',
              'driver':'AVT',
              'gain':10,
-             'frameRate':30.,
+             'frameRate':151.,
              'TriggerSource':'Line1'},
             {'description':'eyecam',
              'name':'GC660M',
              'driver':'AVT',
              'gain':10,
              'trackEye':True,
-             'frameRate':30.,
+             'frameRate':31.,
              'TriggerSource':'Line2'},
             {'description':'1photon',
              'name':'qcam',
