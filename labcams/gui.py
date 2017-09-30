@@ -330,6 +330,8 @@ class CamWidget(QWidget):
                            self.lastFrame.astype(np.int16)) + 128
             else:
                 frame = image
+        if frame.dtype == np.uint16:
+            frame = np.array((frame.astype(np.float32)/2.**14)*2.**8).astype(np.uint8)
         if len(frame.shape) == 2:
             frame = cv2.cvtColor(frame.astype(np.uint8), cv2.COLOR_GRAY2BGR)
         cv2.putText(frame,str(nframe), (10,100), cv2.FONT_HERSHEY_SIMPLEX,
