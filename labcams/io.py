@@ -18,7 +18,7 @@ class TiffWriter(Process):
     def __init__(self,inQ = None, loggerQ = None,
                  filename = 'dummy\\run',
                  dataName = 'eyecam',
-                 dataFolder=pjoin(os.path.expanduser('~'),'data'),
+                 dataFolder='C:\\data',#pjoin(os.path.expanduser('~'),'data'),
                  framesPerFile=256,
                  sleepTime = 1./30,
                  incrementRuns=True,

@@ -66,7 +66,7 @@ except:
                              QPixmap)
     from PyQt4.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
 
-from multiprocessing import Queue
+from multiprocessing import Queue,Event
 import zmq
 
 class LabCamsGUI(QMainWindow):
@@ -74,17 +74,25 @@ class LabCamsGUI(QMainWindow):
     cams = []
     def __init__(self,app = None, expName = 'test',
                  camDescriptions = [],server = True,
-                 saveOnStart = False,triggered = False):
+                 saveOnStart = False,triggered = False,updateFrequency = 50):
         super(LabCamsGUI,self).__init__()
         display('Starting labcams interface.')
         self.app = app
+        self.updateFrequency=updateFrequency
         self.saveOnStart = saveOnStart
         self.cam_descriptions = camDescriptions
+        self.triggered = Event()
+        if triggered:
+            self.triggered.set()
+        else:
+            self.triggered.clear()
         # Init cameras
-        try:
-            avtids,avtnames = AVT_get_ids()
-        except:
-            display('AVT camera error? Connections? Parameters?')
+        camdrivers = [cam['driver'] for cam in camDescriptions]
+        if 'AVT' in camdrivers:
+            try:
+                avtids,avtnames = AVT_get_ids()
+            except:
+                display('AVT camera error? Connections? Parameters?')
         self.camQueues = []
         self.writers = []
         for c,cam in enumerate(self.cam_descriptions):
@@ -94,6 +102,8 @@ class LabCamsGUI(QMainWindow):
                           if cam['name'] in name]
                 if len(camids) == 0:
                     display('Could not find: '+cam['name'])
+                if not 'TriggerSource' in cam.keys():
+                    cam['TriggerSource'] = 'Line1'
                 self.camQueues.append(Queue())
                 self.writers.append(TiffWriter(inQ = self.camQueues[-1],
                                                   filename = expName,
@@ -102,7 +112,7 @@ class LabCamsGUI(QMainWindow):
                                         outQ = self.camQueues[-1],
                                         frameRate=cam['frameRate'],
                                         gain=cam['gain'],
-                                        triggered = triggered,
+                                        triggered = self.triggered,
                                         triggerSource = cam['TriggerSource']))
             elif cam['driver'] == 'QImaging':
             	display('Connecting to Qimaging camera.')
@@ -110,11 +120,14 @@ class LabCamsGUI(QMainWindow):
                 self.writers.append(TiffWriter(inQ = self.camQueues[-1],
                                                   filename = expName,
                                                   dataName = cam['description']))
+                if not 'binning' in cam.keys():
+                    cam['binning'] = 2
                 self.cams.append(QImagingCam(camId=cam['id'],
-                                        outQ = self.camQueues[-1],
-                                        exposure=cam['exposure'],
-                                        gain=cam['gain'],
-                                        triggered = triggered))
+                                             outQ = self.camQueues[-1],
+                                             exposure=cam['exposure'],
+                                             gain=cam['gain'],
+                                             binning = cam['binning'],
+                                             triggered = self.triggered))
             else:
             	display('Unknown camera driver' + cam['driver'])
             self.writers[-1].daemon = True
@@ -190,6 +203,7 @@ class LabCamsGUI(QMainWindow):
             else:
                 trackeye = None
             self.camwidgets.append(CamWidget(frame = np.zeros((cam.h,cam.w),
+
                                                               dtype=cam.dtype),
                                              trackeye=trackeye))
             self.tabs[-1].setWidget(self.camwidgets[-1])
@@ -210,11 +224,11 @@ class LabCamsGUI(QMainWindow):
         self.tabs[-1].setWidget(self.recController)
         self.tabs[-1].setFloating(False)
         self.addDockWidget(
-            Qt.RightDockWidgetArea and Qt.BottomDockWidgetArea,
+            Qt.RightDockWidgetArea and Qt.TopDockWidgetArea,
             self.tabs[-1])
         self.timer = QTimer()
         self.timer.timeout.connect(self.timerUpdate)
-        self.timer.start(50)
+        self.timer.start(self.updateFrequency)
         self.camframes = []
         for c,cam in enumerate(self.cams):
         	if cam.dtype == np.uint8:
@@ -264,11 +278,16 @@ class RecordingControlWidget(QWidget):
         form.addRow(self.experimentNameEdit,self.changeNameButton)
         self.changeNameButton.clicked.connect(self.setExpName)
 
+        self.camTriggerToggle = QCheckBox()
+        self.camTriggerToggle.setChecked(self.parent.triggered.is_set())
+        self.camTriggerToggle.stateChanged.connect(self.toggleTriggered)
+        form.addRow(QLabel("Trigger cams: "),self.camTriggerToggle)
+        
+        
         self.saveOnStartToggle = QCheckBox()
-        self.saveOnStartToggle.setChecked(False)
+        self.saveOnStartToggle.setChecked(self.parent.saveOnStart)
         self.saveOnStartToggle.stateChanged.connect(self.toggleSaveOnStart)
-        form.addRow(QLabel("Save data: "),self.saveOnStartToggle)
-
+        form.addRow(QLabel("Manual save: "),self.saveOnStartToggle)
         self.cameraSelector = QComboBox()
         for i,c in enumerate(self.parent.cams):
             self.cameraSelector.insertItem(i,'Camera {0}'.format(i))
@@ -279,6 +298,17 @@ class RecordingControlWidget(QWidget):
         
         self.setLayout(form)
 
+    def toggleTriggered(self,value):
+        
+        if value:
+            self.parent.triggered.set()
+        else:
+            self.parent.triggered.clear()
+        for cam in self.parent.cams:
+            cam.stop_acquisition()
+        time.sleep(1)
+        self.parent.triggerCams(save = self.parent.saveOnStart)
+        
     def saveImageFromCamera(self):
         self.parent.timer.stop()
         frame = self.parent.camframes[self.cameraSelector.currentIndex()]
@@ -351,7 +381,7 @@ DEFAULTS = [{'description':'facecam',
              'name':'Mako G-030B',
              'driver':'AVT',
              'gain':10,
-             'frameRate':151.,
+             'frameRate':121.,
              'TriggerSource':'Line1'},
             {'description':'eyecam',
              'name':'GC660M',
@@ -364,7 +394,8 @@ DEFAULTS = [{'description':'facecam',
              'name':'qcam',
              'id':0,
              'driver':'QImaging',
-             'gain':3600,
+             'gain':1500,#1600,#3600
+             'binning':2,
              'exposure':100000,
              'frameRate':0.1}]
 
