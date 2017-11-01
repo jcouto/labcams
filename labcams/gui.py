@@ -202,10 +202,15 @@ class LabCamsGUI(QMainWindow):
                 trackeye = True
             else:
                 trackeye = None
+            if 'subtractBackground' in self.cam_descriptions[c].keys():
+                subtractBackground = True
+            else:
+                subtractBackground = False
+            
             self.camwidgets.append(CamWidget(frame = np.zeros((cam.h,cam.w),
-
                                                               dtype=cam.dtype),
-                                             trackeye=trackeye))
+                                             trackeye=trackeye,
+                                             subtractBackground = subtractBackground))
             self.tabs[-1].setWidget(self.camwidgets[-1])
             self.tabs[-1].setFloating(False)
             if c < 2:
@@ -337,51 +342,55 @@ class RecordingControlWidget(QWidget):
         self.parent.triggerCams(save = state)
         
 class CamWidget(QWidget):
-    def __init__(self,frame,trackeye=None):
+    def __init__(self,frame, trackeye=None,subtractBackground = False):
         super(CamWidget,self).__init__()
         self.scene=QGraphicsScene(0,0,frame.shape[1],
                                   frame.shape[0],self)
         self.view = QGraphicsView(self.scene, self)
         self.lastFrame = None
+        self.lastnFrame = 0
         if not trackeye is None:
             trackeye = MPTracker()
         self.eyeTracker = trackeye
         self.trackEye = True
+        if subtractBackground:
+            self.lastFrame = frame.copy()
         self.image(np.array(frame),-1)
         self.show()
     def image(self,image,nframe):
-        self.scene.clear()
-        if not self.eyeTracker is None and self.trackEye:
-            img = self.eyeTracker.apply(image.copy()) 
-            frame = img[0]
-        else:
-            if not self.lastFrame is None:
-                frame = 2*(image.copy().astype(np.int16) -
-                           self.lastFrame.astype(np.int16)) + 128
+        if self.lastnFrame != nframe:
+            self.scene.clear()
+            if not self.eyeTracker is None and self.trackEye:
+                img = self.eyeTracker.apply(image.copy()) 
+                frame = img[0]
             else:
-                frame = image
-        if frame.dtype == np.uint16:
-            frame = np.array((frame.astype(np.float32)/2.**14)*2.**8).astype(np.uint8)
-        if len(frame.shape) == 2:
-            frame = cv2.cvtColor(frame.astype(np.uint8), cv2.COLOR_GRAY2BGR)
-        cv2.putText(frame,str(nframe), (10,100), cv2.FONT_HERSHEY_SIMPLEX,
-                    1, 105,2)
-        self.qimage = QImage(frame, frame.shape[1], frame.shape[0], 
-                             frame.strides[0], QImage.Format_RGB888)
-        self.scene.addPixmap(QPixmap.fromImage(self.qimage))
-        #self.view.fitInView(QRectF(0,0,
-        #                           10,
-        #                           10),
-        #                    Qt.KeepAspectRatio)
-        
-        self.scene.update()
-        #self.lastFrame = image.copy()
+                if not self.lastFrame is None:
+                    frame = 2*(image.copy().astype(np.int16) -
+                               self.lastFrame.astype(np.int16)) + 128
+                    self.lastFrame = (1-1/10.)*(self.lastFrame.astype(np.float32)) + (1/10.)*image.copy().astype(np.float32)
+                else:
+                    frame = image
+            if frame.dtype == np.uint16:
+                frame = np.array((frame.astype(np.float32)/2.**14)*2.**8).astype(np.uint8)
+            if len(frame.shape) == 2:
+                frame = cv2.cvtColor(frame.astype(np.uint8), cv2.COLOR_GRAY2BGR)
+            cv2.putText(frame,str(nframe), (10,100), cv2.FONT_HERSHEY_SIMPLEX,
+                        1, 105,2)
+            self.qimage = QImage(frame, frame.shape[1], frame.shape[0], 
+                                 frame.strides[0], QImage.Format_RGB888)
+            self.scene.addPixmap(QPixmap.fromImage(self.qimage))
+            #self.view.fitInView(QRectF(0,0,
+            #                           10,
+            #                           10),
+            #                    Qt.KeepAspectRatio)
+            self.lastnFrame = nframe
+            self.scene.update()
 
 DEFAULTS = [{'description':'facecam',
              'name':'Mako G-030B',
              'driver':'AVT',
              'gain':10,
-             'frameRate':121.,
+             'frameRate':150.,
              'TriggerSource':'Line1'},
             {'description':'eyecam',
              'name':'GC660M',
@@ -398,7 +407,8 @@ DEFAULTS = [{'description':'facecam',
              'binning':2,
              'exposure':100000,
              'frameRate':0.1}]
-
+#             'subtractBackground':True
+#             'trackEye':True,
 
 def main():
     from argparse import ArgumentParser
