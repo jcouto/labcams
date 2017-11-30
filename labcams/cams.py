@@ -13,7 +13,10 @@ import sys
 from .io import TiffWriter
 from .utils import *
 import ctypes
-import Image
+try:
+    import Image
+except:
+    from PIL import Image
 # 
 # Has last frame on multiprocessing array
 # 
@@ -281,9 +284,10 @@ class AVTCam(GenericCam):
                 time.sleep(1)
                 display('Close event: {0}'.format(self.closeEvent.is_set()))
 
-
-import qimaging  as QCam
-
+try:
+    import qimaging  as QCam
+except:
+    pass
 class QImagingCam(GenericCam):
     def __init__(self, camId = None,
                  outQ = None,
