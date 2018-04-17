@@ -95,11 +95,14 @@ class LabCamsGUI(QMainWindow):
                 display('AVT camera error? Connections? Parameters?')
         self.camQueues = []
         self.writers = []
+        connected_avt_cams = []
         for c,cam in enumerate(self.cam_descriptions):
             display("Connecting to camera [" + str(c) + '] : '+cam['name'])
             if cam['driver'] == 'AVT':
                 camids = [camid for (camid,name) in zip(avtids,avtnames) 
                           if cam['name'] in name]
+                camids = [camid for camid in camids
+                          if not camid in connected_avt_cams]
                 if len(camids) == 0:
                     display('Could not find: '+cam['name'])
                 if not 'TriggerSource' in cam.keys():
@@ -107,13 +110,15 @@ class LabCamsGUI(QMainWindow):
                 self.camQueues.append(Queue())
                 self.writers.append(TiffWriter(inQ = self.camQueues[-1],
                                                   filename = expName,
-                                                  dataName = cam['description']))
+                                               dataName = cam['description']))
+                
                 self.cams.append(AVTCam(camId=camids[0],
                                         outQ = self.camQueues[-1],
                                         frameRate=cam['frameRate'],
                                         gain=cam['gain'],
                                         triggered = self.triggered,
                                         triggerSource = cam['TriggerSource']))
+                connected_avt_cams.append(camids[0])
             elif cam['driver'] == 'QImaging':
             	display('Connecting to Qimaging camera.')
                 self.camQueues.append(Queue())
@@ -350,7 +355,7 @@ class CamWidget(QWidget):
         self.lastFrame = None
         self.lastnFrame = 0
         if not trackeye is None:
-            trackeye = MPTracker()
+            trackeye = MPTracker(drawProcessedFrame=True)
         self.eyeTracker = trackeye
         self.trackEye = True
         if subtractBackground:
@@ -362,7 +367,7 @@ class CamWidget(QWidget):
             self.scene.clear()
             if not self.eyeTracker is None and self.trackEye:
                 img = self.eyeTracker.apply(image.copy()) 
-                frame = img[0]
+                frame = self.eyeTracker.img
             else:
                 if not self.lastFrame is None:
                     frame = 2*(image.copy().astype(np.int16) -

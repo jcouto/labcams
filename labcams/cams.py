@@ -75,7 +75,7 @@ def AVT_get_ids():
         cams = [vimba.getCamera(id) for id in camsIds]
         [cam.openCamera() for cam in cams]
         camsModel = [cam.DeviceModelName for cam in cams]
-        
+        print(list(zip(camsModel,camsIds)))
     return camsIds,camsModel
 
 class AVTCam(GenericCam):
@@ -175,7 +175,7 @@ class AVTCam(GenericCam):
                         cam.TriggerSource = self.triggerSource#'Line1'#self.triggerSource
                         cam.TriggerMode = 'On'
                         cam.TriggerOverlap = 'Off'
-                        cam.TriggerActivation = 'RisingEdge'#'LevelHigh'#
+                        cam.TriggerActivation = 'LevelHigh'##'RisingEdge'
                         cam.TriggerSelector = 'FrameStart'
                     else:
                         cam.TriggerSource = 'FixedRate'
