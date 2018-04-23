@@ -107,6 +107,8 @@ class LabCamsGUI(QMainWindow):
                     display('Could not find: '+cam['name'])
                 if not 'TriggerSource' in cam.keys():
                     cam['TriggerSource'] = 'Line1'
+                if not 'TriggerMode' in cam.keys():
+                    cam['TriggerMode'] = 'LevelHigh'
                 self.camQueues.append(Queue())
                 self.writers.append(TiffWriter(inQ = self.camQueues[-1],
                                                   filename = expName,
@@ -117,7 +119,8 @@ class LabCamsGUI(QMainWindow):
                                         frameRate=cam['frameRate'],
                                         gain=cam['gain'],
                                         triggered = self.triggered,
-                                        triggerSource = cam['TriggerSource']))
+                                        triggerSource = cam['TriggerSource'],
+                                        triggerMode = cam['TriggerMode']))
                 connected_avt_cams.append(camids[0])
             elif cam['driver'] == 'QImaging':
             	display('Connecting to Qimaging camera.')
@@ -132,6 +135,7 @@ class LabCamsGUI(QMainWindow):
                                              exposure=cam['exposure'],
                                              gain=cam['gain'],
                                              binning = cam['binning'],
+                                             triggerType = cam['triggerType'],
                                              triggered = self.triggered))
             else:
             	display('Unknown camera driver' + cam['driver'])
@@ -396,19 +400,22 @@ DEFAULTS = [{'description':'facecam',
              'driver':'AVT',
              'gain':10,
              'frameRate':150.,
-             'TriggerSource':'Line1'},
+             'TriggerSource':'Line1',
+             'TriggerMode':'LevelHigh'},
             {'description':'eyecam',
              'name':'GC660M',
              'driver':'AVT',
              'gain':10,
              'trackEye':True,
              'frameRate':31.,
-             'TriggerSource':'Line1'},
+             'TriggerSource':'Line1',
+             'TriggerMode':'LevelHigh'},
             {'description':'1photon',
              'name':'qcam',
              'id':0,
              'driver':'QImaging',
              'gain':1500,#1600,#3600
+             'triggerType':1,
              'binning':2,
              'exposure':100000,
              'frameRate':0.1}]
