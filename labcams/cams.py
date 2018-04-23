@@ -81,7 +81,9 @@ def AVT_get_ids():
 class AVTCam(GenericCam):
     def __init__(self, camId = None, outQ = None,exposure = 29000,
                  frameRate = 30., gain = 10,frameTimeout = 100,
-                 nFrameBuffers = 1,triggered = Event(),triggerSource = 'Line1'):
+                 nFrameBuffers = 1,triggered = Event(),
+                 triggerSource = 'Line1',
+                 triggerMode = 'LevelHigh'):
         super(AVTCam,self).__init__()
         self.h = None
         self.w = None
@@ -101,6 +103,7 @@ class AVTCam(GenericCam):
         self.nbuffers = nFrameBuffers
         self.queue = outQ
         self.dtype = np.uint8
+        self.triggerMode = triggerMode
         with Vimba() as vimba:
             system = vimba.getSystem()
             if system.GeVTLIsPresent:
@@ -169,13 +172,13 @@ class AVTCam(GenericCam):
                     cam.AcquisitionFrameRateAbs = self.frameRate
                     cam.ExposureTimeAbs =  self.exposure
                     cam.GainRaw = self.gain
-                    cam.SyncOutSelector = 'SyncOut2'
+                    cam.SyncOutSelector = 'SyncOut1'
                     cam.SyncOutSource = 'FrameReadout'#'Exposing'
                     if self.triggered.is_set():
                         cam.TriggerSource = self.triggerSource#'Line1'#self.triggerSource
                         cam.TriggerMode = 'On'
                         cam.TriggerOverlap = 'Off'
-                        cam.TriggerActivation = 'LevelHigh'##'RisingEdge'
+                        cam.TriggerActivation = self.triggerMode #'LevelHigh'##'RisingEdge'
                         cam.TriggerSelector = 'FrameStart'
                     else:
                         cam.TriggerSource = 'FixedRate'
@@ -287,6 +290,7 @@ class AVTCam(GenericCam):
 try:
     import qimaging  as QCam
 except:
+    print('Could not import QImaging cams.')
     pass
 class QImagingCam(GenericCam):
     def __init__(self, camId = None,
@@ -324,6 +328,7 @@ class QImagingCam(GenericCam):
         self.frameRate = 1./(self.exposure/1000.)
         self.frameTimeout = frameTimeout
         self.nbuffers = nFrameBuffers
+        self.triggerType = triggerType
         QCam.ReleaseDriver()
         QCam.LoadDriver()
         cam = QCam.OpenCamera(QCam.ListCameras()[camId])
@@ -378,10 +383,10 @@ class QImagingCam(GenericCam):
                 cam.settings.emGain = self.gain
                 cam.settings.exposure = self.exposure - self.estimated_readout_lag
                 if self.triggered.is_set():
-                    self.triggerType = 1
+                    triggerType = self.triggerType
                 else:
-                    self.triggerType = 0
-                cam.settings.triggerType = self.triggerType
+                    triggerType = 0
+                cam.settings.triggerType = triggerType
                 cam.settings.blackoutMode=True
                 cam.settings.Flush()
                 queue = QCam.CameraQueue(cam)

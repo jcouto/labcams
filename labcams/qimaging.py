@@ -18,7 +18,11 @@ class Error(Exception):
     pass
 
 if platform.system() in ('Windows','Microsoft'):
-    _dll = ctypes.WinDLL('QCamDriver.dll')
+    try:
+        _dll = ctypes.WinDLL('QCamDriver.dll')
+    except WindowsError:
+        _dll = ctypes.WinDLL('QCamDriverx64.dll')
+
     FUNCTYPE = ctypes.WINFUNCTYPE
 elif platform.system() == 'Darwin':
     _dll = ctypes.CDLL('QCam.framework/Versions/Current/QCam')
