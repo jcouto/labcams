@@ -75,7 +75,7 @@ def AVT_get_ids():
         cams = [vimba.getCamera(id) for id in camsIds]
         [cam.openCamera() for cam in cams]
         camsModel = [cam.DeviceModelName for cam in cams]
-        print(list(zip(camsModel,camsIds)))
+        #print(list(zip(camsModel,camsIds)))
     return camsIds,camsModel
 
 class AVTCam(GenericCam):
@@ -220,6 +220,7 @@ class AVTCam(GenericCam):
                     cam.TriggerSelector = 'FrameStart'
                 tstart = time.time()
                 display('Started acquisition.')
+                lastframeid = -1
                 while not self.stopTrigger.is_set():
                     # run and acquire frames
                     for f in frames:
@@ -241,7 +242,9 @@ class AVTCam(GenericCam):
                                 continue
                             self.nframes.value += 1
                             if self.saving.is_set():
-                                self.queue.put((frame.copy(),(frameID,timestamp)))
+                                if lastframeid != frameID:
+                                    self.queue.put((frame.copy(),(frameID,timestamp)))
+                                    lastframeid = frameID
                             buf[:,:] = frame[:,:]
                         except VimbaException as err:
                             #display('VimbaException: ' +  str(err))
@@ -261,7 +264,9 @@ class AVTCam(GenericCam):
                                                     f.width)).copy()
                         #f.queueFrameCapture()
                         if self.saving.is_set():
-                            self.queue.put((frame.copy(),(frameID,timestamp)))
+                            if lastframeid != frameID:
+                                self.queue.put((frame.copy(),(frameID,timestamp)))
+                                lastframeid = frameID
                         self.nframes.value += 1
                         self.frame = frame
                     except VimbaException as err:
