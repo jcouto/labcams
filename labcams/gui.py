@@ -36,7 +36,6 @@ try:
                                  QFileDialog)
     from PyQt5.QtGui import QImage, QPixmap,QBrush,QPen,QColor
     from PyQt5.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
-    display("Using Qt5 framework.")
 except:
     from PyQt4.QtGui import (QWidget,
                              QApplication,
