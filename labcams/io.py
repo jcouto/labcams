@@ -13,7 +13,7 @@ import numpy as np
 import os
 from os.path import join as pjoin
 from tifffile import TiffWriter as twriter
-
+VERSION = '0.1b'
 class TiffWriter(Process):
     def __init__(self,inQ = None, loggerQ = None,
                  filename = 'dummy\\run',
@@ -41,7 +41,8 @@ class TiffWriter(Process):
         self.fd = None
         self.inQ = inQ
         self.today = datetime.today().strftime('%Y%m%d')
-
+        self.logfile = None
+        
     def setFilename(self,filename):
         self.write.clear()
         for i in range(len(self.filename)):
@@ -62,7 +63,7 @@ class TiffWriter(Process):
         if not self.fd is None:
             self.fd.close()
         self.fd = None
-
+    
     def openFile(self,nfiles = None):
         nfiles = self.nFiles
         folder = pjoin(self.dataFolder,self.dataName,self.getFilename())
@@ -75,8 +76,18 @@ class TiffWriter(Process):
         if not self.fd is None:
             self.closeFile()
         self.fd = twriter(filename)
+        # Create a log file
+        if self.logfile is None:
+            self.logfile = open(pjoin(folder,'{0}_run{1:03d}.camlog'.format(
+                self.today,
+                self.runs.value)),'w')
+            self.logfile.write('# Camera: {0} log file'.format(self.dataName) + '\n')
+            self.logfile.write('# Date: {0}'.format(datetime.today().strftime('%d-%m-%Y')) + '\n')
+            self.logfile.write('# labcams version: {0}'.format(VERSION) + '\n')                
+            self.logfile.write('# Log header:' + 'frame_id,timestamp' + '\n')
         self.nFiles += 1
-        display('Opened: '+ filename)
+        display('Opened: '+ filename)        
+        self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - ' + filename + '\n')
     def run(self):
         while not self.close.is_set():
             self.frameCount.value = 0
@@ -92,10 +103,16 @@ class TiffWriter(Process):
                     if np.mod(self.frameCount.value,self.framesPerFile)==0:
                         self.openFile()
                         display('Queue size: {0}'.format(self.inQ.qsize()))
+                        self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - '
+                                           + 'Queue: {0}'.format(self.inQ.qsize())
+                                           + '\n')
                     self.fd.save(frame,
                                  compress=self.compression,
                                  description='id:{0};timestamp:{1}'.format(frameid,
                                                                            timestamp))
+                    self.logfile.write('{0},{1}\n'.format(frameid,
+                                                          timestamp))
+                    
                     self.frameCount.value += 1
             # If queue is not empty, empty if to files.
             while not self.inQ.empty():
@@ -109,18 +126,25 @@ class TiffWriter(Process):
                     self.openFile()
                 self.fd.save(frame,compress=self.compression,
                              description='id:{0};timestamp:{1}'.format(frameid,timestamp))
+                self.logfile.write('{0},{1}\n'.format(frameid,
+                                                      timestamp))
                 self.frameCount.value += 1
-
             self.closeFile()
+            if not self.logfile is None:
+                self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - ' +
+                                "Wrote {0} frames on {1} ({2} files).".format(
+                                    self.frameCount.value,
+                                    self.dataName,
+                                    self.nFiles) + '\n')
+                self.logfile.close()
+                self.logfile = None
+                self.runs.value += 1
             if not self.frameCount.value == 0:
                 display("Wrote {0} frames on {1} ({2} files).".format(
                     self.frameCount.value,
                     self.dataName,
                     self.nFiles))
-                
-            #self.closeFile()
+            # self.closeFile()
             # spare the processor just in case...
             time.sleep(self.sleepTime)
-
             
-        

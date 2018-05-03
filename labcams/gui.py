@@ -73,10 +73,15 @@ class LabCamsGUI(QMainWindow):
     app = None
     cams = []
     def __init__(self,app = None, expName = 'test',
-                 camDescriptions = [],server = True,
-                 saveOnStart = False,triggered = False,updateFrequency = 50):
+                 camDescriptions = [],
+                 parameters = {},
+                 server = True,
+                 saveOnStart = False,
+                 triggered = False,
+                 updateFrequency = 50):
         super(LabCamsGUI,self).__init__()
         display('Starting labcams interface.')
+        self.parameters = parameters
         self.app = app
         self.updateFrequency=updateFrequency
         self.saveOnStart = saveOnStart
@@ -110,8 +115,12 @@ class LabCamsGUI(QMainWindow):
                 if not 'TriggerMode' in cam.keys():
                     cam['TriggerMode'] = 'LevelHigh'
                 self.camQueues.append(Queue())
+                
                 self.writers.append(TiffWriter(inQ = self.camQueues[-1],
-                                                  filename = expName,
+                                               dataFolder=self.parameters['recorder_path'],
+                                               framesPerFile=self.parameters['recorder_frames_per_file'],
+                                               sleepTime = self.parameters['recorder_sleep_time'],
+                                               filename = expName,
                                                dataName = cam['description']))
                 
                 self.cams.append(AVTCam(camId=camids[0],
@@ -188,6 +197,10 @@ class LabCamsGUI(QMainWindow):
             for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
                 cam.saving.set()
                 writer.write.set()
+        else:
+            for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
+                cam.saving.clear()
+                writer.write.clear()
         for c,cam in enumerate(self.cams):
             cam.startTrigger.set()
         display('Triggered cameras.')
@@ -265,10 +278,10 @@ class LabCamsGUI(QMainWindow):
             cam.stop_acquisition()
         display('Acquisition duration:')
         for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
-            if cam.saving.is_set():
-                cam.saving.clear()
-            writer.stop()
+            cam.saving.clear()
+            writer.write.clear()
             cam.stop()
+            writer.stop()
         for c in self.cams:
             c.join()
         for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
@@ -317,6 +330,7 @@ class RecordingControlWidget(QWidget):
         if value:
             self.parent.triggered.set()
         else:
+            self.toggleSaveOnStart(False)
             self.parent.triggered.clear()
         for cam in self.parent.cams:
             cam.stop_acquisition()
@@ -395,32 +409,33 @@ class CamWidget(QWidget):
             self.lastnFrame = nframe
             self.scene.update()
 
-DEFAULTS = [{'description':'facecam',
-             'name':'Mako G-030B',
-             'driver':'AVT',
-             'gain':10,
-             'frameRate':150.,
-             'TriggerSource':'Line1',
-             'TriggerMode':'LevelHigh'},
-            {'description':'eyecam',
-             'name':'GC660M',
-             'driver':'AVT',
-             'gain':10,
-             'trackEye':True,
-             'frameRate':31.,
-             'TriggerSource':'Line1',
-             'TriggerMode':'LevelHigh'},
-            {'description':'1photon',
-             'name':'qcam',
-             'id':0,
-             'driver':'QImaging',
-             'gain':1500,#1600,#3600
-             'triggerType':1,
-             'binning':2,
-             'exposure':100000,
-             'frameRate':0.1}]
-#             'subtractBackground':True
-#             'trackEye':True,
+DEFAULTS = dict(cams = [{'description':'facecam',
+                         'name':'Mako G-030B',
+                         'driver':'AVT',
+                         'gain':10,
+                         'frameRate':150.,
+                         'TriggerSource':'Line1',
+                         'TriggerMode':'LevelHigh'},
+                        {'description':'eyecam',
+                         'name':'GC660M',
+                         'driver':'AVT',
+                         'gain':10,
+                         'trackEye':True,
+                         'frameRate':31.,
+                         'TriggerSource':'Line1',
+                         'TriggerMode':'LevelHigh'},
+                        {'description':'1photon',
+                         'name':'qcam',
+                         'id':0,
+                         'driver':'QImaging',
+                         'gain':1500,#1600,#3600
+                         'triggerType':1,
+                         'binning':2,
+                         'exposure':100000,
+                         'frameRate':0.1}],
+                recorder_path = 'I:\\data',
+                recorder_frames_per_file = 256,
+                recorder_sleep_time = 1./30)
 
 def main():
     from argparse import ArgumentParser
@@ -467,11 +482,14 @@ def main():
         display('Using default parameters.')
         parameters = DEFAULTS
     if not opts.cam_select is None:
-        params = [parameters[i] for i in opts.cam_select]
-        parameters = params
+        cams = [parameters['cams'][i] for i in opts.cam_select]
+        
     app = QApplication(sys.argv)
-    w = LabCamsGUI(app = app,camDescriptions = parameters, 
-        server = not opts.no_server,triggered = opts.triggered)
+    w = LabCamsGUI(app = app,
+                   camDescriptions = cams,
+                   parameters = parameters,
+                   server = not opts.no_server,
+                   triggered = opts.triggered)
     sys.exit(app.exec_())
 
 if __name__ == '__main__':
