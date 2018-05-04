@@ -115,22 +115,24 @@ class TiffWriter(Process):
                     
                     self.frameCount.value += 1
             # If queue is not empty, empty if to files.
-            while not self.inQ.empty():
-                buff = self.inQ.get()
-                try:
-                    frame,(frameid,timestamp,) = buff
-                except:
-                    display(buff)
-                    continue
-                if np.mod(self.frameCount.value,self.framesPerFile)==0:
-                    self.openFile()
-                self.fd.save(frame,compress=self.compression,
-                             description='id:{0};timestamp:{1}'.format(frameid,timestamp))
-                self.logfile.write('{0},{1}\n'.format(frameid,
-                                                      timestamp))
-                self.frameCount.value += 1
-            self.closeFile()
+            if not self.inQ.empty():
+                while not self.inQ.empty():
+                    buff = self.inQ.get()
+                    try:
+                        frame,(frameid,timestamp,) = buff
+                    except:
+                        display(buff)
+                        continue
+                    if np.mod(self.frameCount.value,self.framesPerFile)==0:
+                        self.openFile()
+                    self.fd.save(frame,compress=self.compression,
+                                 description='id:{0};timestamp:{1}'.format(frameid,timestamp))
+                    self.logfile.write('{0},{1}\n'.format(frameid,
+                                                          timestamp))
+                    self.frameCount.value += 1
+                display('Queue is empty.')
             if not self.logfile is None:
+                self.closeFile()
                 self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - ' +
                                 "Wrote {0} frames on {1} ({2} files).".format(
                                     self.frameCount.value,
