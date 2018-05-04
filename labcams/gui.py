@@ -6,8 +6,10 @@ from .cams import *
 from .io import *
 import cv2
 import ctypes
-
-from mptracker import MPTracker
+try:
+    from mptracker import MPTracker
+except:
+    pass
 try:
     from PyQt5.QtWidgets import (QWidget,
                                  QApplication,
@@ -371,18 +373,24 @@ class CamWidget(QWidget):
         self.scene=QGraphicsScene(0,0,frame.shape[1],
                                   frame.shape[0],self)
         self.view = QGraphicsView(self.scene, self)
-        self.lastFrame = None
         self.lastnFrame = 0
         if not 'SubtractBackground' in parameters.keys():
             parameters['SubtractBackground'] = False
         if not 'TrackEye' in parameters.keys():
             parameters['TrackEye'] = False
         self.parameters = parameters
+        if self.parameters['SubtractBackground']:
+            self.lastFrame = frame.copy().astype(np.float32)
+            if not 'NBackgroundFrames' in parameters.keys():
+                self.nAcum = 3.
+            else:
+                self.nAcum = float(parameters['NBackgroundFrames'])
+        else:
+            self.lastFrame = None
+
         self.eyeTracker = None
         if self.parameters['TrackEye']:
             self.eyeTracker = MPTracker(drawProcessedFrame=True)
-        if self.parameters['SubtractBackground']:
-            self.lastFrame = frame.copy()
         self.string = '{0}'
         if not self.parameters['Save']:
             self.string = 'no save -{0}'
@@ -396,9 +404,9 @@ class CamWidget(QWidget):
                 frame = self.eyeTracker.img
             else:
                 if not self.lastFrame is None:
-                    frame = image.copy() - self.lastFrame
-                    nacum = 3.
-                    self.lastFrame = (1-1/nacum)*(self.lastFrame.astype(np.float32)) + (1/nacum)*image.copy().astype(np.float32)
+                    frame = np.abs(image.copy().astype(np.float32) - self.lastFrame)
+                    self.lastFrame = ((1-1/self.nAcum)*(self.lastFrame.astype(np.float32)) +
+                                      (1/self.nAcum)*image.copy().astype(np.float32))
                 else:
                     frame = image
             if self.parameters['driver'] == 'QImaging':
@@ -421,10 +429,11 @@ DEFAULTS = dict(cams = [{'description':'facecam',
                          'name':'Mako G-030B',
                          'driver':'AVT',
                          'gain':10,
-                         'frameRate':150.,
+                         'frameRate':31.,
                          'TriggerSource':'Line1',
                          'TriggerMode':'LevelHigh',
-                         'SubtractBackground':True,
+                         #'SubtractBackground':True,
+                         #'NBackgroundFrames':1.,
                          'Save':True},
                         {'description':'eyecam',
                          'name':'GC660M',
@@ -434,7 +443,7 @@ DEFAULTS = dict(cams = [{'description':'facecam',
                          'frameRate':31.,
                          'TriggerSource':'Line1',
                          'TriggerMode':'LevelHigh',
-                         'Save':False},
+                         'Save':True},
                         {'description':'1photon',
                          'name':'qcam',
                          'id':0,
@@ -460,9 +469,10 @@ def main():
                         type=str,
                         default=None,
                         nargs="?")
-    parser.add_argument('--make-default-config',
-                        default=False,
-                        action='store_true')
+    parser.add_argument('-d','--make-config',
+                        type=str,
+                        default = None,
+                        action='store')
     parser.add_argument('--triggered',
                         default=False,
                         action='store_true')
@@ -474,11 +484,8 @@ def main():
                         default=False,
                         action='store_true')
     opts = parser.parse_args()
-    if opts.make_default_config:
-        if opts.preffile is None:
-            fname = 'default_labcams.json'
-        else:
-            fname = opts.preffile
+    if not opts.make_config is None:
+        fname = opts.make_config
         if os.path.isfile(fname):
             display(fname  + ' exists. Delete it first.')
         else:
