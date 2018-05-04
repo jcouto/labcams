@@ -152,13 +152,12 @@ class LabCamsGUI(QMainWindow):
 #        self.resize(500,700)
 
         self.initUI()
-
+        
         if server:
             self.zmqContext = zmq.Context()
             self.zmqSocket = self.zmqContext.socket(zmq.REP)
-            port = 100000
-            self.zmqSocket.bind('tcp://0.0.0.0:{0}'.format(port))
-            display('Listening to port: {0}'.format(port))
+            self.zmqSocket.bind('tcp://0.0.0.0:{0}'.format(self.parameters['server_port']))
+            display('Listening to port: {0}'.format(self.parameters['server_port']))
         self.camerasRunning = False
         for cam,writer in zip(self.cams,self.writers):
             cam.start()
@@ -434,7 +433,8 @@ DEFAULTS = dict(cams = [{'description':'facecam',
                          'frameRate':0.1}],
                 recorder_path = 'I:\\data',
                 recorder_frames_per_file = 256,
-                recorder_sleep_time = 1./30)
+                recorder_sleep_time = 0.05,
+                server_port = 100000)
 
 def main():
     from argparse import ArgumentParser
