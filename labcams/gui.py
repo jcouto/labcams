@@ -140,6 +140,9 @@ class LabCamsGUI(QMainWindow):
                 self.camQueues.append(Queue())
                 if cam['Save']:
                     self.writers.append(TiffWriter(inQ = self.camQueues[-1],
+                                                   dataFolder=self.parameters['recorder_path'],
+                                                   framesPerFile=self.parameters['recorder_frames_per_file'],
+                                                   sleepTime = self.parameters['recorder_sleep_time'],
                                                    filename = expName,
                                                    dataName = cam['description']))
                 else:
