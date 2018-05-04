@@ -370,6 +370,10 @@ class RecordingControlWidget(QWidget):
 class CamWidget(QWidget):
     def __init__(self,frame, parameters = None):
         super(CamWidget,self).__init__()
+        self.setContextMenuPolicy(Qt.ActionsContextMenu)
+        toggleSubtract = QAction("Background subtraction",self)
+        toggleSubtract.triggered.connect(self.toggleSubtract)
+        self.addAction(toggleSubtract)
         self.scene=QGraphicsScene(0,0,frame.shape[1],
                                   frame.shape[0],self)
         self.view = QGraphicsView(self.scene, self)
@@ -396,6 +400,8 @@ class CamWidget(QWidget):
             self.string = 'no save -{0}'
         self.image(np.array(frame),-1)
         self.show()
+    def toggleSubtract(self):
+        self.parameters['SubtractBackground'] = not self.parameters['SubtractBackground']
     def image(self,image,nframe):
         if self.lastnFrame != nframe:
             self.scene.clear()
@@ -403,15 +409,15 @@ class CamWidget(QWidget):
                 img = self.eyeTracker.apply(image.copy()) 
                 frame = self.eyeTracker.img
             else:
-                if not self.lastFrame is None:
-                    frame = np.abs(image.copy().astype(np.float32) - self.lastFrame)
+                if self.parameters['SubtractBackground']:
+                    frame = (np.abs(image.copy().astype(np.float32) - self.lastFrame))*10.
                     self.lastFrame = ((1-1/self.nAcum)*(self.lastFrame.astype(np.float32)) +
                                       (1/self.nAcum)*image.copy().astype(np.float32))
                 else:
                     frame = image
             if self.parameters['driver'] == 'QImaging':
                 frame = np.array((frame.astype(np.float32)/2.**14)*2.**8).astype(np.uint8)
-            if len(frame.shape) == 2:
+            if len(frame.shape) == 2 :
                 frame = cv2.cvtColor(frame.astype(np.uint8), cv2.COLOR_GRAY2BGR)
             cv2.putText(frame,self.string.format(nframe), (10,100), cv2.FONT_HERSHEY_SIMPLEX,
                         1, 105,2)
