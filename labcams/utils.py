@@ -6,8 +6,7 @@ from datetime import datetime
 
 def display(msg):
     try:
-	sys.stdout.write('['+datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - ' + msg + '\n')
-	sys.stdout.flush()
+        sys.stdout.write('['+datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - ' + msg + '\n')
+        sys.stdout.flush()
     except:
-	pass
-    
+        pass

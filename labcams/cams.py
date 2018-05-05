@@ -61,8 +61,12 @@ class DummyCam(GenericCam):
             time.sleep(1./30)
         display('Stopped...')
 
+# Allied Vision Technologies cameras
+try:
+    from pymba import *
+except:
+    pass
 
-from pymba import *
 def AVT_get_ids():
     with Vimba() as vimba:
         # get system object
@@ -298,11 +302,12 @@ class AVTCam(GenericCam):
                 time.sleep(1)
                 display('Close event: {0}'.format(self.closeEvent.is_set()))
 
+# QImaging cameras
 try:
     import qimaging  as QCam
 except:
-    print('Could not import QImaging cams.')
     pass
+
 class QImagingCam(GenericCam):
     def __init__(self, camId = None,
                  outQ = None,
