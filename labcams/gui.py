@@ -136,15 +136,15 @@ class LabCamsGUI(QMainWindow):
                                         triggerMode = cam['TriggerMode']))
                 connected_avt_cams.append(camids[0])
             elif cam['driver'] == 'QImaging':
-            	display('Connecting to Qimaging camera.')
                 self.camQueues.append(Queue())
                 if cam['Save']:
-                    self.writers.append(TiffWriter(inQ = self.camQueues[-1],
-                                                   dataFolder=self.parameters['recorder_path'],
-                                                   framesPerFile=self.parameters['recorder_frames_per_file'],
-                                                   sleepTime = self.parameters['recorder_sleep_time'],
-                                                   filename = expName,
-                                                   dataName = cam['description']))
+                    self.writers.append(
+                        TiffWriter(inQ = self.camQueues[-1],
+                                   dataFolder=self.parameters['recorder_path'],
+                                   framesPerFile=self.parameters['recorder_frames_per_file'],
+                                   sleepTime = self.parameters['recorder_sleep_time'],
+                                   filename = expName,
+                                   dataName = cam['description']))
                 else:
                     self.writers.append(None)
                 if not 'binning' in cam.keys():
@@ -509,9 +509,10 @@ def main():
     else:
         display('Using default parameters.')
         parameters = DEFAULTS
+    cams = parameters['cams']
     if not opts.cam_select is None:
         cams = [parameters['cams'][i] for i in opts.cam_select]
-        
+
     app = QApplication(sys.argv)
     w = LabCamsGUI(app = app,
                    camDescriptions = cams,
