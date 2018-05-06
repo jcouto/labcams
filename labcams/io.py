@@ -11,8 +11,12 @@ import sys
 from .utils import display
 import numpy as np
 import os
+from glob import glob
 from os.path import join as pjoin
 from tifffile import TiffWriter as twriter
+from tifffile import imread,TiffFile
+import pandas as pd
+
 VERSION = '0.1b'
 class TiffWriter(Process):
     def __init__(self,inQ = None, loggerQ = None,
@@ -150,3 +154,85 @@ class TiffWriter(Process):
             # spare the processor just in case...
             time.sleep(self.sleepTime)
             
+def parseCamLog(fname,convertToSeconds = True):
+    logheaderkey = '# Log header:'
+    comments = []
+    with open(fname,'r') as fd:
+        for line in fd:
+            if line.startswith('#'):
+                line = line.strip('\n').strip('\r')
+                comments.append(line)
+                if line.startswith(logheaderkey):
+                    columns = line.strip(logheaderkey).strip(' ').split(',')
+
+    logdata = pd.read_csv(fname,names = columns, 
+                          delimiter=',',
+                          header=None,
+                          comment='#',
+                          engine='c')
+    if convertToSeconds and '1photon' in comments[0]:
+        logdata['timestamp'] /= 10000.
+    return logdata,comments
+
+
+class TiffStack(object):
+    def __init__(self,filenames):
+        if type(filenames) is str:
+            filenames = np.sort(glob(pjoin(filenames,'*.tif')))
+        
+        assert type(filenames) in [list,np.ndarray], 'Pass a list of filenames.'
+        self.filenames = filenames
+        for f in filenames:
+            assert os.path.exists(f), f + ' not found.'
+        # Get an estimate by opening only the first and last files
+        framesPerFile = []
+        self.files = []
+        for i,fn in enumerate(self.filenames):
+            if i == 0 or i == len(self.filenames)-1:
+                self.files.append(TiffFile(fn))
+            else:
+                self.files.append(None)                
+            f = self.files[-1]
+            if i == 0:
+                dims = f.series[0].shape
+                self.shape = dims
+            elif i == len(self.filenames)-1:
+                dims = f.series[0].shape
+            framesPerFile.append(np.int64(dims[0]))
+        self.framesPerFile = np.array(framesPerFile, dtype=np.int64)
+        self.framesOffset = np.hstack([0,np.cumsum(self.framesPerFile[:-1])])
+        self.nFrames = np.sum(framesPerFile)
+        self.curfile = 0
+        self.curstack = self.files[self.curfile].asarray(memmap=False)
+        N,self.h,self.w = self.curstack.shape[:3]
+        self.dtype = self.curstack.dtype
+        self.shape = (self.nFrames,self.shape[1],self.shape[2])
+    def getFrameIndex(self,frame):
+        '''Computes the frame index from multipage tiff files.'''
+        fileidx = np.where(self.framesOffset <= frame)[0][-1]
+        return fileidx,frame - self.framesOffset[fileidx]
+    def __getitem__(self,*args):
+        index  = args[0]
+        if not type(index) is int:
+            Z, X, Y = index
+            if type(Z) is slice:
+                index = range(Z.start, Z.stop, Z.step)
+            else:
+                index = Z
+        else:
+            index = [index]
+        img = np.empty((len(index),self.h,self.w),dtype = self.dtype)
+        for i,ind in enumerate(index):
+            img[i,:,:] = self.getFrame(ind)
+        return np.squeeze(img)
+    def getFrame(self,frame):
+        ''' Returns a single frame from the stack '''
+        fileidx,frameidx = self.getFrameIndex(frame)
+        if not fileidx == self.curfile:
+            if self.files[fileidx] is None:
+                self.files[fileidx] = TiffFile(self.filenames[fileidx])
+            self.curstack = self.files[fileidx].asarray(memmap=False)
+            self.curfile = fileidx
+        return self.curstack[frameidx,:,:]
+    def __len__(self):
+        return self.nFrames

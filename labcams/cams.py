@@ -318,9 +318,9 @@ class QImagingCam(GenericCam):
                  triggerType = 0,
                  triggered = Event()):
         '''
-        triggerType (0=freerun,1=hardware,5=software)
+        Qimaging camera (tested with the Emc2 only!)
+            triggerType (0=freerun,1=hardware,5=software)
         '''
-        
         super(QImagingCam,self).__init__()
         self.h = None
         self.w = None
