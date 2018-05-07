@@ -1,7 +1,7 @@
 # Qt imports
 import sys
 import os
-from .utils import display
+from .utils import display,getPreferences
 from .cams import *
 from .io import *
 import cv2
@@ -377,47 +377,62 @@ class CamWidget(QWidget):
         toggleSubtract = QAction("Background subtraction",self)
         toggleSubtract.triggered.connect(self.toggleSubtract)
         self.addAction(toggleSubtract)
+        tEq = QAction('Equalize histogram',self)
+        tEq.triggered.connect(self.toggleEqualize)
+        self.addAction(tEq)
+
+
         self.scene=QGraphicsScene(0,0,frame.shape[1],
                                   frame.shape[0],self)
         self.view = QGraphicsView(self.scene, self)
         self.lastnFrame = 0
         if not 'SubtractBackground' in parameters.keys():
             parameters['SubtractBackground'] = False
+        if not 'Equalize' in parameters.keys():
+            parameters['Equalize'] = False
         if not 'TrackEye' in parameters.keys():
             parameters['TrackEye'] = False
         self.parameters = parameters
-        if self.parameters['SubtractBackground']:
-            self.lastFrame = frame.copy().astype(np.float32)
-            if not 'NBackgroundFrames' in parameters.keys():
-                self.nAcum = 3.
-            else:
-                self.nAcum = float(parameters['NBackgroundFrames'])
+        self.lastFrame = frame.copy().astype(np.float32)
+        if not 'NBackgroundFrames' in parameters.keys():
+            self.nAcum = 3.
         else:
-            self.lastFrame = None
-
+            self.nAcum = float(parameters['NBackgroundFrames'])
         self.eyeTracker = None
-        if self.parameters['TrackEye']:
-            self.eyeTracker = MPTracker(drawProcessedFrame=True)
         self.string = '{0}'
         if not self.parameters['Save']:
             self.string = 'no save -{0}'
         self.image(np.array(frame),-1)
+        
         self.show()
+        
     def toggleSubtract(self):
         self.parameters['SubtractBackground'] = not self.parameters['SubtractBackground']
+    def toggleEqualize(self):
+        self.parameters['Equalize'] = not self.parameters['Equalize']
+
     def image(self,image,nframe):
         if self.lastnFrame != nframe:
             self.scene.clear()
-            if not self.eyeTracker is None:
+            if self.parameters['TrackEye']:
+                if self.eyeTracker is None:
+                    self.eyeTracker = MPTracker(drawProcessedFrame=True)
                 img = self.eyeTracker.apply(image.copy()) 
                 frame = self.eyeTracker.img
             else:
+                tmp = image.copy()
+                if self.parameters['Equalize']:
+                    try: # In case the type is messed up..
+                        tmp = cv2.equalizeHist(tmp)
+                    except:
+                        pass
                 if self.parameters['SubtractBackground']:
-                    frame = (np.abs(image.copy().astype(np.float32) - self.lastFrame))*10.
+                    tmp = tmp.astype(np.float32)
+                    frame = (np.abs(tmp - self.lastFrame))*10.
                     self.lastFrame = ((1-1/self.nAcum)*(self.lastFrame.astype(np.float32)) +
-                                      (1/self.nAcum)*image.copy().astype(np.float32))
+                                      (1/self.nAcum)*tmp)
                 else:
-                    frame = image
+                    frame = tmp
             if self.parameters['driver'] == 'QImaging':
                 frame = np.array((frame.astype(np.float32)/2.**14)*2.**8).astype(np.uint8)
             if len(frame.shape) == 2 :
@@ -434,38 +449,6 @@ class CamWidget(QWidget):
             self.lastnFrame = nframe
             self.scene.update()
 
-DEFAULTS = dict(cams = [{'description':'facecam',
-                         'name':'Mako G-030B',
-                         'driver':'AVT',
-                         'gain':10,
-                         'frameRate':31.,
-                         'TriggerSource':'Line1',
-                         'TriggerMode':'LevelHigh',
-                         #'SubtractBackground':True,
-                         #'NBackgroundFrames':1.,
-                         'Save':True},
-                        {'description':'eyecam',
-                         'name':'GC660M',
-                         'driver':'AVT',
-                         'gain':10,
-                         'TrackEye':True,
-                         'frameRate':31.,
-                         'TriggerSource':'Line1',
-                         'TriggerMode':'LevelHigh',
-                         'Save':True},
-                        {'description':'1photon',
-                         'name':'qcam',
-                         'id':0,
-                         'driver':'QImaging',
-                         'gain':1500,#1600,#3600
-                         'triggerType':1,
-                         'binning':2,
-                         'exposure':100000,
-                         'frameRate':0.1}],
-                recorder_path = 'I:\\data',
-                recorder_frames_per_file = 256,
-                recorder_sleep_time = 0.05,
-                server_port = 100000)
 
 def main():
     from argparse import ArgumentParser
@@ -492,34 +475,68 @@ def main():
     parser.add_argument('--no-server',
                         default=False,
                         action='store_true')
+    parser.add_argument('-a','--analyse',
+                        default=False,
+                        action='store_true')
     opts = parser.parse_args()
     if not opts.make_config is None:
         fname = opts.make_config
-        if os.path.isfile(fname):
-            display(fname  + ' exists. Delete it first.')
-        else:
-            with open(fname,'w') as f:
-                json.dump(DEFAULTS,f,
-                          sort_keys=True,
-                          indent=4,)
+        getPreferences(fname)
         sys.exit()
-    if not opts.preffile is None:
-        with open(opts.preffile,'r') as f:
-            parameters = json.load(f)
-    else:
-        display('Using default parameters.')
-        parameters = DEFAULTS
+    parameters = getPreferences(opts.preffile)
     cams = parameters['cams']
     if not opts.cam_select is None:
         cams = [parameters['cams'][i] for i in opts.cam_select]
 
-    app = QApplication(sys.argv)
-    w = LabCamsGUI(app = app,
-                   camDescriptions = cams,
-                   parameters = parameters,
-                   server = not opts.no_server,
-                   triggered = opts.triggered)
-    sys.exit(app.exec_())
+    if not opts.analyse:
+        app = QApplication(sys.argv)
+        w = LabCamsGUI(app = app,
+                       camDescriptions = cams,
+                       parameters = parameters,
+                       server = not opts.no_server,
+                       triggered = opts.triggered)
+        sys.exit(app.exec_())
+    else:
+        app = QApplication(sys.argv)
+        fname = str(QFileDialog.getExistingDirectory(None,"Select Directory of the run to process",
+                                                     parameters['datapaths']['dataserverpaths'][0]))
+        from .utils import cameraTimesFromVStimLog,findVStimLog
+        from .io import parseCamLog,TiffStack
+        from tqdm import tqdm
+        import numpy as np
+        from glob import glob
+        import os
+        from os.path import join as pjoin
+        from pyvstim import parseVStimLog as parseVStimLog,getStimuliTimesFromLog
+        fname = pjoin(*fname.split("/"))
+        expname = fname.split(os.path.sep)[-2:]
+        camlogext = '.camlog'
+        camlogfile = glob(pjoin(fname,'*'+camlogext))
+        if not len(camlogfile):
+            print('Camera logfile not found in: {0}'.format(fname))
+            sys.exit()
+        else:
+            camlogfile = camlogfile[0]
+        camlog = parseCamLog(camlogfile)[0]
+        logfile = findVStimLog(expname)
+        plog,pcomms = parseVStimLog(logfile)
+        camidx = 3
+        camlog = cameraTimesFromVStimLog(camlog,plog,camidx = camidx)
+        camdata = TiffStack(fname)
+        (stimtimes,stimpars,stimoptions) = getStimuliTimesFromLog(logfile,plog)
+        camtime = np.array(camlog['duinotime']/1000.)
+        stimavgs = triggeredAverage(camdata,camtime,stimtimes)
 
+        for iStim,savg in enumerate(stimavgs):
+            fname = pjoin(parameters['datapaths']['dataserverpaths'][0],
+                          parameters['datapaths']['analysispaths'],
+                          expname[0],expname[1],'stimaverages_cam{0}'.format(camidx),
+                          'stim{0}.tif'.format(iStim))
+            if not os.path.isdir(os.path.dirname(fname)):
+                os.makedirs(os.path.dirname(fname))
+            from tifffile import imsave
+            imsave(fname,savg)
+        
+        sys.exit()
 if __name__ == '__main__':
     main()
