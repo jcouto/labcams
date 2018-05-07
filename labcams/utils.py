@@ -10,6 +10,7 @@ import json
 from os.path import join as pjoin
 from scipy.interpolate import interp1d
 from tqdm import tqdm
+import numpy as np
 
 def display(msg):
     try:
@@ -21,16 +22,53 @@ def display(msg):
 
 preferencepath = pjoin(os.path.expanduser('~'), 'labcams')
 
-defaultPreferences = {'datapaths':dict(dataserverpaths = ['/quadraraid/data',
-                                                          '/mnt/nerffs01/mouselab/data'],
-                                       onephotonpaths = '1photon/raw',
-                                       logpaths = 'presentation',
-                                       facecampaths = 'facecam',
-                                       eyecampaths = 'eyecam',
-                                       analysis = 'analysis')}
+DEFAULTS = dict(cams = [{'description':'facecam',
+                         'name':'Mako G-030B',
+                         'driver':'AVT',
+                         'gain':10,
+                         'frameRate':31.,
+                         'TriggerSource':'Line1',
+                         'TriggerMode':'LevelHigh',
+                         #'SubtractBackground':True,
+                         'NBackgroundFrames':1.,
+                         'Save':True},
+                        {'description':'eyecam',
+                         'name':'GC660M',
+                         'driver':'AVT',
+                         'gain':10,
+                         'TrackEye':True,
+                         'frameRate':31.,
+                         'TriggerSource':'Line1',
+                         'TriggerMode':'LevelHigh',
+                         'Save':True},
+                        {'description':'1photon',
+                         'name':'qcam',
+                         'id':0,
+                         'driver':'QImaging',
+                         'gain':1500,#1600,#3600
+                         'triggerType':1,
+                         'binning':2,
+                         'exposure':100000,
+                         'frameRate':0.1}],
+                recorder_path = 'I:\\data',
+                recorder_frames_per_file = 256,
+                recorder_sleep_time = 0.05,
+                server_port = 100000,
+                datapaths = dict(dataserverpaths = ['I:\\data',
+                                                    'P:\\',
+                                                    '/quadraraid/data',
+                                                    '/mnt/nerffs01/mouselab/data'],
+                                 onephotonpaths = '1photon/raw',
+                                 logpaths = 'presentation',
+                                 facecampaths = 'facecam',
+                                 eyecampaths = 'eyecam',
+                                 analysispaths = 'analysis'))
 
 
-def getPreferences():
+defaultPreferences = DEFAULTS
+
+
+def getPreferences(preffile = None):
     ''' Reads the parameters from the home directory.
 
     pref = getPreferences(expname)
@@ -38,15 +76,18 @@ def getPreferences():
     User parameters like folder location, file preferences, paths...
     Joao Couto - May 2018
     '''
-    if not os.path.isdir(preferencepath):
-        os.makedirs(preferencepath)
-        print('Creating .preference folder ['+preferencepath+']')
+    if preffile is None:
+        preffile = pjoin(preferencepath,'default.json')
 
-    preffile = pjoin(preferencepath,'preferences.json')
     if not os.path.isfile(preffile):
+        print('Creating preference file from defaults.')
         with open(preffile, 'w') as outfile:
             json.dump(defaultPreferences, outfile, sort_keys = True, indent = 4)
             print('Saving default preferences to: ' + preffile)
+    if os.path.isfile(preffile):
+        if not os.path.isdir(preferencepath):
+            os.makedirs(preferencepath)
+            print('Creating preferences folder ['+preferencepath+']')
     with open(preffile, 'r') as infile:
         pref = json.load(infile)
     return pref
@@ -72,7 +113,7 @@ def findVStimLog(expname):
     datapaths = prefs['datapaths']
     logfile = None
     for server in datapaths['dataserverpaths']:
-        logpath = pjoin(server,datapaths['logpaths'],expname)
+        logpath = pjoin(server,datapaths['logpaths'],*expname)
         logfile = glob(logpath + '.log')
         if len(logfile):
             logfile = logfile[0]
@@ -132,7 +173,7 @@ def triggeredAverage(camdata,
                             camdata.shape[1],
                             camdata.shape[2]],dtype=np.float32)
         for i,(iTrial,time) in tqdm(enumerate(
-            zip(iTrials,starttimes))) if display_progress else enumerate(
+                zip(iTrials,starttimes)),total = ntrials) if display_progress else enumerate(
             zip(iTrials,starttimes)):
             ii = np.where(camtime < time)[0][-1]
             dF = camdata[ii-wpre:ii+wpost:1,:,:].astype(np.float32)

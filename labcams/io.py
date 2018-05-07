@@ -203,7 +203,7 @@ class TiffStack(object):
         self.framesOffset = np.hstack([0,np.cumsum(self.framesPerFile[:-1])])
         self.nFrames = np.sum(framesPerFile)
         self.curfile = 0
-        self.curstack = self.files[self.curfile].asarray(memmap=False)
+        self.curstack = self.files[self.curfile].asarray()
         N,self.h,self.w = self.curstack.shape[:3]
         self.dtype = self.curstack.dtype
         self.shape = (self.nFrames,self.shape[1],self.shape[2])
@@ -231,7 +231,7 @@ class TiffStack(object):
         if not fileidx == self.curfile:
             if self.files[fileidx] is None:
                 self.files[fileidx] = TiffFile(self.filenames[fileidx])
-            self.curstack = self.files[fileidx].asarray(memmap=False)
+            self.curstack = self.files[fileidx].asarray()
             self.curfile = fileidx
         return self.curstack[frameidx,:,:]
     def __len__(self):
