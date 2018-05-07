@@ -9,6 +9,7 @@ import sys
 import json
 from os.path import join as pjoin
 from scipy.interpolate import interp1d
+from tqdm import tqdm
 
 def display(msg):
     try:
@@ -78,3 +79,69 @@ def findVStimLog(expname):
             break
     assert not logfile is None, "Could not find log for:{0}".format(expname)
     return logfile
+
+
+
+def triggeredTrials(camdata,
+                    camtime,
+                    stimtimes,
+                    tpre = 2.,
+                    do_df_f = True,display_progress = True):
+    dt = np.mean(np.diff(camtime))
+    stimavgs = []
+    wpre = int(int(np.ceil(tpre/dt)))
+    for iStim in np.unique(stimtimes[:,0]):
+        (_,iTrials,starttimes,endtimes) = stimtimes[stimtimes[:,0]==iStim,:].T
+        duration =  np.max(np.round(endtimes - starttimes))
+        wdur = int(np.ceil(duration/dt))
+        wpost = int(wdur+wpre)
+        ntrials = len(iTrials)
+        stimavg = np.zeros([ntrials,wpre+wpost,
+                            camdata.shape[1],
+                            camdata.shape[2]],dtype=np.float32)
+        for i,(iTrial,time) in tqdm(enumerate(
+            zip(iTrials,starttimes))) if display_progress else enumerate(
+            zip(iTrials,starttimes)):
+            ii = np.where(camtime < time)[0][-1]
+            dF = camdata[ii-wpre:ii+wpost:1,:,:].astype(np.float32)
+            if do_df_f:
+                F = np.mean(dF[:wpre],axis = 0)
+                stimavg[i] = (dF - F)/F
+            else:
+                stimavg[i] = dF
+        stimavg[:,:,:10,:10] = np.min(stimavg)
+        stimavg[:,wpre:wpost,:10,:10] = np.max(stimavg)
+        stimavgs.append(stimavg)
+    return stimavgs
+
+def triggeredAverage(camdata,
+                     camtime,
+                     stimtimes,
+                     tpre = 2.,
+                     do_df_f = True,display_progress = True):
+    dt = np.mean(np.diff(camtime))
+    stimavgs = []
+    wpre = int(int(np.ceil(tpre/dt)))
+    for iStim in np.unique(stimtimes[:,0]):
+        (_,iTrials,starttimes,endtimes) = stimtimes[stimtimes[:,0]==iStim,:].T
+        duration =  np.max(np.round(endtimes - starttimes))
+        wdur = int(np.ceil(duration/dt))
+        wpost = int(wdur+wpre)
+        ntrials = len(iTrials)
+        stimavg = np.zeros([wpre+wpost,
+                            camdata.shape[1],
+                            camdata.shape[2]],dtype=np.float32)
+        for i,(iTrial,time) in tqdm(enumerate(
+            zip(iTrials,starttimes))) if display_progress else enumerate(
+            zip(iTrials,starttimes)):
+            ii = np.where(camtime < time)[0][-1]
+            dF = camdata[ii-wpre:ii+wpost:1,:,:].astype(np.float32)
+            if do_df_f:
+                F = np.mean(dF[:wpre],axis = 0)
+                stimavg += (dF - F)/F
+            else:
+                stimavg += dF
+        stimavg[:,:10,:10] = np.min(stimavg)
+        stimavg[wpre:wpost,:10,:10] = np.max(stimavg)
+        stimavgs.append(stimavg)
+    return stimavgs
