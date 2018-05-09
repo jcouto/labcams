@@ -380,6 +380,9 @@ class CamWidget(QWidget):
         tEq = QAction('Equalize histogram',self)
         tEq.triggered.connect(self.toggleEqualize)
         self.addAction(tEq)
+        tEt = QAction('Eye tracker',self)
+        tEt.triggered.connect(self.toggleEyeTracker)
+        self.addAction(tEt)
 
 
         self.scene=QGraphicsScene(0,0,frame.shape[1],
@@ -410,6 +413,8 @@ class CamWidget(QWidget):
         self.parameters['SubtractBackground'] = not self.parameters['SubtractBackground']
     def toggleEqualize(self):
         self.parameters['Equalize'] = not self.parameters['Equalize']
+    def toggleEyeTracker(self):
+        self.parameters['TrackEye'] = not self.parameters['TrackEye']
 
     def image(self,image,nframe):
         if self.lastnFrame != nframe:
