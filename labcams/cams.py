@@ -91,7 +91,7 @@ def AVT_get_ids():
 class AVTCam(GenericCam):
     def __init__(self, camId = None, outQ = None,exposure = 29000,
                  frameRate = 30., gain = 10,frameTimeout = 100,
-                 nFrameBuffers = 1,triggered = Event(),
+                 nFrameBuffers = 10,triggered = Event(),
                  triggerSource = 'Line1',
                  triggerMode = 'LevelHigh'):
         super(AVTCam,self).__init__()
@@ -257,7 +257,7 @@ class AVTCam(GenericCam):
                                     lastframeid = frameID
                             buf[:,:] = frame[:,:]
                         except VimbaException as err:
-                            #display('VimbaException: ' +  str(err))
+                            display('VimbaException: ' +  str(err))
                             continue
                 
                 cam.runFeatureCommand('AcquisitionStop')
