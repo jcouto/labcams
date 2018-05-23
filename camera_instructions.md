@@ -34,7 +34,7 @@ The LM7805 is used instead of a voltage divider because it will still supply 5V 
 ##### PCB design
 
 * There is an indicating LED for each connection Cam-Due.
-* The 1k Resistors (U3 and U4) are the pull up/down resistors for the camera outputs, and can be connected either to 5V or GND, depending on the camera.
+* The 1k Resistors (U3 and U4) are the pull up/down resistors for the camera outputs, and can be connected either to 5V (GC) or GND (Mako).
 * Some pins are doubled (e.g. 12V, GND) to allow a mechanically stable juxtaposition of several trigger boxes.
 This allows several boards to share the same power supply and the same trigger source.
 * The LM7805 is placed in a way that allows it to be bent forward or backward.
