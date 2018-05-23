@@ -43,20 +43,15 @@ This allows several boards to share the same power supply and the same trigger s
 
 ##### Connections for the GC camera
 
-We are using the first 5 pins of the camera.
+We are only using the first 5 pins of the camera.
 
-* In1 (camera) on IN (board).
-* Out1 on OUT1.
-* Camera Power on PWR 12V.
-* Camera GND and Isolated IO GND on GND.
-
-Camera Signal|Wire Color
------------- | ---------
-Camera GND|Blue
-Camera Power|Red
-In 1| Pink
-Out 1|Gray
-Isolated IO GND|Yellow
+Camera Signal|Wire Color|Trigger box pin
+------------ | -------- | --------------
+Camera GND|Blue|GND
+Camera Power|Red|PWR 12V
+In 1| Pink|IN
+Out 1|Gray|OUT1
+Isolated IO GND|Yellow|GND
 
 GC Hirose HR10A-10R-12PB connector [Complete table](images/gc_conn.png)
  
@@ -64,22 +59,15 @@ GC Hirose HR10A-10R-12PB connector [Complete table](images/gc_conn.png)
 
 We are using 7 pins of the camera (all except Out3).
 
-* In1 (camera) on IN (board).
-* Out1 on OUT1.
-* Out2 on OUT2.
-* Isolated Out Power on USER PWR 5V.
-* Camera Power on PWR 12V.
-* Camera GND and Isolated IN GND on GND.
-
-Camera Signal|Wire Color
------------- | ---------
-Out 1|Yellow dot Red
-Out 2|Yellow dot Black
-In 1|Grey dot Black
-Isolated In GND|Pink dot Black
-Isolated Out Power|Pink dot Red
-Camera power|Orange dot Black
-Camera GND|Orange dot Red
+Camera Signal|Wire Color|Trigger box pin
+------------ | -------- | --------
+Out 1|Yellow dot Red|OUT1
+Out 2|Yellow dot Black|OUT2
+In 1|Grey dot Black|IN
+Isolated In GND|Pink dot Black|GND
+Isolated Out Power|Pink dot Red|USER PWR 5V
+Camera power|Orange dot Black|PWR 12V
+Camera GND|Orange dot Red|GND
 
 
 Mako Hirose HR25-7TR-8PA(73) connector [Complete table](images/mako_conn.png)
