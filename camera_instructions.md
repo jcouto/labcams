@@ -39,7 +39,7 @@ The LM7805 is used instead of a voltage divider because it will still supply 5V 
 This allows several boards to share the same power supply and the same trigger source.
 * The LM7805 is placed in a way that allows it to be bent forward or backward.
 
-<img src="images/trigger_box_avt.png" style="width: 300px;"/>
+![picture](images/trigger_box_avt.png)
 
 ##### Connections for the GC camera
 
@@ -49,7 +49,16 @@ We are using the first 5 pins of the camera.
 * Camera Power on PWR 12V.
 * Camera GND and Isolated IO GND on GND.
 
-![picture](images/gc_conn.png = 500x)
+GC Hirose HR10A-10R-12PB connector
+-------
+Signal|Color
+Camera GND|Blue
+Camera Power|Red
+In 1| Pink
+Out 1|Gray
+Isolated IO GND|Yellow
+
+[Complete table](images/gc_conn.png)
  
 ##### Connections for the Mako
 
@@ -61,4 +70,16 @@ We are using 7 pins of the camera (all except Out3).
 * Camera Power on PWR 12V.
 * Camera GND and Isolated IN GND on GND.
 
-![picture](images/mako_conn.png = 500x)
+Mako Hirose HR25-7TR-8PA(73) connector
+-------
+Signal|Color
+Out 1|Yellow dot Red
+Out 2|Yellow dot Black
+In 1|Grey dot Black
+Isolated In GND|Pink dot Black
+Isolated Out Power|Pink dot Red
+Camera power|Orange dot Black
+Camera GND|Orange dot Red
+
+
+[Complete table](images/mako_conn.png)
