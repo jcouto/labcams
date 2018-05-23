@@ -27,7 +27,7 @@ Only 2 outputs are used: the GC can only use 1, and while the Mako can use up to
 
 The two main components of the board are the 74HCT14 (Hex Inverter with Schmitt trigger) and the LM7805 (Voltage regulator which outputs 5V).
 We only want the Hex Inverter to put the signals to 5V, without inverting, so we invert the signals twice.
-The LM7805 is used instead of a voltage divider because it will still supply 5V with a 24V input (it will overheat), allowing a potentially connected Due to survive.
+The LM7805 is used instead of a voltage divider because it will still supply 5V with a 24V input (it will overheat), allowing a potentially connected Arduino board to survive.
 
 ![picture](images/trigger_box_schematic.svg)
 
