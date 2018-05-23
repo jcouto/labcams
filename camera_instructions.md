@@ -25,6 +25,7 @@ We designed a triggering box to power cameras; record the triggers and to be abl
 ####Info
 
 Schematics and PCB were done on KiCad. [Design files](pcb/)
+PCB printing was outsourced to [Eurocircuits](www.eurocircuits.com).
 
 #### Circuit diagram
 
