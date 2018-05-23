@@ -12,13 +12,19 @@ Installing drivers and connecting cameras:
 * Jumbo packets
 * Cable connections and diagram 
      general (camera, computer,ethernet,triggering box)
+Connect the Ethernet cable to your computer.
+Typically, Vimba Viewer recognizes the camera, but you can not record.
+If this is the case then you have to change your IP address. 
+On Windows: Control Panel -> Network & Internet -> Network connections -> right-click Ethernet -> Properties -> Networking: Select IPv4 -> Properties -> Use the following IP address. Then change it to a value close to the one of the camera (accessible in the Vimba Viewer in the “information” tab on the right). In my case I used 168.254.100.0 for the IP address and 255.255.0.0 for the subnet mask.
+
+
 
 ### Triggering box for AVT cameras
 We designed a triggering box to power cameras; record the triggers and to be able to trigger AVT cameras with TTL signals.
 
 ####Info
 
-Schematics and PCB were done on KiCad.
+Schematics and PCB were done on KiCad. [Design files](pcb/)
 
 #### Circuit diagram
 
