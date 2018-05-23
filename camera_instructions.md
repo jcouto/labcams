@@ -38,6 +38,7 @@ The LM7805 is used instead of a voltage divider because it will still supply 5V 
 * Some pins are doubled (e.g. 12V, GND) to allow a mechanically stable juxtaposition of several trigger boxes.
 This allows several boards to share the same power supply and the same trigger source.
 * The LM7805 is placed in a way that allows it to be bent forward or backward.
+* The two big holes have an M6 diameter.
 
 ![picture](images/trigger_box_avt.png)
 
