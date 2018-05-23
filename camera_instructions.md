@@ -49,16 +49,15 @@ We are using the first 5 pins of the camera.
 * Camera Power on PWR 12V.
 * Camera GND and Isolated IO GND on GND.
 
-GC Hirose HR10A-10R-12PB connector
--------
-Signal|Color
+Camera Signal|Wire Color
+------------ | ---------
 Camera GND|Blue
 Camera Power|Red
 In 1| Pink
 Out 1|Gray
 Isolated IO GND|Yellow
 
-[Complete table](images/gc_conn.png)
+GC Hirose HR10A-10R-12PB connector [Complete table](images/gc_conn.png)
  
 ##### Connections for the Mako
 
@@ -70,9 +69,8 @@ We are using 7 pins of the camera (all except Out3).
 * Camera Power on PWR 12V.
 * Camera GND and Isolated IN GND on GND.
 
-Mako Hirose HR25-7TR-8PA(73) connector
--------
-Signal|Color
+Camera Signal|Wire Color
+------------ | ---------
 Out 1|Yellow dot Red
 Out 2|Yellow dot Black
 In 1|Grey dot Black
@@ -82,4 +80,4 @@ Camera power|Orange dot Black
 Camera GND|Orange dot Red
 
 
-[Complete table](images/mako_conn.png)
+Mako Hirose HR25-7TR-8PA(73) connector [Complete table](images/mako_conn.png)
