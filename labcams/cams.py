@@ -32,7 +32,6 @@ class GenericCam(Process):
             self.frame = Array(ctypes.c_ushort,np.zeros([self.h,self.w],dtype = dtype).flatten())
     def stop_acquisition(self):
         self.stopTrigger.set()
-        time.sleep(0.5)
 
     def stop(self):
         self.closeEvent.set()
@@ -169,46 +168,46 @@ class AVTCam(GenericCam):
                 if system.GeVTLIsPresent:
                     system.runFeatureCommand("GeVDiscoveryAllOnce")
                 time.sleep(0.2)
-                if not self.cameraReady.is_set():
-                    # prepare camera
-                    cam = vimba.getCamera(self.camId)
-                    cam.openCamera()
-#                    cam.EventSelector = 'FrameTrigger'
-                    cam.EventNotification = 'On'
-                    cam.PixelFormat = 'Mono8'
-                    cameraFeatureNames = cam.getFeatureNames()
-                    #display('\n'.join(cameraFeatureNames))
-                    cam.AcquisitionMode = 'Continuous'
-                    cam.AcquisitionFrameRateAbs = self.frameRate
-                    cam.ExposureTimeAbs =  self.exposure
-                    cam.GainRaw = self.gain
-                    cam.SyncOutSelector = 'SyncOut1'
-                    cam.SyncOutSource = 'FrameReadout'#'Exposing'
-                    if self.triggered.is_set():
-                        cam.TriggerSource = self.triggerSource#'Line1'#self.triggerSource
-                        cam.TriggerMode = 'On'
-                        cam.TriggerOverlap = 'Off'
-                        cam.TriggerActivation = self.triggerMode #'LevelHigh'##'RisingEdge'
-                        cam.TriggerSelector = 'FrameStart'
-                    else:
-                        cam.TriggerSource = 'FixedRate'
-                        cam.TriggerMode = 'Off'
-                        cam.TriggerSelector = 'FrameStart'
-                    # create new frames for the camera
-                    frames = []
-                    for i in range(self.nbuffers):
-                        frames.append(cam.getFrame())    # creates a frame
-                        frames[i].announceFrame()
-                    cam.startCapture()
-                    for f,ff in enumerate(frames):
-                        try:
-                            ff.queueFrameCapture()
-                        except:
-                            #display('Queue frame error while getting cam ready: '+ str(f))
-                            continue                    
-                    self.cameraReady.set()
-                    self.nframes.value = 0
+                # prepare camera
+                cam = vimba.getCamera(self.camId)
+                cam.openCamera()
+                #                    cam.EventSelector = 'FrameTrigger'
+                cam.EventNotification = 'On'
+                cam.PixelFormat = 'Mono8'
+                cameraFeatureNames = cam.getFeatureNames()
+                #display('\n'.join(cameraFeatureNames))
+                cam.AcquisitionMode = 'Continuous'
+                cam.AcquisitionFrameRateAbs = self.frameRate
+                cam.ExposureTimeAbs =  self.exposure
+                cam.GainRaw = self.gain
+                cam.SyncOutSelector = 'SyncOut1'
+                cam.SyncOutSource = 'FrameReadout'#'Exposing'
+                if self.triggered.is_set():
+                    cam.TriggerSource = self.triggerSource#'Line1'#self.triggerSource
+                    cam.TriggerMode = 'On'
+                    cam.TriggerOverlap = 'Off'
+                    cam.TriggerActivation = self.triggerMode #'LevelHigh'##'RisingEdge'
+                    cam.TriggerSelector = 'FrameStart'
+                else:
+                    cam.TriggerSource = 'FixedRate'
+                    cam.TriggerMode = 'Off'
+                    cam.TriggerSelector = 'FrameStart'
+                # create new frames for the camera
+                frames = []
+                for i in range(self.nbuffers):
+                    frames.append(cam.getFrame())    # creates a frame
+                    frames[i].announceFrame()
+                cam.startCapture()
+                for f,ff in enumerate(frames):
+                    try:
+                        ff.queueFrameCapture()
+                    except:
+                        #display('Queue frame error while getting cam ready: '+ str(f))
+                        continue                    
+                self.cameraReady.set()
+                self.nframes.value = 0
                 # Wait for trigger
+                display('Camera waiting for software trigger.')
                 while not self.startTrigger.is_set():
                     # limits resolution to 1 ms 
                     time.sleep(0.001)
@@ -248,7 +247,7 @@ class AVTCam(GenericCam):
                             try:
                                 f.queueFrameCapture()
                             except:
-                                #display('Queue frame failed: '+ str(f) + 'Stopping!')
+                                display('Queue frame failed: '+ str(f))
                                 continue
                             self.nframes.value += 1
                             if self.saving.is_set():
@@ -299,7 +298,7 @@ class AVTCam(GenericCam):
                 self.cameraReady.clear()
                 self.startTrigger.clear()
                 self.stopTrigger.clear()
-                time.sleep(1)
+                time.sleep(1.)
                 display('Close event: {0}'.format(self.closeEvent.is_set()))
 
 # QImaging cameras

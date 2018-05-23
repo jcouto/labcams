@@ -205,6 +205,7 @@ class LabCamsGUI(QMainWindow):
             self.triggerCams(save = True)
 
     def triggerCams(self,save=False):
+        display('Trigger cams pressed with save:{0}'.format(save))
         if save:
             for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
                 if not writer is None:
@@ -215,6 +216,12 @@ class LabCamsGUI(QMainWindow):
                 if not writer is None:
                     cam.saving.clear()
                     writer.write.clear()
+        time.sleep(2)
+        display("Starting software trigger for all cammeras.")
+        for c,cam in enumerate(self.cams):
+            while not cam.cameraReady.is_set():
+                time.sleep(0.1)
+            display('Camera {{0}} ready.'.format(c))
         for c,cam in enumerate(self.cams):
             cam.startTrigger.set()
         display('Triggered cameras.')
@@ -332,15 +339,17 @@ class RecordingControlWidget(QWidget):
         self.setLayout(form)
 
     def toggleTriggered(self,value):
-        
+        display('Toggle trigger mode pressed [{0}]'.format(value))
         if value:
             self.parent.triggered.set()
         else:
-            self.toggleSaveOnStart(False)
+            #self.toggleSaveOnStart(False)
+            # save button does not get unticked (this is a bug)
+            self.parent.saveOnStart = False
             self.parent.triggered.clear()
         for cam in self.parent.cams:
             cam.stop_acquisition()
-        time.sleep(1)
+        time.sleep(.5)
         self.parent.triggerCams(save = self.parent.saveOnStart)
         
     def saveImageFromCamera(self):
@@ -364,10 +373,11 @@ class RecordingControlWidget(QWidget):
         self.parent.setExperimentName(str(name))
 
     def toggleSaveOnStart(self,state):
+        display('Toggled ManualSave [{0}]'.format(state))
         self.parent.saveOnStart = state
-        display('Save: {0}'.format(state))
         for cam in self.parent.cams:
             cam.stop_acquisition()
+        time.sleep(.5) 
         self.parent.triggerCams(save = state)
         
 class CamWidget(QWidget):
