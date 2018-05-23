@@ -39,7 +39,7 @@ The LM7805 is used instead of a voltage divider because it will still supply 5V 
 This allows several boards to share the same power supply and the same trigger source.
 * The LM7805 is placed in a way that allows it to be bent forward or backward.
 
-![picture](images/trigger_box_avt.png = 300x)
+<img src="images/trigger_box_avt.png" style="width: 300px;"/>
 
 ##### Connections for the GC camera
 
