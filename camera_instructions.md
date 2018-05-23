@@ -44,6 +44,7 @@ This allows several boards to share the same power supply and the same trigger s
 ##### Connections for the GC camera
 
 We are using the first 5 pins of the camera.
+
 * In1 (camera) on IN (board).
 * Out1 on OUT1.
 * Camera Power on PWR 12V.
@@ -62,6 +63,7 @@ GC Hirose HR10A-10R-12PB connector [Complete table](images/gc_conn.png)
 ##### Connections for the Mako
 
 We are using 7 pins of the camera (all except Out3).
+
 * In1 (camera) on IN (board).
 * Out1 on OUT1.
 * Out2 on OUT2.
