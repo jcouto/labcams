@@ -54,7 +54,8 @@ class DummyCam(GenericCam):
         while not self.closeEvent.is_set(): 
             # Acquire a frame and place in queue
             #display('running dummy cam {0}'.format(self.nframes.value))
-            frame = (np.ones([self.h,self.w],dtype = np.uint8)*np.mod(self.nframes.value,128)).astype(ctypes.c_ubyte)
+            frame = (np.ones([self.h,self.w],
+                             dtype = np.uint8)*np.mod(self.nframes.value,128)).astype(ctypes.c_ubyte)
             buf[:,:] = frame[:,:]
             self.nframes.value += 1
             time.sleep(1./30)
@@ -90,7 +91,7 @@ def AVT_get_ids():
 class AVTCam(GenericCam):
     def __init__(self, camId = None, outQ = None,exposure = 29000,
                  frameRate = 30., gain = 10,frameTimeout = 100,
-                 nFrameBuffers = 10,triggered = Event(),
+                 nFrameBuffers = 3,triggered = Event(),
                  triggerSource = 'Line1',
                  triggerMode = 'LevelHigh'):
         super(AVTCam,self).__init__()
@@ -156,13 +157,14 @@ class AVTCam(GenericCam):
         if self.triggered.is_set():
             display('Triggered mode ON.')
             self.triggerSource = triggerSource
-
+    
     def run(self):
         buf = np.frombuffer(self.frame.get_obj(),
                             dtype = np.uint8).reshape([self.h,self.w])
         self.closeEvent.clear()
         while not self.closeEvent.is_set():
             self.nframes.value = 0
+            recorded_frames = []
             with Vimba() as vimba:
                 system = vimba.getSystem()
                 if system.GeVTLIsPresent:
@@ -227,23 +229,25 @@ class AVTCam(GenericCam):
                 if self.triggered.is_set():
                     cam.TriggerMode = 'On'
                     cam.TriggerSelector = 'FrameStart'
-                tstart = time.time()
+                #tstart = time.time()
                 display('Started acquisition.')
                 lastframeid = -1
                 while not self.stopTrigger.is_set():
                     # run and acquire frames
                     for f in frames:
-                        try:
-                            f.waitFrameCapture(timeout = self.frameTimeout)
+                        avterr = f.waitFrameCapture(timeout = self.frameTimeout)
+                        if avterr == 0:
                             timestamp = f._frame.timestamp
                             frameID = f._frame.frameID
-                            frame = np.ndarray(buffer = f.getBufferByteData(),
-                                               dtype = np.uint8,
-                                               shape = (f.height,
-                                                        f.width)).copy()
-                            newframe = frame.copy()
-                            #display("Time {0} - {1}:".format(str(1./(time.time()-tstart)),self.nframes.value))
-                            tstart = time.time()
+                            if not frameID in recorded_frames:
+                                recorded_frames.append(frameID)
+                                frame = np.ndarray(buffer = f.getBufferByteData(),
+                                                   dtype = np.uint8,
+                                                   shape = (f.height,
+                                                            f.width)).copy()
+                                newframe = frame.copy()
+                                #display("Time {0} - {1}:".format(str(1./(time.time()-tstart)),self.nframes.value))
+                                #tstart = time.time()
                             try:
                                 f.queueFrameCapture()
                             except:
@@ -255,9 +259,10 @@ class AVTCam(GenericCam):
                                     self.queue.put((frame.copy(),(frameID,timestamp)))
                                     lastframeid = frameID
                             buf[:,:] = frame[:,:]
-                        except VimbaException as err:
-                            display('VimbaException: ' +  str(err))
-                            continue
+                        elif avterr == -12:
+                            display('VimbaException: ' +  str(avterr))        
+                            break
+
                 
                 cam.runFeatureCommand('AcquisitionStop')
                 display('Stopped acquisition.')
@@ -420,7 +425,7 @@ class QImagingCam(GenericCam):
                 del cam
                 break
             queue.start()
-            tstart = time.time()
+            #tstart = time.time()
             display('Started acquisition.')
 
             while not self.stopTrigger.is_set():
@@ -436,7 +441,7 @@ class QImagingCam(GenericCam):
                                             self.h)).copy()
                     
                 #display("Time {0} - {1}:".format(str(1./(time.time()-tstart)),self.nframes.value))
-                tstart = time.time()
+                #tstart = time.time()
                 timestamp = f.timeStamp
                 frameID = f.frameNumber
                 if self.saving.is_set():
