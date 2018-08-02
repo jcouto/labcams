@@ -147,6 +147,7 @@ def triggeredTrials(camdata,
             dF = camdata[ii-wpre:ii+wpost:1,:,:].astype(np.float32)
             if do_df_f:
                 F = np.mean(dF[:wpre],axis = 0)
+#                F = np.min(dF[:wpre],axis = 0)
                 stimavg[i] = (dF - F)/F
             else:
                 stimavg[i] = dF
@@ -178,7 +179,8 @@ def triggeredAverage(camdata,
             ii = np.where(camtime < time)[0][-1]
             dF = camdata[ii-wpre:ii+wpost:1,:,:].astype(np.float32)
             if do_df_f:
-                F = np.mean(dF[:wpre],axis = 0)
+#                F = np.mean(dF[:wpre],axis = 0)
+                F = np.min(dF[:wpre],axis = 0)
                 stimavg += (dF - F)/F
             else:
                 stimavg += dF

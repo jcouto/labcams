@@ -513,8 +513,8 @@ def main():
         sys.exit(app.exec_())
     else:
         app = QApplication(sys.argv)
-        fname = str(QFileDialog.getExistingDirectory(None,"Select Directory of the run to process",
-                                                     parameters['datapaths']['dataserverpaths'][0]))
+        fname = os.path.abspath(str(QFileDialog.getExistingDirectory(None,"Select Directory of the run to process",
+                                                     parameters['datapaths']['dataserverpaths'][0])))
         from .utils import cameraTimesFromVStimLog,findVStimLog
         from .io import parseCamLog,TiffStack
         from tqdm import tqdm
@@ -529,6 +529,8 @@ def main():
         camlogfile = glob(pjoin(fname,'*'+camlogext))
         if not len(camlogfile):
             print('Camera logfile not found in: {0}'.format(fname))
+            import ipdb
+            ipdb.set_trace()
             sys.exit()
         else:
             camlogfile = camlogfile[0]
