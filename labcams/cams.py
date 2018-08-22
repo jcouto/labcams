@@ -260,7 +260,7 @@ class AVTCam(GenericCam):
                                     lastframeid = frameID
                             buf[:,:] = frame[:,:]
                         elif avterr == -12:
-                            display('VimbaException: ' +  str(avterr))        
+                            #display('VimbaException: ' +  str(avterr))        
                             break
 
                 

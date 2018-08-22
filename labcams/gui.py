@@ -556,7 +556,10 @@ def main():
                 print('Handling loops for stim {0}.'.format(iStim))
                 idx = np.where(stimavgs[iStim][:,0,0] > np.min(stimavgs[iStim][:,0,0]))[0]
                 looplen = int(np.ceil(np.shape(stimavgs[iStim][idx])[0]/nloops))
-                single_loop = np.zeros([looplen,*stimavgs[iStim].shape[1:]],dtype = np.float32)
+                single_loop = np.zeros([looplen,
+                                        stimavgs[iStim].shape[1],
+                                        stimavgs[iStim].shape[2]],
+                                       dtype = np.float32)
                 for nloop in range(nloops):
                     single_loop += stimavgs[iStim][
                         idx[0] + nloop*looplen : idx[0] + (nloop+1)*looplen,:,:]
