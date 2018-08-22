@@ -522,8 +522,9 @@ def main():
         from glob import glob
         import os
         from os.path import join as pjoin
-        from pyvstim import parseVStimLog as parseVStimLog,getStimuliTimesFromLog
-        fname = pjoin(*fname.split("/"))
+        from pyvstim import parseVStimLog as parseVStimLog,parseProtocolFile,getStimuliTimesFromLog
+        if not "linux" in sys.platform:
+            fname = pjoin(*fname.split("/"))
         expname = fname.split(os.path.sep)[-2:]
         camlogext = '.camlog'
         camlogfile = glob(pjoin(fname,'*'+camlogext))
@@ -537,13 +538,30 @@ def main():
         camlog = parseCamLog(camlogfile)[0]
         logfile = findVStimLog(expname)
         plog,pcomms = parseVStimLog(logfile)
+        protopts,prot = parseProtocolFile(logfile.replace('.log','.prot'))
         camidx = 3
         camlog = cameraTimesFromVStimLog(camlog,plog,camidx = camidx)
         camdata = TiffStack(fname)
         (stimtimes,stimpars,stimoptions) = getStimuliTimesFromLog(logfile,plog)
         camtime = np.array(camlog['duinotime']/1000.)
         stimavgs = triggeredAverage(camdata,camtime,stimtimes)
-
+        # remove loops if there
+        for iStim in range(len(stimavgs)):
+            nloops = 0
+            for p in prot.iloc[iStim]:
+                if isinstance(p, str):
+                    if 'loop' in p:
+                        nloops = int(p.strip(')').split(',')[-1])
+            if nloops > 0:
+                print('Handling loops for stim {0}.'.format(iStim))
+                idx = np.where(stimavgs[iStim][:,0,0] > np.min(stimavgs[iStim][:,0,0]))[0]
+                looplen = int(np.ceil(np.shape(stimavgs[iStim][idx])[0]/nloops))
+                single_loop = np.zeros([looplen,*stimavgs[iStim].shape[1:]],dtype = np.float32)
+                for nloop in range(nloops):
+                    single_loop += stimavgs[iStim][
+                        idx[0] + nloop*looplen : idx[0] + (nloop+1)*looplen,:,:]
+                single_loop /= float(nloops)
+                stimavgs[iStim] = single_loop
         for iStim,savg in enumerate(stimavgs):
             fname = pjoin(parameters['datapaths']['dataserverpaths'][0],
                           parameters['datapaths']['analysispaths'],
