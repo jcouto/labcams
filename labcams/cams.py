@@ -93,7 +93,10 @@ class AVTCam(GenericCam):
                  frameRate = 30., gain = 10,frameTimeout = 100,
                  nFrameBuffers = 3,triggered = Event(),
                  triggerSource = 'Line1',
-                 triggerMode = 'LevelHigh'):
+                 triggerMode = 'LevelHigh',
+                 triggerSelector = 'FrameStart',
+                 acquisitionMode = 'Continuous',
+                 nTriggeredFrames = 1000):
         super(AVTCam,self).__init__()
         self.h = None
         self.w = None
@@ -110,6 +113,10 @@ class AVTCam(GenericCam):
         self.gain = gain
         self.frameTimeout = frameTimeout
         self.triggerSource = triggerSource
+        self.triggerSelector = triggerSelector
+        print(triggerSelector)
+        self.acquisitionMode = acquisitionMode
+        self.nTriggeredFrames = nTriggeredFrames 
         self.nbuffers = nFrameBuffers
         self.queue = outQ
         self.dtype = np.uint8
@@ -173,12 +180,11 @@ class AVTCam(GenericCam):
                 # prepare camera
                 cam = vimba.getCamera(self.camId)
                 cam.openCamera()
-                #                    cam.EventSelector = 'FrameTrigger'
+                # cam.EventSelector = 'FrameTrigger'
                 cam.EventNotification = 'On'
                 cam.PixelFormat = 'Mono8'
                 cameraFeatureNames = cam.getFeatureNames()
                 #display('\n'.join(cameraFeatureNames))
-                cam.AcquisitionMode = 'Continuous'
                 cam.AcquisitionFrameRateAbs = self.frameRate
                 cam.ExposureTimeAbs =  self.exposure
                 cam.GainRaw = self.gain
@@ -187,10 +193,16 @@ class AVTCam(GenericCam):
                 if self.triggered.is_set():
                     cam.TriggerSource = self.triggerSource#'Line1'#self.triggerSource
                     cam.TriggerMode = 'On'
-                    cam.TriggerOverlap = 'Off'
+                    #cam.TriggerOverlap = 'Off'
                     cam.TriggerActivation = self.triggerMode #'LevelHigh'##'RisingEdge'
-                    cam.TriggerSelector = 'FrameStart'
+                    cam.AcquisitionMode = self.acquisitionMode
+                    cam.TriggerSelector = self.triggerSelector
+                    if self.acquisitionMode == 'MultiFrame':
+                        cam.AcquisitionFrameCount = self.nTriggeredFrames
+                        cam.TriggerActivation = self.triggerMode #'LevelHigh'##'RisingEdge'
                 else:
+                    print('Using no trigger.')
+                    cam.AcquisitionMode = 'Continuous'
                     cam.TriggerSource = 'FixedRate'
                     cam.TriggerMode = 'Off'
                     cam.TriggerSelector = 'FrameStart'
@@ -227,14 +239,16 @@ class AVTCam(GenericCam):
                 cam.runFeatureCommand("GevTimestampControlReset")
                 cam.runFeatureCommand('AcquisitionStart')
                 if self.triggered.is_set():
+                    cam.TriggerSelector = self.triggerSelector
                     cam.TriggerMode = 'On'
-                    cam.TriggerSelector = 'FrameStart'
+                    print(cam.TriggerSelector)
+                    print(self.triggerSelector)
                 #tstart = time.time()
                 display('Started acquisition.')
-                lastframeid = -1
+                lastframeid = [-1 for i in frames]
                 while not self.stopTrigger.is_set():
                     # run and acquire frames
-                    for f in frames:
+                    for ibuf,f in enumerate(frames):
                         avterr = f.waitFrameCapture(timeout = self.frameTimeout)
                         if avterr == 0:
                             timestamp = f._frame.timestamp
@@ -255,9 +269,9 @@ class AVTCam(GenericCam):
                                 continue
                             self.nframes.value += 1
                             if self.saving.is_set():
-                                if lastframeid != frameID:
+                                if not frameID in lastframeid :
                                     self.queue.put((frame.copy(),(frameID,timestamp)))
-                                    lastframeid = frameID
+                                    lastframeid[ibuf] = frameID
                             buf[:,:] = frame[:,:]
                         elif avterr == -12:
                             #display('VimbaException: ' +  str(avterr))        
@@ -267,7 +281,7 @@ class AVTCam(GenericCam):
                 cam.runFeatureCommand('AcquisitionStop')
                 display('Stopped acquisition.')
                 # Check if all frames are done...
-                for f in frames:
+                for ibuf,f in enumerate(frames):
                     try:
                         f.waitFrameCapture(timeout = 100)
                         timestamp = f._frame.timestamp
@@ -278,9 +292,9 @@ class AVTCam(GenericCam):
                                                     f.width)).copy()
                         #f.queueFrameCapture()
                         if self.saving.is_set():
-                            if lastframeid != frameID:
+                            if not frameID in lastframeid :
                                 self.queue.put((frame.copy(),(frameID,timestamp)))
-                                lastframeid = frameID
+                                lastframeid[ibuf] = frameID
                         self.nframes.value += 1
                         self.frame = frame
                     except VimbaException as err:

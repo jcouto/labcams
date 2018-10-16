@@ -99,11 +99,8 @@ class TiffWriter(Process):
             while self.write.is_set():
                 if not self.inQ.empty():
                     buff = self.inQ.get()
-                    try:
-                        frame,(frameid,timestamp,) = buff
-                    except:
-                        display(buff)
-                        continue
+                    frame,(frameid,timestamp,) = buff
+                    
                     if np.mod(self.frameCount.value,self.framesPerFile)==0:
                         self.openFile()
                         display('Queue size: {0}'.format(self.inQ.qsize()))
@@ -122,11 +119,7 @@ class TiffWriter(Process):
             if not self.inQ.empty():
                 while not self.inQ.empty():
                     buff = self.inQ.get()
-                    try:
-                        frame,(frameid,timestamp,) = buff
-                    except:
-                        display(buff)
-                        continue
+                    frame,(frameid,timestamp,) = buff
                     if np.mod(self.frameCount.value,self.framesPerFile)==0:
                         self.openFile()
                     self.fd.save(frame,compress=self.compression,
