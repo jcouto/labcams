@@ -195,6 +195,7 @@ class LabCamsGUI(QMainWindow):
         self.zmqTimer.timeout.connect(self.zmqActions)
         self.zmqTimer.start(500)
         self.triggerCams(save=self.saveOnStart)
+
     def setExperimentName(self,expname):
         for writer in self.writers:
             if not writer is None:
@@ -211,9 +212,14 @@ class LabCamsGUI(QMainWindow):
         if message['action'] == 'expName':
             self.setExperimentName(message['value'])
         elif message['action'] == 'trigger':
+            for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
+                if not writer is None:
+                    cam.saving.clear()
+                    writer.write.clear()
+            # stop previous saves if there were any
             for cam in self.cams:
                 cam.stop_acquisition()
-            time.sleep(1)
+            time.sleep(2)
             self.triggerCams(save = True)
 
     def triggerCams(self,save=False):
@@ -228,7 +234,7 @@ class LabCamsGUI(QMainWindow):
                 if not writer is None:
                     cam.saving.clear()
                     writer.write.clear()
-        time.sleep(2)
+        #time.sleep(2)
         display("Starting software trigger for all cammeras.")
         for c,cam in enumerate(self.cams):
             while not cam.cameraReady.is_set():
@@ -236,7 +242,7 @@ class LabCamsGUI(QMainWindow):
             display('Camera {{0}} ready.'.format(c))
         for c,cam in enumerate(self.cams):
             cam.startTrigger.set()
-        display('Triggered cameras.')
+        display('Software triggered cameras.')
         
     def experimentMenuTrigger(self,q):
         display(q.text()+ "clicked. ")
@@ -255,6 +261,8 @@ class LabCamsGUI(QMainWindow):
             layout = QVBoxLayout()
             self.camwidgets.append(CamWidget(frame = np.zeros((cam.h,cam.w),
                                                               dtype=cam.dtype),
+                                             iCam = c,
+                                             parent = self,
                                              parameters = self.cam_descriptions[c]))
             self.tabs[-1].setWidget(self.camwidgets[-1])
             self.tabs[-1].setFloating(False)
@@ -340,14 +348,6 @@ class RecordingControlWidget(QWidget):
         self.saveOnStartToggle.setChecked(self.parent.saveOnStart)
         self.saveOnStartToggle.stateChanged.connect(self.toggleSaveOnStart)
         form.addRow(QLabel("Manual save: "),self.saveOnStartToggle)
-        self.cameraSelector = QComboBox()
-        for i,c in enumerate(self.parent.cams):
-            self.cameraSelector.insertItem(i,'Camera {0}'.format(i))
-            
-        self.saveImageButton = QPushButton('Save image')
-        form.addRow(self.cameraSelector,self.saveImageButton)
-        self.saveImageButton.clicked.connect(self.saveImageFromCamera)
-        
         self.setLayout(form)
 
     def toggleTriggered(self,value):
@@ -357,45 +357,38 @@ class RecordingControlWidget(QWidget):
         else:
             #self.toggleSaveOnStart(False)
             # save button does not get unticked (this is a bug)
-            self.parent.saveOnStart = False
+            self.parent.saveOnStartToggle.value = False
             self.parent.triggered.clear()
         for cam in self.parent.cams:
             cam.stop_acquisition()
         time.sleep(.5)
         self.parent.triggerCams(save = self.parent.saveOnStart)
         
-    def saveImageFromCamera(self):
-        self.parent.timer.stop()
-        frame = self.parent.camframes[self.cameraSelector.currentIndex()]
-        filename = QFileDialog.getSaveFileName(self,
-                                               'Select filename to save.',
-                                               selectedFilter='*.tif')
-        if filename:
-            from tifffile import imsave
-            imsave(str(filename),
-                   frame,
-                   metadata = {
-                       'Camera':str(self.cameraSelector.currentIndex())})
-        else:
-            display('Aborted.')
-        self.parent.timer.start()
-        
     def setExpName(self):
         name = self.experimentNameEdit.text()
-        self.parent.setExperimentName(str(name))
+        if not self.parent.saveOnStartToggle.value:
+            self.parent.setExperimentName(str(name))
+        else:
+            print('Disable saving first!')
 
     def toggleSaveOnStart(self,state):
         display('Toggled ManualSave [{0}]'.format(state))
         self.parent.saveOnStart = state
-        for cam in self.parent.cams:
-            cam.stop_acquisition()
-        time.sleep(.5) 
+        print('Warning: The save button is no longer restarting the cameras.')
+        #for cam in self.parent.cams:
+        #    cam.stop_acquisition()
+        #time.sleep(.5) 
         self.parent.triggerCams(save = state)
         
 class CamWidget(QWidget):
-    def __init__(self,frame, parameters = None):
+    def __init__(self,frame, iCam = 0, parent = None, parameters = None):
         super(CamWidget,self).__init__()
+        self.parent = parent
+        self.iCam = iCam
         self.setContextMenuPolicy(Qt.ActionsContextMenu)
+        saveImg = QAction("Take camera shot",self)
+        saveImg.triggered.connect(self.saveImageFromCamera)
+        self.addAction(saveImg)
         toggleSubtract = QAction("Background subtraction",self)
         toggleSubtract.triggered.connect(self.toggleSubtract)
         self.addAction(toggleSubtract)
@@ -405,8 +398,6 @@ class CamWidget(QWidget):
         tEt = QAction('Eye tracker',self)
         tEt.triggered.connect(self.toggleEyeTracker)
         self.addAction(tEt)
-
-
         self.scene=QGraphicsScene(0,0,frame.shape[1],
                                   frame.shape[0],self)
         self.view = QGraphicsView(self.scene, self)
@@ -437,6 +428,26 @@ class CamWidget(QWidget):
         self.parameters['Equalize'] = not self.parameters['Equalize']
     def toggleEyeTracker(self):
         self.parameters['TrackEye'] = not self.parameters['TrackEye']
+
+    def saveImageFromCamera(self):
+        self.parent.timer.stop()
+        frame = self.parent.camframes[self.iCam]
+        filename = QFileDialog.getSaveFileName(self,
+                                               'Select filename to save.')
+        if type(filename) is tuple:
+            filename = filename[0]
+        if filename:
+            from tifffile import imsave
+            imsave(str(filename),
+                   frame,
+                   metadata = {
+                       'Camera':str(self.iCam)})
+            print('Saved camera frame for cam: {0}'.format(self.iCam))
+        else:
+            display('Aborted.')
+        self.parent.timer.start()
+        
+
 
     def image(self,image,nframe):
         if self.lastnFrame != nframe:

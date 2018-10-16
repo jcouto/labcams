@@ -81,6 +81,8 @@ def getPreferences(preffile = None):
 
     if not os.path.isfile(preffile):
         print('Creating preference file from defaults.')
+        if not os.path.isdir(preferencepath):
+            os.makedirs(preferencepath)
         with open(preffile, 'w') as outfile:
             json.dump(defaultPreferences, outfile, sort_keys = True, indent = 4)
             print('Saving default preferences to: ' + preffile)
