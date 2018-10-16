@@ -200,7 +200,7 @@ class LabCamsGUI(QMainWindow):
         for writer in self.writers:
             if not writer is None:
                 writer.setFilename(expname)
-        time.sleep(1)
+        time.sleep(0.5)
         self.recController.experimentNameEdit.setText(expname)
         
     def zmqActions(self):
@@ -219,7 +219,7 @@ class LabCamsGUI(QMainWindow):
             # stop previous saves if there were any
             for cam in self.cams:
                 cam.stop_acquisition()
-            time.sleep(2)
+            time.sleep(1.5)
             self.triggerCams(save = True)
 
     def triggerCams(self,save=False):
@@ -357,7 +357,9 @@ class RecordingControlWidget(QWidget):
         else:
             #self.toggleSaveOnStart(False)
             # save button does not get unticked (this is a bug)
-            self.parent.saveOnStartToggle.value = False
+            if self.saveOnStartToggle.isChecked():
+                self.saveOnStart = False
+                self.saveOnStartToggle.setCheckState(Qt.Unchecked)
             self.parent.triggered.clear()
         for cam in self.parent.cams:
             cam.stop_acquisition()
@@ -366,10 +368,10 @@ class RecordingControlWidget(QWidget):
         
     def setExpName(self):
         name = self.experimentNameEdit.text()
-        if not self.parent.saveOnStartToggle.value:
+        if not self.saveOnStartToggle.isChecked():
             self.parent.setExperimentName(str(name))
         else:
-            print('Disable saving first!')
+            print('[Critical message] Disable manual save to change the filename!')
 
     def toggleSaveOnStart(self,state):
         display('Toggled ManualSave [{0}]'.format(state))
