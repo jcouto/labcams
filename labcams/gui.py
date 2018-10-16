@@ -117,6 +117,14 @@ class LabCamsGUI(QMainWindow):
                     cam['TriggerSource'] = 'Line1'
                 if not 'TriggerMode' in cam.keys():
                     cam['TriggerMode'] = 'LevelHigh'
+                if not 'TriggerSelector' in cam.keys():
+                    cam['TriggerSelector'] = 'FrameStart'
+                    print('Using FrameStart for triggering.')
+                if not 'AcquisitionMode' in cam.keys():
+                    cam['AcquisitionMode'] = 'Continuous'
+                if not 'AcquisitionFrameCount' in cam.keys():
+                    cam['AcquisitionFrameCount'] = 1000
+                    
                 self.camQueues.append(Queue())
                 if cam['Save']:
                     self.writers.append(TiffWriter(inQ = self.camQueues[-1],
@@ -127,13 +135,17 @@ class LabCamsGUI(QMainWindow):
                                                    dataName = cam['description']))
                 else:
                     self.writers.append(None)
+                print(cam)
                 self.cams.append(AVTCam(camId=camids[0],
                                         outQ = self.camQueues[-1],
                                         frameRate=cam['frameRate'],
                                         gain=cam['gain'],
                                         triggered = self.triggered,
                                         triggerSource = cam['TriggerSource'],
-                                        triggerMode = cam['TriggerMode']))
+                                        triggerMode = cam['TriggerMode'],
+                                        triggerSelector = cam['TriggerSelector'],
+                                        acquisitionMode = cam['AcquisitionMode'],
+                                        nTriggeredFrames = cam['AcquisitionFrameCount']))
                 connected_avt_cams.append(camids[0])
             elif cam['driver'] == 'QImaging':
                 self.camQueues.append(Queue())
