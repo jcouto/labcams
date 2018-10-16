@@ -281,7 +281,7 @@ class AVTCam(GenericCam):
                 cam.runFeatureCommand('AcquisitionStop')
                 display('Stopped acquisition.')
                 # Check if all frames are done...
-                for ibuf,f in enumerate(frames):
+                for ibuf,f in enumerate(frames[::-1]):
                     try:
                         f.waitFrameCapture(timeout = 100)
                         timestamp = f._frame.timestamp
