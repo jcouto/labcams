@@ -197,6 +197,9 @@ class LabCamsGUI(QMainWindow):
         self.triggerCams(save=self.saveOnStart)
 
     def setExperimentName(self,expname):
+        # Makes sure that the experiment name has the right slashes.
+        if os.path.sep == '/':
+            expname = expname.replace('\\',os.path.sep)
         for writer in self.writers:
             if not writer is None:
                 writer.setFilename(expname)
