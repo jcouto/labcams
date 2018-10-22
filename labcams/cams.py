@@ -248,7 +248,9 @@ class AVTCam(GenericCam):
                 lastframeid = [-1 for i in frames]
                 while not self.stopTrigger.is_set():
                     # run and acquire frames
-                    for ibuf,f in enumerate(frames):
+                    sortedfids = np.argsort([f._frame.frameID for f in frames])
+                    for ibuf in sortedfids:
+                        f = frames[ibuf]
                         avterr = f.waitFrameCapture(timeout = self.frameTimeout)
                         if avterr == 0:
                             timestamp = f._frame.timestamp
@@ -281,7 +283,9 @@ class AVTCam(GenericCam):
                 cam.runFeatureCommand('AcquisitionStop')
                 display('Stopped acquisition.')
                 # Check if all frames are done...
-                for ibuf,f in enumerate(frames[::-1]):
+                sortedfids = np.argsort([f._frame.frameID for f in frames])
+                for ibuf in sortedfids:
+                    f = frames[ibuf]
                     try:
                         f.waitFrameCapture(timeout = 100)
                         timestamp = f._frame.timestamp
