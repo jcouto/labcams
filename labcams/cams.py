@@ -85,7 +85,8 @@ def AVT_get_ids():
             except:
                 camsModel.append('')
                 continue
-            camsModel.append(cam.DeviceModelName)
+            camsModel.append('{0} {1}'.format(cam.DeviceModelName,
+                                              cam.DevicePartNumber))
     return camsIds,camsModel
 
 class AVTCam(GenericCam):
