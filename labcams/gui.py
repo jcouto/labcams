@@ -107,12 +107,14 @@ class LabCamsGUI(QMainWindow):
             if not 'Save' in cam.keys():
                 cam['Save'] = True
             if cam['driver'] == 'AVT':
-                camids = [camid for (camid,name) in zip(avtids,avtnames) 
+                camids = [(camid,name) for (camid,name) in zip(avtids,avtnames) 
                           if cam['name'] in name]
                 camids = [camid for camid in camids
-                          if not camid in connected_avt_cams]
+                          if not camid[0] in connected_avt_cams]
                 if len(camids) == 0:
-                    display('Could not find: '+cam['name'])
+                    display('Could not find or already connected to: '+cam['name'])
+                    sys.exit()
+                cam['name'] = camids[0][1]
                 if not 'TriggerSource' in cam.keys():
                     cam['TriggerSource'] = 'Line1'
                 if not 'TriggerMode' in cam.keys():
@@ -135,8 +137,8 @@ class LabCamsGUI(QMainWindow):
                                                    dataName = cam['description']))
                 else:
                     self.writers.append(None)
-                print(cam)
-                self.cams.append(AVTCam(camId=camids[0],
+                
+                self.cams.append(AVTCam(camId=camids[0][0],
                                         outQ = self.camQueues[-1],
                                         frameRate=cam['frameRate'],
                                         gain=cam['gain'],
@@ -146,7 +148,7 @@ class LabCamsGUI(QMainWindow):
                                         triggerSelector = cam['TriggerSelector'],
                                         acquisitionMode = cam['AcquisitionMode'],
                                         nTriggeredFrames = cam['AcquisitionFrameCount']))
-                connected_avt_cams.append(camids[0])
+                connected_avt_cams.append(camids[0][0])
             elif cam['driver'] == 'QImaging':
                 self.camQueues.append(Queue())
                 if cam['Save']:
@@ -170,6 +172,11 @@ class LabCamsGUI(QMainWindow):
                                              triggered = self.triggered))
             else:
             	display('Unknown camera driver' + cam['driver'])
+            # Print parameteres
+            print('\n\t Camera: {0}'.format(cam['name']))
+            for k in np.sort(list(cam.keys())):
+                if not k == 'name':
+                    print('\t\t - {0} {1}'.format(k,cam[k]))
             if cam['Save']:
                 self.writers[-1].daemon = True
             self.cams[-1].daemon = True
