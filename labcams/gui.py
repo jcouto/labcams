@@ -299,14 +299,14 @@ class LabCamsGUI(QMainWindow):
         self.timer.start(self.updateFrequency)
         self.camframes = []
         for c,cam in enumerate(self.cams):
-        	if cam.dtype == np.uint8:
-        		self.camframes.append(np.frombuffer(
-                            cam.frame.get_obj(),
-                            dtype = ctypes.c_ubyte).reshape([cam.h,cam.w]))
-        	else:
-        		self.camframes.append(np.frombuffer(
-                            cam.frame.get_obj(),
-                            dtype = ctypes.c_ushort).reshape([cam.h,cam.w]))
+            if cam.dtype == np.uint8:
+        	self.camframes.append(np.frombuffer(
+                    cam.frame.get_obj(),
+                    dtype = ctypes.c_ubyte).reshape([cam.h,cam.w]))
+            else:
+        	self.camframes.append(np.frombuffer(
+                    cam.frame.get_obj(),
+                    dtype = ctypes.c_ushort).reshape([cam.h,cam.w]))
         self.move(0, 0)
         self.show()
             	
@@ -493,8 +493,8 @@ class CamWidget(QWidget):
                                  frame.strides[0], QImage.Format_RGB888)
             self.scene.addPixmap(QPixmap.fromImage(self.qimage))
             #self.view.fitInView(QRectF(0,0,
-            #                           10,
-            #                           10),
+            #                           frame.shape[1],
+            #                           frame.shape[0]),
             #                    Qt.KeepAspectRatio)
             self.lastnFrame = nframe
             self.scene.update()
