@@ -170,6 +170,21 @@ class LabCamsGUI(QMainWindow):
                                              binning = cam['binning'],
                                              triggerType = cam['triggerType'],
                                              triggered = self.triggered))
+            elif cam['driver'] == 'OpenCV':
+                self.camQueues.append(Queue())
+                if cam['Save']:
+                    self.writers.append(
+                        TiffWriter(inQ = self.camQueues[-1],
+                                   dataFolder=self.parameters['recorder_path'],
+                                   framesPerFile=self.parameters['recorder_frames_per_file'],
+                                   sleepTime = self.parameters['recorder_sleep_time'],
+                                   filename = expName,
+                                   dataName = cam['description']))
+                else:
+                    self.writers.append(None)
+                self.cams.append(OpenCVCam(camId=cam['id'],
+                                           outQ = self.camQueues[-1],
+                                           triggered = self.triggered))
             else:
             	display('Unknown camera driver' + cam['driver'])
             # Print parameteres
@@ -299,14 +314,15 @@ class LabCamsGUI(QMainWindow):
         self.timer.start(self.updateFrequency)
         self.camframes = []
         for c,cam in enumerate(self.cams):
-            if cam.dtype == np.uint8:
-        	self.camframes.append(np.frombuffer(
-                    cam.frame.get_obj(),
-                    dtype = ctypes.c_ubyte).reshape([cam.h,cam.w]))
-            else:
-        	self.camframes.append(np.frombuffer(
-                    cam.frame.get_obj(),
-                    dtype = ctypes.c_ushort).reshape([cam.h,cam.w]))
+            self.camframes.append(cam.img)
+            #if cam.dtype == np.uint8:
+            #    self.camframes.append(np.frombuffer(
+            #        cam.frame.get_obj(),
+            #        dtype = ctypes.c_ubyte).reshape([cam.h,cam.w]))
+            #else:
+        	#self.camframes.append(np.frombuffer(
+                #    cam.frame.get_obj(),
+                #    dtype = ctypes.c_ushort).reshape([cam.h,cam.w]))
         self.move(0, 0)
         self.show()
             	
@@ -331,9 +347,7 @@ class LabCamsGUI(QMainWindow):
                 display('   ' + self.cam_descriptions[c]['name']+
                         ' [ Acquired:'+
                         str(cam.nframes.value) + ' - Saved: ' + 
-                        str(writer.frameCount.value) + ' - Frames/rate: '
-                        +str(cam.nframes.value/
-                             self.cam_descriptions[c]['frameRate']) +']')
+                        str(writer.frameCount.value) +']')
                 writer.join()
         event.accept()
 
