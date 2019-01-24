@@ -126,6 +126,8 @@ class LabCamsGUI(QMainWindow):
                     cam['AcquisitionMode'] = 'Continuous'
                 if not 'AcquisitionFrameCount' in cam.keys():
                     cam['AcquisitionFrameCount'] = 1000
+                if not 'nFrameBuffers' in cam.keys():
+                    cam['nFrameBuffers'] = 1
                     
                 self.camQueues.append(Queue())
                 if cam['Save']:
@@ -147,7 +149,8 @@ class LabCamsGUI(QMainWindow):
                                         triggerMode = cam['TriggerMode'],
                                         triggerSelector = cam['TriggerSelector'],
                                         acquisitionMode = cam['AcquisitionMode'],
-                                        nTriggeredFrames = cam['AcquisitionFrameCount']))
+                                        nTriggeredFrames = cam['AcquisitionFrameCount'],
+                                        nFrameBuffers = cam['nFrameBuffers']))
                 connected_avt_cams.append(camids[0][0])
             elif cam['driver'] == 'QImaging':
                 self.camQueues.append(Queue())
@@ -263,7 +266,7 @@ class LabCamsGUI(QMainWindow):
         display("Starting software trigger for all cammeras.")
         for c,cam in enumerate(self.cams):
             while not cam.cameraReady.is_set():
-                time.sleep(0.1)
+                time.sleep(0.02)
             display('Camera {{0}} ready.'.format(c))
         for c,cam in enumerate(self.cams):
             cam.startTrigger.set()
@@ -545,7 +548,7 @@ def main():
     opts = parser.parse_args()
     if not opts.make_config is None:
         fname = opts.make_config
-        getPreferences(fname)
+        getPreferences(fname,create=True)
         sys.exit()
     parameters = getPreferences(opts.preffile)
     cams = parameters['cams']

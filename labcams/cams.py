@@ -115,6 +115,7 @@ class OpenCVCam(GenericCam):
         buf = np.frombuffer(self.frame.get_obj(),
                             dtype = np.uint8).reshape([self.h,self.w])
         self.closeEvent.clear()
+        
         while not self.closeEvent.is_set():
             self.nframes.value = 0
             cam = cv2.VideoCapture(self.camId)
@@ -130,6 +131,7 @@ class OpenCVCam(GenericCam):
             if self.closeEvent.is_set():
                 break
             display('OpenCV [{0}] - Started acquisition.'.format(self.camId))
+            self.cameraReady.clear()
             while not self.stopTrigger.is_set():
                 timestamp = 0
                 frameID = self.nframes.value
@@ -144,7 +146,6 @@ class OpenCVCam(GenericCam):
             cam.release()
             display('OpenCV [{0}] - Stopped acquisition.'.format(self.camId))
             self.saving.clear()
-            self.cameraReady.clear()
             self.startTrigger.clear()
             self.stopTrigger.clear()
             display('OpenCV {0} - Close event: {1}'.format(self.camId,
@@ -181,7 +182,8 @@ def AVT_get_ids():
 class AVTCam(GenericCam):
     def __init__(self, camId = None, outQ = None,exposure = 29000,
                  frameRate = 30., gain = 10,frameTimeout = 100,
-                 nFrameBuffers = 3,triggered = Event(),
+                 nFrameBuffers = 1,
+                 triggered = Event(),
                  triggerSource = 'Line1',
                  triggerMode = 'LevelHigh',
                  triggerSelector = 'FrameStart',
@@ -246,12 +248,12 @@ class AVTCam(GenericCam):
             buf[:,:] = framedata[:,:]
             cam.endCapture()
             cam.revokeAllFrames()
-            display("Got info from camera (name: {0})".format(
-                cam.DeviceModelName))
+            display("AVT [{1}] = Got info from camera (name: {0})".format(
+                cam.DeviceModelName,self.camId))
         self.cameraReady = Event()
         self.triggered = triggered
         if self.triggered.is_set():
-            display('Triggered mode ON.')
+            display('AVT [{0}] - Triggered mode ON.'.format(self.camId))
             self.triggerSource = triggerSource
     
     def run(self):
@@ -302,22 +304,23 @@ class AVTCam(GenericCam):
                     frames[i].announceFrame()
                 cam.startCapture()
                 for f,ff in enumerate(frames):
-                    ff.captureFrameQueue()
                     try:
-                        pass
-                        #ff.queueFrameCapture()
+                        ff.queueFrameCapture()
                     except:
-                        #display('Queue frame error while getting cam ready: '+ str(f))
+                        display('Queue frame error while getting cam ready: '+ str(f))
                         continue                    
                 self.cameraReady.set()
                 self.nframes.value = 0
                 # Wait for trigger
-                display('Camera waiting for software trigger.')
+                display('AVT [{0}] - Camera waiting for software trigger.'.format(self.camId))
                 while not self.startTrigger.is_set():
                     # limits resolution to 1 ms 
                     time.sleep(0.001)
                     if self.closeEvent.is_set():
                         break
+                display('AVT [{0}] - Received software trigger.'.format(
+                    self.camId))
+
                 if self.closeEvent.is_set():
                     cam.endCapture()
                     try:
@@ -333,8 +336,8 @@ class AVTCam(GenericCam):
                     cam.TriggerSelector = self.triggerSelector
                     cam.TriggerMode = 'On'
                 #tstart = time.time()
-                display('Started acquisition.')
                 lastframeid = [-1 for i in frames]
+                self.cameraReady.clear()
                 while not self.stopTrigger.is_set():
                     # run and acquire frames
                     #sortedfids = np.argsort([f._frame.frameID for f in frames])
@@ -344,6 +347,7 @@ class AVTCam(GenericCam):
                         if avterr == 0:
                             timestamp = f._frame.timestamp
                             frameID = f._frame.frameID
+                            #print('Frame id:{0}'.format(frameID))
                             if not frameID in recorded_frames:
                                 recorded_frames.append(frameID)
                                 frame = np.ndarray(buffer = f.getBufferByteData(),
@@ -370,8 +374,7 @@ class AVTCam(GenericCam):
                 cam.runFeatureCommand('AcquisitionStop')
                 display('Stopped acquisition.')
                 # Check if all frames are done...
-                sortedfids = np.argsort([f._frame.frameID for f in frames])
-                for ibuf in sortedfids:
+                for ibuf in range(self.nbuffers):
                     f = frames[ibuf]
                     try:
                         f.waitFrameCapture(timeout = 100)
@@ -381,7 +384,6 @@ class AVTCam(GenericCam):
                                            dtype = np.uint8,
                                            shape = (f.height,
                                                     f.width)).copy()
-                        #f.queueFrameCapture()
                         if self.saving.is_set():
                             if not frameID in lastframeid :
                                 self.queue.put((frame.copy(),(frameID,timestamp)))
@@ -405,11 +407,12 @@ class AVTCam(GenericCam):
                     display('Failed to revoke frames.')
                 cam.closeCamera()
                 self.saving.clear()
-                self.cameraReady.clear()
                 self.startTrigger.clear()
                 self.stopTrigger.clear()
-                time.sleep(1.)
-                display('Close event: {0}'.format(self.closeEvent.is_set()))
+                time.sleep(0.2)
+                display('AVT [{0}] - Close event: {1}'.format(
+                    self.camId,
+                    self.closeEvent.is_set()))
 
 # QImaging cameras
 try:
@@ -494,6 +497,7 @@ class QImagingCam(GenericCam):
                             dtype = np.uint16).reshape([self.w,self.h])
         QCam.ReleaseDriver()
         self.closeEvent.clear()
+        self.cameraReady.clear()
         while not self.closeEvent.is_set():
             self.nframes.value = 0
             QCam.LoadDriver()
@@ -560,7 +564,6 @@ class QImagingCam(GenericCam):
             cam.settings.Flush()
             del cam
             self.saving.clear()
-            self.cameraReady.clear()
             self.startTrigger.clear()
             self.stopTrigger.clear()
             QCam.ReleaseDriver()
