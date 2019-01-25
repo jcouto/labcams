@@ -34,7 +34,9 @@ class GenericCam(Process):
                 self.frame.get_obj(),
                 dtype = ctypes.c_ubyte).reshape([self.h,self.w])
         else:
-            self.frame = Array(ctypes.c_ushort,np.zeros([self.h,self.w],dtype = dtype).flatten())
+            self.frame = Array(ctypes.c_ushort,np.zeros(
+                [self.h,self.w],
+                dtype = dtype).flatten())
             self.img = np.frombuffer(
                 self.frame.get_obj(),
                 dtype = ctypes.c_ushort).reshape([self.h,self.w])
@@ -479,7 +481,7 @@ class QImagingCam(GenericCam):
         cam.StopStreaming()
         cam.CloseCamera()
         QCam.ReleaseDriver()
-        self.frame = Array(ctypes.c_ushort,np.zeros([self.w,self.h],dtype = np.uint16).flatten())
+        self.initVariables(dtype = np.uint16)
 
         framedata = np.ndarray(buffer = buf,
                                dtype = np.uint16,
@@ -497,7 +499,6 @@ class QImagingCam(GenericCam):
                             dtype = np.uint16).reshape([self.w,self.h])
         QCam.ReleaseDriver()
         self.closeEvent.clear()
-        self.cameraReady.clear()
         while not self.closeEvent.is_set():
             self.nframes.value = 0
             QCam.LoadDriver()
@@ -505,7 +506,7 @@ class QImagingCam(GenericCam):
                 # prepare camera
                 cam = QCam.OpenCamera(QCam.ListCameras()[self.camId])
                 if cam.settings.coolerActive:
-                    display('Qcam cooler active.')
+                    display('Qcam - cooler active.')
                 cam.settings.readoutSpeed=0 # 0=20MHz, 1=10MHz, 7=40MHz
                 cam.settings.imageFormat = 'mono16'
                 cam.settings.binning = self.binning
@@ -519,7 +520,7 @@ class QImagingCam(GenericCam):
                 cam.settings.blackoutMode=True
                 cam.settings.Flush()
                 queue = QCam.CameraQueue(cam)
-                display('Camera ready!')
+                display('QCam - Camera ready!')
                 self.cameraReady.set()
                 self.nframes.value = 0
                 # Wait for trigger
@@ -535,8 +536,8 @@ class QImagingCam(GenericCam):
                 break
             queue.start()
             #tstart = time.time()
-            display('Started acquisition.')
-
+            display('QCam - Started acquisition.')
+            self.cameraReady.clear()
             while not self.stopTrigger.is_set():
                 # run and acquire frames
                 try:
@@ -568,7 +569,7 @@ class QImagingCam(GenericCam):
             self.stopTrigger.clear()
             QCam.ReleaseDriver()
             time.sleep(1)
-            display('Stopped acquisition.')
+            display('QCam - Stopped acquisition.')
 
     def stop(self):
         self.closeEvent.set()
