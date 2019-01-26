@@ -8,6 +8,7 @@ import cv2
 import ctypes
 try:
     from mptracker import MPTracker
+    from mptracker.widgets import MptrackerParameters
 except:
     pass
 try:
@@ -476,14 +477,24 @@ class CamWidget(QWidget):
             display('Aborted.')
         self.parent.timer.start()
         
-
-
+    def _open_mptracker(self,image):
+        self.eyeTracker = MPTracker(drawProcessedFrame=True)
+        self.parent.tabs.append(QDockWidget("MousePupilTRACKER",self.parent))
+        self.eyeTracker.parameters['crTrack'] = True
+        self.eyeTracker.parameters['sequentialCRMode'] = False
+        self.eyeTracker.parameters['sequentialPupilMode'] = False
+        self.trackerpar = MptrackerParameters(self.eyeTracker,image)
+        self.parent.tabs[-1].setWidget(self.trackerpar)
+        self.parent.tabs[-1].setFloating(False)
+        self.parent.addDockWidget(Qt.RightDockWidgetArea,
+                                  self.parent.tabs[-1])
+        
     def image(self,image,nframe):
         if self.lastnFrame != nframe:
             self.scene.clear()
             if self.parameters['TrackEye']:
                 if self.eyeTracker is None:
-                    self.eyeTracker = MPTracker(drawProcessedFrame=True)
+                    self._open_mptracker(image.copy())
                 img = self.eyeTracker.apply(image.copy()) 
                 frame = self.eyeTracker.img
             else:
