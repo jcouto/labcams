@@ -295,7 +295,7 @@ class LabCamsGUI(QMainWindow):
                                              parameters = self.cam_descriptions[c]))
             self.tabs[-1].setWidget(self.camwidgets[-1])
             self.tabs[-1].setFloating(False)
-            if c < 2:
+            if c < 1:
                 self.addDockWidget(
                     Qt.RightDockWidgetArea and Qt.TopDockWidgetArea,
                     self.tabs[-1])
@@ -450,15 +450,19 @@ class CamWidget(QWidget):
             self.string = 'no save -{0}'
         self.image(np.array(frame),-1)
         
-        self.show()
+        #self.show()
         
     def toggleSubtract(self):
         self.parameters['SubtractBackground'] = not self.parameters['SubtractBackground']
     def toggleEqualize(self):
         self.parameters['Equalize'] = not self.parameters['Equalize']
     def toggleEyeTracker(self):
+        if self.parameters['TrackEye']:
+            self.eyeTracker = None
+            self.trackerpar.close()
+            self.trackerTab.close()
         self.parameters['TrackEye'] = not self.parameters['TrackEye']
-
+        
     def saveImageFromCamera(self):
         self.parent.timer.stop()
         frame = self.parent.camframes[self.iCam]
@@ -479,15 +483,17 @@ class CamWidget(QWidget):
         
     def _open_mptracker(self,image):
         self.eyeTracker = MPTracker(drawProcessedFrame=True)
-        self.parent.tabs.append(QDockWidget("MousePupilTRACKER",self.parent))
+        self.trackerTab = QDockWidget("MousePupilTRACKER",self.parent)
         self.eyeTracker.parameters['crTrack'] = True
         self.eyeTracker.parameters['sequentialCRMode'] = False
         self.eyeTracker.parameters['sequentialPupilMode'] = False
         self.trackerpar = MptrackerParameters(self.eyeTracker,image)
-        self.parent.tabs[-1].setWidget(self.trackerpar)
-        self.parent.tabs[-1].setFloating(False)
-        self.parent.addDockWidget(Qt.RightDockWidgetArea,
-                                  self.parent.tabs[-1])
+        self.trackerTab.setWidget(self.trackerpar)
+        self.trackerTab.setFloating(False)
+        self.trackerpar.resize(400,200)
+        self.parent.addDockWidget(Qt.RightDockWidgetArea and
+                                  Qt.BottomDockWidgetArea,
+                                  self.trackerTab)
         
     def image(self,image,nframe):
         if self.lastnFrame != nframe:
