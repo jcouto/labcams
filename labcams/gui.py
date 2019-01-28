@@ -295,14 +295,14 @@ class LabCamsGUI(QMainWindow):
                                              parameters = self.cam_descriptions[c]))
             self.tabs[-1].setWidget(self.camwidgets[-1])
             self.tabs[-1].setFloating(False)
-            if c < 1:
-                self.addDockWidget(
-                    Qt.RightDockWidgetArea and Qt.TopDockWidgetArea,
-                    self.tabs[-1])
-            else:
-                self.addDockWidget(
-                    Qt.RightDockWidgetArea and Qt.BottomDockWidgetArea,
-                    self.tabs[-1])
+            #if c < 1:
+            #self.addDockWidget(
+            #    Qt.RightDockWidgetArea and Qt.TopDockWidgetArea,
+            #    self.tabs[-1])
+            #else:
+            self.addDockWidget(
+                Qt.BottomDockWidgetArea,
+                self.tabs[-1])
                 
             self.tabs[-1].setFixedSize(cam.w,cam.h)
             display('Init view: ' + str(c))
