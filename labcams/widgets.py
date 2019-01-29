@@ -168,6 +168,8 @@ class CamWidget(QWidget):
             self.eyeTracker = None
             self.trackerpar.close()
             self.trackerTab.close()
+            self.view.mouseReleaseEvent = None
+
         self.parameters['TrackEye'] = not self.parameters['TrackEye']
     def saveImageFromCamera(self):
         self.parent.timer.stop()
