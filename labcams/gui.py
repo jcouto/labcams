@@ -300,7 +300,6 @@ class LabCamsGUI(QMainWindow):
                 Qt.BottomDockWidgetArea,
                 self.tabs[-1])
                 
-            self.tabs[-1].setFixedSize(cam.w,cam.h)
             display('Init view: ' + str(c))
         self.tabs.append(QDockWidget("Controller",self))
         self.recController = RecordingControlWidget(self)
@@ -315,14 +314,6 @@ class LabCamsGUI(QMainWindow):
         self.camframes = []
         for c,cam in enumerate(self.cams):
             self.camframes.append(cam.img)
-            #if cam.dtype == np.uint8:
-            #    self.camframes.append(np.frombuffer(
-            #        cam.frame.get_obj(),
-            #        dtype = ctypes.c_ubyte).reshape([cam.h,cam.w]))
-            #else:
-        	#self.camframes.append(np.frombuffer(
-                #    cam.frame.get_obj(),
-                #    dtype = ctypes.c_ushort).reshape([cam.h,cam.w]))
         self.move(0, 0)
         self.show()
             	

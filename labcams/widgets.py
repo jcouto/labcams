@@ -122,6 +122,9 @@ class CamWidget(QWidget):
         super(CamWidget,self).__init__()
         self.parent = parent
         self.iCam = iCam
+        h,w = frame.shape[:2]
+        self.w = w
+        self.h = h
         self.setContextMenuPolicy(Qt.ActionsContextMenu)
         saveImg = QAction("Take camera shot",self)
         saveImg.triggered.connect(self.saveImageFromCamera)
@@ -156,7 +159,7 @@ class CamWidget(QWidget):
         if not self.parameters['Save']:
             self.string = 'no save -{0}'
         self.image(np.array(frame),-1)
-        
+        self.setFixedSize(w,h)        
         #self.show()
         
     def toggleSubtract(self):
@@ -198,7 +201,7 @@ class CamWidget(QWidget):
         self.trackerpar = MptrackerParameters(self.eyeTracker,image)
         self.trackerTab.setWidget(self.trackerpar)
         self.trackerTab.setFloating(True)
-        self.trackerpar.resize(400,200)
+        self.trackerpar.resize(400,250)
         self.parent.addDockWidget(Qt.RightDockWidgetArea and
                                   Qt.BottomDockWidgetArea,
                                   self.trackerTab)
