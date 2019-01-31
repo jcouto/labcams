@@ -11,8 +11,9 @@ class PCOCam(GenericCam):
     def __init__(self, camId = None, outQ = None,
                  frameRate = .1,
                  binning = 2,
-                 exposure = 100,
+                 exposure = 200,
                  dtype = np.uint16,
+                 triggerSource = np.uint16(2),
                  triggered = Event(),
                  dllpath = 'C:\\Program Files (x86)\\pco\\pco.sdk\\bin64\\SC2_Cam.dll',
                  **kwargs):
@@ -52,6 +53,9 @@ class PCOCam(GenericCam):
         display('PCO - size: {0} x {1}'.format(self.h,self.w))
         self.nchannels = 1 #frame.shape[2]
         self.initVariables(dtype)
+        self.triggered = triggered
+        self.triggerSource = triggerSource
+
         self._dll = None
         buf = np.frombuffer(self.frame.get_obj(),
                             dtype = np.uint16).reshape([self.h,
@@ -63,10 +67,6 @@ class PCOCam(GenericCam):
              'PixelFly'))
 
         self.cameraReady = Event()
-        self.triggered = triggered
-        if self.triggered.is_set():
-            display('[PixelFly {0}] Triggered mode ON.'.format(self.camId))
-            self.triggerSource = triggerSource
     
     def camopen(self,camid,reset = True):
         '''Open PCO camera'''
@@ -382,8 +382,11 @@ class PCOCam(GenericCam):
             display('PCO - Binning: {0}'.format(ret))
             ret = self.set_exposure_time(self.exposure)
             display('PCO - Exposure: {0} {1}'.format(*ret))
-            self.set_trigger_mode(self.trigerMode)
-
+            if self.triggered.is_set():
+                display('PCO - Trigger mode settting to: {0}'.format(self.triggerSource))
+                display('\t\t\tPCO - {0}'.format(self.set_trigger_mode(self.triggerSource)))
+            else:
+                self.set_trigger_mode(0)
             display('PCO - Trigger mode: {0}'.format(self.get_trigger_mode()))
             display('PCO - size: {0} x {1}'.format(self.h,self.w))
             self.arm()
