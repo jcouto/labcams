@@ -376,7 +376,7 @@ class PCOCam(GenericCam):
         poll_timeout=10
         while not self.closeEvent.is_set():
             self.nframes.value = 0
-            lastFrameID = -1
+            lastframeid = -1
             ret = self.camopen(self.camId)
             ret = self.set_binning(self.binning,self.binning)
             display('PCO - Binning: {0}'.format(ret))
@@ -451,7 +451,7 @@ class PCOCam(GenericCam):
                         frame = out.copy()
                         self.nframes.value += 1
                         if self.saving.is_set():
-                            if not frameID in lastframeid :
+                            if not frameID == lastframeid :
                                 self.queue.put((frame.copy(),
                                                 (frameID,timestamp)))
                                 lastframeid = frameID
