@@ -112,13 +112,21 @@ class RecordingControlWidget(QWidget):
             display('[Critical message] Disable manual save to change the filename!')
 
     def toggleSaveOnStart(self,state):
-        display('Toggled ManualSave [{0}]'.format(state))
         self.parent.saveOnStart = state
         display('Warning: The save button is no longer restarting the cameras.')
         #for cam in self.parent.cams:
         #    cam.stop_acquisition()
-        #time.sleep(.5) 
-        self.parent.triggerCams(save = state)
+        #time.sleep(.5)
+        for c,(cam,writer) in enumerate(zip(self.parent.cams,
+                                            self.parent.writers)):
+            if not writer is None:
+                if state:
+                    cam.saving.set()
+                    writer.write.set()
+                else:
+                    cam.saving.clear()
+                    writer.write.clear()
+        display('Toggled ManualSave [{0}]'.format(state))
         
 class CamWidget(QWidget):
     def __init__(self,frame, iCam = 0, parent = None, parameters = None):
