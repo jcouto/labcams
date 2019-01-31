@@ -1,19 +1,27 @@
 import ctypes
 from multiprocessing import Process,Queue,Event,Array,Value
 from labcams.cams import GenericCam
+import numpy as np
+import time
+from .utils import display
 
 class PCOCam(GenericCam):
     time_modes = {0:"ns", 1: "us", 2: "ms"}
     armed = False
     def __init__(self, camId = None, outQ = None,
-                 frameRate = 30.,
+                 frameRate = .1,
                  binning = 2,
-                 dtype = np.uint8,
+                 exposure = 100,
+                 dtype = np.uint16,
                  triggered = Event(),
                  dllpath = 'C:\\Program Files (x86)\\pco\\pco.sdk\\bin64\\SC2_Cam.dll',
                  **kwargs):
         super(PCOCam,self).__init__()
         self._dll = ctypes.WinDLL(dllpath)
+        self.dllpath = dllpath
+        self.trigerMode = 0
+        self.exposure = exposure
+        self.binning = binning
         self.h = None
         self.w = None
         self.closeEvent = Event()
@@ -30,20 +38,21 @@ class PCOCam(GenericCam):
         ret = self.camopen(self.camId)
         assert ret == 0, "PCO: Could not open camera {0}".format(camId)
         ret = self.set_binning(binning,binning)
-        print('PCO - Binning: {0}'.format(ret))
+        display('PCO - Binning: {0}'.format(ret))
         ret = self.set_exposure_time()
-        print('PCO - Exposure: {0} {1}'.format(*ret))
+        display('PCO - Exposure: {0} {1}'.format(*ret))
         self.set_trigger_mode(0)
-        print('PCO - Trigger mode: {0}'.format(self.get_trigger_mode()))
-        print('PCO - size: {0} x {1}'.format(self.h,self.w))
+        display('PCO - Trigger mode: {0}'.format(self.get_trigger_mode()))
         frame = self.get_one()
-        #print(out)
-        
         self.camclose()
+        self.hCam = None
+        self._prepared = []
         self.h = frame.shape[0]
         self.w = frame.shape[1]
+        display('PCO - size: {0} x {1}'.format(self.h,self.w))
         self.nchannels = 1 #frame.shape[2]
-        self.initVariables(np.uint16)
+        self.initVariables(dtype)
+        self._dll = None
         buf = np.frombuffer(self.frame.get_obj(),
                             dtype = np.uint16).reshape([self.h,
                                                        self.w])
@@ -96,7 +105,7 @@ class PCOCam(GenericCam):
                                                    ctypes.byref(cameraError),
                                                    ctypes.byref(cameraStatus))
         if cameraError.value !=0:
-            print("PCO - Camera has ErrorStatus");
+            display("PCO - Camera has ErrorStatus");
             return -1
         return 0
     def _prepare_to_mem(self):
@@ -316,15 +325,15 @@ class PCOCam(GenericCam):
                     ctypes.byref(dwStatusDll), ctypes.byref(dwStatusDrv))
                 if dwStatusDll.value == 0xc0008000:
                     which_buf = added_buffers.pop(0)  # Buffer exits the queue
-                    print("After", num_polls, "polls, buffer")
-                    print(self.buffer_numbers[which_buf].value)
-                    print("is ready.")
+                    #print("After", num_polls, "polls, buffer")
+                    #print(self.buffer_numbers[which_buf].value)
+                    #print("is ready.")
                     polling = False
                     break
                 else:
                     time.sleep(0.00005)  # Wait 50 microseconds
                 if num_polls > poll_timeout:
-                    print("After %i polls, no buffer."%(poll_timeout))
+                    #print("After %i polls, no buffer."%(poll_timeout))
                     return None
             try:
                 if dwStatusDrv.value == 0x00000000:
@@ -339,9 +348,9 @@ class PCOCam(GenericCam):
                     break
                     #raise UserWarning("Buffer status error")
 
-                print("Record to memory result:")
-                print(hex(dwStatusDll.value), hex(dwStatusDrv.value))
-                print(message)
+                #print("Record to memory result:")
+                #print(hex(dwStatusDll.value), hex(dwStatusDrv.value))
+                #print(message)
 
 
                 buffer_ptr = ctypes.cast(self.buffer_pointers[which_buf], ctypes.POINTER(ArrayType))
@@ -359,12 +368,24 @@ class PCOCam(GenericCam):
         return out
     
     def run(self):
+        self._dll = ctypes.WinDLL(self.dllpath)
         buf = np.frombuffer(self.frame.get_obj(),
                             dtype = np.uint16).reshape([self.h,self.w])
         self.closeEvent.clear()
+        display('PixelFly camera [{0}] starting.'.format(self.camId))
+        poll_timeout=10
         while not self.closeEvent.is_set():
             self.nframes.value = 0
+            lastFrameID = -1
             ret = self.camopen(self.camId)
+            ret = self.set_binning(self.binning,self.binning)
+            display('PCO - Binning: {0}'.format(ret))
+            ret = self.set_exposure_time(self.exposure)
+            display('PCO - Exposure: {0} {1}'.format(*ret))
+            self.set_trigger_mode(self.trigerMode)
+
+            display('PCO - Trigger mode: {0}'.format(self.get_trigger_mode()))
+            display('PCO - size: {0} x {1}'.format(self.h,self.w))
             self.arm()
             self.cameraReady.set()
             self.nframes.value = 0
@@ -381,74 +402,68 @@ class PCOCam(GenericCam):
             display('PixelFly [{0}] - Started acquisition.'.format(self.camId))
             self.cameraReady.clear()
             self._prepare_to_mem()
+            (dw1stImage, dwLastImage, wBitsPerPixel, dwStatusDll,
+             dwStatusDrv, bytes_per_pixel,
+             pixels_per_image, added_buffers, ArrayType) = self._prepared
+            assert bytes_per_pixel.value == 2
+            out = np.zeros((self.wYResAct.value, self.wXResAct.value),
+                           dtype=np.uint16)
             while not self.stopTrigger.is_set():
                 timestamp = 0
-                frameID = self.nframes.value
-                
                 message = 0
-                (dw1stImage, dwLastImage, wBitsPerPixel, dwStatusDll,
-                 dwStatusDrv, bytes_per_pixel,
-                 pixels_per_image, added_buffers, ArrayType) = self._prepared
-
-                assert bytes_per_pixel.value == 2
-                out = np.zeros((self.wYResAct.value, self.wXResAct.value),
-                               dtype=np.uint16)
-        
                 num_acquired = 0
                 num_polls = 0
                 polling = True
                 while polling:
+                    which_buf = None
                     num_polls += 1
                     message = self._dll.PCO_GetBufferStatus(
                         self.hCam, self.buffer_numbers[added_buffers[0]],
                         ctypes.byref(dwStatusDll), ctypes.byref(dwStatusDrv))
                     if dwStatusDll.value == 0xc0008000:
                         which_buf = added_buffers.pop(0)  # Buffer exits the queue
-                        print("After", num_polls, "polls, buffer")
-                        print(self.buffer_numbers[which_buf].value)
-                        print("is ready.")
+                        #print("After", num_polls, "polls, buffer")
+                        #print(self.buffer_numbers[which_buf].value)
+                        #print("is ready.")
+                        frameID = self.nframes.value
                         polling = False
                         break
                     else:
                         time.sleep(0.00005)  # Wait 50 microseconds
                     if num_polls > poll_timeout:
-                        print("After %i polls, no buffer."%(poll_timeout))
                         break
-                try:
-                    if dwStatusDrv.value == 0x00000000:
-                        pass
-                    elif dwStatusDrv.value == 0x80332028:
-                        print('DMA error during record_to_memory')
-                        break
-                        raise MemoryError('DMA error during record_to_memory')
-                    else:
-                        print("dwStatusDrv:", dwStatusDrv.value)
-                        print("Buffer status error")
-                        break
-                        #raise UserWarning("Buffer status error")
+                if not which_buf is None:
+                    try:
+                        if dwStatusDrv.value == 0x00000000:
+                            pass
+                        elif dwStatusDrv.value == 0x80332028:
+                            print('DMA error during record_to_memory')
+                            raise MemoryError('DMA error during record_to_memory')
+                        else:
+                            print("dwStatusDrv:", dwStatusDrv.value)
+                            print("Buffer status error")
+                            raise UserWarning("Buffer status error")
+                        #print("Record to memory result:")
+                        #print(hex(dwStatusDll.value), hex(dwStatusDrv.value))
+                        buffer_ptr = ctypes.cast(self.buffer_pointers[which_buf], ctypes.POINTER(ArrayType))
+                        out[:, :] = np.frombuffer(buffer_ptr.contents, dtype=np.uint16).reshape(out.shape)
+                        num_acquired += 1
+                        frame = out.copy()
+                        self.nframes.value += 1
+                        if self.saving.is_set():
+                            if not frameID in lastframeid :
+                                self.queue.put((frame.copy(),
+                                                (frameID,timestamp)))
+                                lastframeid = frameID
+                        buf[:,:] = frame[:,:]
 
-                    print("Record to memory result:")
-                    print(hex(dwStatusDll.value), hex(dwStatusDrv.value))
-                    print(message)
-
-
-                    buffer_ptr = ctypes.cast(self.buffer_pointers[which_buf], ctypes.POINTER(ArrayType))
-                    out[:, :] = np.frombuffer(buffer_ptr.contents, dtype=np.uint16).reshape(out.shape)
-                    num_acquired += 1
-                finally:
-                    self._dll.PCO_AddBufferEx(  # Put the buffer back in the queue
-                        self.hCam, dw1stImage, dwLastImage,
-                        self.buffer_numbers[which_buf], self.wXResAct, self.wYResAct,
-                        wBitsPerPixel)
-                    added_buffers.append(which_buf)
+                    finally:
+                        self._dll.PCO_AddBufferEx(  # Put the buffer back in the queue
+                            self.hCam, dw1stImage, dwLastImage,
+                            self.buffer_numbers[which_buf], self.wXResAct, self.wYResAct,
+                            wBitsPerPixel)
+                        added_buffers.append(which_buf)
                 
-                frame = out.copy()
-                self.nframes.value += 1
-                if self.saving.is_set():
-                    if not frameID in lastframeid :
-                        self.queue.put((frame.copy(),(frameID,timestamp)))
-                        lastframeid[ibuf] = frameID
-                buf[:,:] = frame[:,:]
             self.acquisitionstop()
             self.disarm()
             display('PixelFly [{0}] - Stopped acquisition.'.format(self.camId))
