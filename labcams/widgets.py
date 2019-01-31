@@ -241,7 +241,7 @@ class CamWidget(QWidget):
                                       (1/self.nAcum)*tmp)
                 else:
                     frame = tmp
-            if self.parameters['driver'] == 'QImaging':
+            if self.parameters['driver'] in ['QImaging','PCO']:
                 frame = np.array((frame.astype(np.float32)/2.**14)*2.**8).astype(np.uint8)
             if len(frame.shape) == 2 :
                 frame = cv2.cvtColor(frame.astype(np.uint8), cv2.COLOR_GRAY2BGR)

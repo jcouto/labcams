@@ -556,7 +556,8 @@ class QImagingCam(GenericCam):
                 timestamp = f.timeStamp
                 frameID = f.frameNumber
                 if self.saving.is_set():
-                    self.queue.put((frame.reshape([self.h,self.w]),(frameID,timestamp)))
+                    self.queue.put((frame.reshape([self.h,self.w]),
+                                    (frameID,timestamp)))
                 buf[:,:] = frame[:,:]
                 queue.put(f)
 
