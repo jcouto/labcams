@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+import time
 try:
     from mptracker import MPTracker
     from mptracker.widgets import MptrackerParameters
@@ -61,6 +62,8 @@ except:
                              QImage,
                              QPixmap)
     from PyQt4.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
+
+from .utils import display
 
 class RecordingControlWidget(QWidget):
     def __init__(self,parent):

@@ -182,6 +182,24 @@ class LabCamsGUI(QMainWindow):
                 self.cams.append(OpenCVCam(camId=cam['id'],
                                            outQ = self.camQueues[-1],
                                            triggered = self.triggered))
+            elif cam['driver'] == 'PCO':
+                self.camQueues.append(Queue())
+                if cam['Save']:
+                    self.writers.append(
+                        TiffWriter(inQ = self.camQueues[-1],
+                                   dataFolder=self.parameters['recorder_path'],
+                                   framesPerFile=self.parameters['recorder_frames_per_file'],
+                                   sleepTime = self.parameters['recorder_sleep_time'],
+                                   filename = expName,
+                                   dataName = cam['description']))
+                else:
+                    self.writers.append(None)
+                from .pixelfly import PCOCam
+                self.cams.append(PCOCam(camId=cam['id'],
+                                        binning = cam['binning'],
+                                        exposure = cam['exposure'],
+                                        outQ = self.camQueues[-1],
+                                        triggered = self.triggered))
             else:
             	display('Unknown camera driver' + cam['driver'])
             # Print parameteres

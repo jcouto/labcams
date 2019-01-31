@@ -120,6 +120,7 @@ class OpenCVCam(GenericCam):
         
         while not self.closeEvent.is_set():
             self.nframes.value = 0
+            lastFrameID = -1
             cam = cv2.VideoCapture(self.camId)
             self.cameraReady.set()
             self.nframes.value = 0
@@ -143,7 +144,7 @@ class OpenCVCam(GenericCam):
                 if self.saving.is_set():
                     if not frameID in lastframeid :
                         self.queue.put((frame.copy(),(frameID,timestamp)))
-                        lastframeid[ibuf] = frameID
+                        lastframeid = frameID
                 buf[:,:] = frame[:,:]
             cam.release()
             display('OpenCV [{0}] - Stopped acquisition.'.format(self.camId))
