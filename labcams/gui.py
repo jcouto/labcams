@@ -254,18 +254,23 @@ class LabCamsGUI(QMainWindow):
         if message['action'] == 'expName':
             self.setExperimentName(message['value'])
         elif message['action'] == 'trigger':
-            for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
-                if not writer is None:
-                    cam.saving.clear()
-                    writer.write.clear()
-            # stop previous saves if there were any
             for cam in self.cams:
                 cam.stop_acquisition()
-            time.sleep(1.)
+            # make sure all cams closed
+            for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
+                cam.saving.clear()
+                if not writer is None:
+                    writer.write.clear()
             self.triggerCams(save = True)
 
     def triggerCams(self,save=False):
-        display('Trigger cams pressed with save:{0}'.format(save))
+        # stops previous saves if there were any
+        display("Waiting for the cameras to be ready.")
+        for c,cam in enumerate(self.cams):
+            while not cam.cameraReady.is_set():
+                time.sleep(0.02)
+            display('Camera {{0}} ready.'.format(c))
+        display('Doing save ({0}) and trigger'.format(save))
         if save:
             for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
                 if not writer is None:
@@ -277,11 +282,6 @@ class LabCamsGUI(QMainWindow):
                     cam.saving.clear()
                     writer.write.clear()
         #time.sleep(2)
-        display("Starting software trigger for all cammeras.")
-        for c,cam in enumerate(self.cams):
-            while not cam.cameraReady.is_set():
-                time.sleep(0.02)
-            display('Camera {{0}} ready.'.format(c))
         for c,cam in enumerate(self.cams):
             cam.startTrigger.set()
         display('Software triggered cameras.')
@@ -342,7 +342,7 @@ class LabCamsGUI(QMainWindow):
     def closeEvent(self,event):
         for cam in self.cams:
             cam.stop_acquisition()
-        display('Acquisition duration:')
+        display('Acquisition stopped (close event).')
         for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
             if not writer is None:
                 cam.saving.clear()

@@ -373,7 +373,7 @@ class PCOCam(GenericCam):
                             dtype = np.uint16).reshape([self.h,self.w])
         self.closeEvent.clear()
         display('PixelFly camera [{0}] starting.'.format(self.camId))
-        poll_timeout=10
+        poll_timeout=1
         while not self.closeEvent.is_set():
             self.nframes.value = 0
             lastframeid = -1
@@ -389,13 +389,12 @@ class PCOCam(GenericCam):
             self.arm()
             self.cameraReady.set()
             self.nframes.value = 0
+            self.stopTrigger.clear()
             # Wait for trigger
             display('PixelFly camera [{0}] waiting for software trigger.'.format(self.camId))
             while not self.startTrigger.is_set():
                 # limits resolution to 1 ms 
                 time.sleep(0.001)
-                if self.closeEvent.is_set():
-                    break
             if self.closeEvent.is_set():
                 break
             self.acquisitionstart()
@@ -464,9 +463,11 @@ class PCOCam(GenericCam):
                             wBitsPerPixel)
                         added_buffers.append(which_buf)
                 
+            display('PixelFly [{0}] - Stopping acquisition.'.format(self.camId))
             self.acquisitionstop()
             self.disarm()
-            display('PixelFly [{0}] - Stopped acquisition.'.format(self.camId))
+            ret = self.camclose()
+            display('PixelFly - returned {0} on close'.format(ret))
             self.saving.clear()
             self.startTrigger.clear()
             self.stopTrigger.clear()
