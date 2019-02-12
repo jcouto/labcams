@@ -1,10 +1,10 @@
-# Qt imports
 import sys
 import os
 from .utils import display,getPreferences
 from .cams import *
 from .io import *
 import ctypes
+# Qt imports
 try:
     from PyQt5.QtWidgets import (QWidget,
                                  QApplication,
@@ -389,6 +389,9 @@ def main():
     parser.add_argument('-a','--analyse',
                         default=False,
                         action='store_true')
+    parser.add_argument('--laps-trigger',
+                        default=False,
+                        action='store_true')
     opts = parser.parse_args()
     if not opts.make_config is None:
         fname = opts.make_config
@@ -433,44 +436,86 @@ def main():
             camlogfile = camlogfile[0]
         camlog = parseCamLog(camlogfile)[0]
         logfile = findVStimLog(expname)
+        if not len(logfile):
+            print('Could not find log file.')
+            sys.exit()
         plog,pcomms = parseVStimLog(logfile)
-        protopts,prot = parseProtocolFile(logfile.replace('.log','.prot'))
         camidx = 3
         camlog = cameraTimesFromVStimLog(camlog,plog,camidx = camidx)
         camdata = TiffStack(fname)
-        (stimtimes,stimpars,stimoptions) = getStimuliTimesFromLog(logfile,plog)
         camtime = np.array(camlog['duinotime']/1000.)
-        stimavgs = triggeredAverage(camdata,camtime,stimtimes)
-        # remove loops if there
-        for iStim in range(len(stimavgs)):
-            nloops = 0
-            for p in prot.iloc[iStim]:
-                if isinstance(p, str):
-                    if 'loop' in p:
-                        nloops = int(p.strip(')').split(',')[-1])
-            if nloops > 0:
-                display('Handling loops for stim {0}.'.format(iStim))
-                idx = np.where(stimavgs[iStim][:,0,0] > np.min(stimavgs[iStim][:,0,0]))[0]
-                looplen = int(np.ceil(np.shape(stimavgs[iStim][idx])[0]/nloops))
-                single_loop = np.zeros([looplen,
-                                        stimavgs[iStim].shape[1],
-                                        stimavgs[iStim].shape[2]],
-                                       dtype = np.float32)
-                for nloop in range(nloops):
-                    single_loop += stimavgs[iStim][
-                        idx[0] + nloop*looplen : idx[0] + (nloop+1)*looplen,:,:]
-                single_loop /= float(nloops)
-                stimavgs[iStim] = single_loop
-        for iStim,savg in enumerate(stimavgs):
+        if not opts.laps_trigger:
+            protopts,prot = parseProtocolFile(logfile.replace('.log','.prot'))
+            (stimtimes,stimpars,stimoptions) = getStimuliTimesFromLog(
+                logfile,plog)
+            stimavgs = triggeredAverage(camdata,camtime,stimtimes)
+            # remove loops if there
+            for iStim in range(len(stimavgs)):
+                nloops = 0
+                for p in prot.iloc[iStim]:
+                    if isinstance(p, str):
+                        if 'loop' in p:
+                            nloops = int(p.strip(')').split(',')[-1])
+                if nloops > 0:
+                    display('Handling loops for stim {0}.'.format(iStim))
+                    idx = np.where(stimavgs[iStim][:,0,0] >
+                                   np.min(stimavgs[iStim][:,0,0]))[0]
+                    looplen = int(np.ceil(np.shape(stimavgs[iStim][idx])
+                                          [0]/nloops))
+                    single_loop = np.zeros([looplen,
+                                            stimavgs[iStim].shape[1],
+                                            stimavgs[iStim].shape[2]],
+                                           dtype = np.float32)
+                    for nloop in range(nloops):
+                        single_loop += stimavgs[iStim][
+                            idx[0] + nloop*looplen : idx[0] +
+                            (nloop+1)*looplen,:,:]
+                    single_loop /= float(nloops)
+                    stimavgs[iStim] = single_loop
+            for iStim,savg in enumerate(stimavgs):
+                fname = pjoin(parameters['datapaths']['dataserverpaths'][0],
+                              parameters['datapaths']['analysispaths'],
+                              expname[0],expname[1],'stimaverages_cam{0}'.format(camidx),
+                              'stim{0}.tif'.format(iStim))
+                if not os.path.isdir(os.path.dirname(fname)):
+                    os.makedirs(os.path.dirname(fname))
+                from tifffile import imsave
+                imsave(fname,savg)
+        else:
+            from pyvstim import treadmillBehaviorFromRelativePosition
+            (behaviortime,position,
+             displacement,velocity,
+             laptimes) = treadmillBehaviorFromRelativePosition(
+                 np.array(plog['position']['duinotime'])/1000.,
+                 np.array(plog['position']['value']))
+            from scipy.interpolate import interp1d
+
+            npos = interp1d(behaviortime,position,
+                            fill_value = "extrapolate",
+                            bounds_error=False)(camtime)
+            nvel = interp1d(behaviortime,velocity,
+                            fill_value = 0,
+                            bounds_error=False)(camtime)
+            laps = np.vstack([laptimes[:-1],laptimes[1:]]).T
+
+            stillframes = np.where(nvel[nvel < 0.01])[0]
+            print("There are {0} still frames.".format(len(stillframes)))
+            print('Doing the average of the still frames (max 1000).')
+            tmp = camdata[stillframes[:1000],:,:]
+            baseline = np.mean(tmp.astype(np.float32),axis =0)
+            print('Computing the lap maps.')
+            lapFrames = binFramesToLaps(laps,camtime,
+                                        npos*150.,
+                                        camdata,baseline = baseline)
             fname = pjoin(parameters['datapaths']['dataserverpaths'][0],
                           parameters['datapaths']['analysispaths'],
-                          expname[0],expname[1],'stimaverages_cam{0}'.format(camidx),
-                          'stim{0}.tif'.format(iStim))
+                          expname[0],expname[1],'stimaverages_cam{0}'.format(
+                              camidx),
+                          'lapFrames.tif')
             if not os.path.isdir(os.path.dirname(fname)):
                 os.makedirs(os.path.dirname(fname))
             from tifffile import imsave
-            imsave(fname,savg)
-        
+            imsave(fname,lapFrames)
         sys.exit()
 if __name__ == '__main__':
     main()
