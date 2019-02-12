@@ -40,7 +40,7 @@ class PCOCam(GenericCam):
         assert ret == 0, "PCO: Could not open camera {0}".format(camId)
         ret = self.set_binning(binning,binning)
         display('PCO - Binning: {0}'.format(ret))
-        ret = self.set_exposure_time()
+        ret = self.set_exposure_time(self.exposure)
         display('PCO - Exposure: {0} {1}'.format(*ret))
         self.set_trigger_mode(0)
         display('PCO - Trigger mode: {0}'.format(self.get_trigger_mode()))

@@ -315,7 +315,7 @@ class LabCamsGUI(QMainWindow):
             #    self.tabs[-1])
             #else:
             self.addDockWidget(
-                Qt.BottomDockWidgetArea,
+                Qt.LeftDockWidgetArea,
                 self.tabs[-1])
                 
             display('Init view: ' + str(c))
