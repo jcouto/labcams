@@ -86,8 +86,6 @@ def getPreferences(preffile = None,create = False):
         with open(preffile, 'w') as outfile:
             json.dump(defaultPreferences, outfile, sort_keys = True, indent = 4)
             display('Saving default preferences to: ' + preffile)
-    else:
-        display('File {0} does not exist.'.format(preffile))
     if os.path.isfile(preffile):
         if not os.path.isdir(preferencepath):
             os.makedirs(preferencepath)
@@ -192,3 +190,37 @@ def triggeredAverage(camdata,
         stimavg[wpre:wpost,:10,:10] = np.max(stimavg)
         stimavgs.append(stimavg)
     return stimavgs
+
+
+def binFramesToLaps(laps,time,position,frames, lapspace = None,
+                    velocity = None,
+                    velocityThreshold = 1., beltLength=150.,baseline = None,
+                    method=lambda x : np.nanmean(x,axis=0)):
+    '''
+    Bins a set of frames to lap position.
+        - laps is [numberOfLaps,2] the start and stop time of each lap
+    
+    '''
+    if lapspace is None:
+        lapspace = np.arange(0,beltLength,1.)
+    lapX = np.zeros((lapspace.shape[0]-1,frames.shape[1],frames.shape[2],),
+                    dtype=np.float32)
+    #lapX[:] = np.nan
+    for k,l in tqdm(enumerate(range(laps.shape[0]))):
+        s,e = laps[l,:]
+        
+        if not velocity is None:
+            idx = np.where((time>=s) & (time<e) &
+                          (velocity > velocityThreshold))[0].astype(int)
+        else:
+            idx = np.where((time>=s) & (time<e))[0].astype(int)
+        x = frames[idx,:,:]
+        pos = position[idx]
+        inds = np.digitize(pos, lapspace)
+        
+        for i in np.unique(inds)[:-1]: 
+            tmp = x[(inds==i),:,:].astype(np.float32)
+            if not baseline is None:
+                tmp = (tmp -  baseline)/baseline
+            lapX[i-1,:,:] += method(tmp)/float(laps.shape[0])
+    return lapX
