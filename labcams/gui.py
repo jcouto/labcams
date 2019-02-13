@@ -498,12 +498,19 @@ def main():
                             bounds_error=False)(camtime)
             laps = np.vstack([laptimes[:-1],laptimes[1:]]).T
 
-            stillframes = np.where(nvel[nvel < 0.01])[0]
+            stillframes = np.where(nvel*150. < 1.)[0]
+            if not len(stillframes):
+                print('Mouse was always running?')
+                stillframes = np.arange(1000)
             print("There are {0} still frames.".format(len(stillframes)))
-            print('Doing the average of the still frames (max 1000).')
-            tmp = camdata[stillframes[:1000],:,:]
-            baseline = np.mean(tmp.astype(np.float32),axis =0)
-            print('Computing the lap maps.')
+            if len(stillframes) > 1000:
+                stillframes = stillframes[:1000]
+            tmp = camdata[stillframes,:,:]
+            baseline = np.nanmin(tmp.astype(np.float32),axis =0)
+            #import pylab as plt
+            #plt.imshow(baseline)
+            #plt.show()
+            print('Computing the lap maps for {0} laps.'.format(len(laps)))
             lapFrames = binFramesToLaps(laps,camtime,
                                         npos*150.,
                                         camdata,baseline = baseline)
@@ -516,6 +523,7 @@ def main():
                 os.makedirs(os.path.dirname(fname))
             from tifffile import imsave
             imsave(fname,lapFrames)
+            print('Saved {0}'.format(fname))
         sys.exit()
 if __name__ == '__main__':
     main()
