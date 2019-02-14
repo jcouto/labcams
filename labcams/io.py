@@ -94,18 +94,25 @@ class TiffWriter(Process):
             self.logfile.write('# Date: {0}'.format(datetime.today().strftime('%d-%m-%Y')) + '\n')
             self.logfile.write('# labcams version: {0}'.format(VERSION) + '\n')                
             self.logfile.write('# Log header:' + 'frame_id,timestamp' + '\n')
-        if self.trackerFlag.is_set():
-            display("Tracker is set.")
         self.nFiles += 1
         display('Opened: '+ filename)        
         self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - ' + filename + '\n')
+        if self.trackerFlag.is_set():
+            # MPTRACKER hack
+            import cv2
+            cv2.setNumThreads(1)
+            from mptracker import MPTracker
+            self.tracker = MPTracker()
+            display("Tracker is set.")
+        else:
+            self.tracker = None
 
     def getFromQueueAndSave(self):
         buff = self.inQ.get()
         if buff[0] is None:
             # Then parameters were passed to the queue
             display(buff[1])
-            return None
+            return None,None
         frame,(frameid,timestamp,) = buff
         if np.mod(self.frameCount.value,self.framesPerFile)==0:
             self.openFile()
@@ -120,7 +127,7 @@ class TiffWriter(Process):
         self.logfile.write('{0},{1}\n'.format(frameid,
                                               timestamp))
         self.frameCount.value += 1
-        return frame
+        return frameid,frame
     
     def run(self):
         while not self.close.is_set():
@@ -128,10 +135,19 @@ class TiffWriter(Process):
             self.nFiles = 0
             while self.write.is_set():
                 if not self.inQ.empty():
-                    frame = self.getFromQueueAndSave()
+                    frameid,frame = self.getFromQueueAndSave()
+                    if not frameid is None and not self.tracker is None:
+                        res = self.tracker.apply(frame)
+                        print(res[3])
             # If queue is not empty, empty if to files.
             if not self.inQ.empty():
-                frame = self.getFromQueueAndSave()
+                frameid,frame = self.getFromQueueAndSave()
+                if not frame is None and not self.tracker is None:
+                    res = self.tracker.apply(frame)
+                    #(outimg,(maxL[0] + x1,
+                    #         maxL[1] + y1),pupil_pos,
+                    # (short_axis/2.,long_axis/2.),
+                    # (short_axis,long_axis,phi))
             #display('Queue is empty.')
             if not self.logfile is None:
                 self.closeFile()
