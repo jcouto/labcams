@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+cv2.setNumThreads(1)
 import time
 try:
     from mptracker import MPTracker
@@ -210,6 +211,11 @@ class CamWidget(QWidget):
         self.eyeTracker.parameters['sequentialCRMode'] = False
         self.eyeTracker.parameters['sequentialPupilMode'] = False
         self.trackerpar = MptrackerParameters(self.eyeTracker,image)
+        if not self.parent.writers[self.iCam] is None:
+            self.trackerToggle = QCheckBox()
+            self.trackerToggle.setChecked(self.parent.writers[self.iCam].trackerFlag.is_set())
+            self.trackerToggle.stateChanged.connect(self.trackerSaveToggle)
+            self.trackerpar.pGridSave.addRow(QLabel("Save cameras: "),self.trackerToggle)
         self.trackerTab.setWidget(self.trackerpar)
         self.trackerTab.setFloating(True)
         self.trackerpar.resize(400,250)
@@ -217,7 +223,14 @@ class CamWidget(QWidget):
                                   Qt.BottomDockWidgetArea,
                                   self.trackerTab)
         self.view.mouseReleaseEvent = self._tracker_selectPoints
-
+    def trackerSaveToggle(self,value):
+        writer = self.parent.writers[self.iCam]
+        if not writer is None:
+            if value:
+                writer.trackerFlag.set()
+            else:
+                writer.trackerFlag.clear()
+            
     def _tracker_selectPoints(self,event):
         pt = self.view.mapToScene(event.pos())
         if event.button() == 1:
