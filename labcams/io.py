@@ -17,7 +17,7 @@ from tifffile import TiffWriter as twriter
 from tifffile import imread,TiffFile
 import pandas as pd
 
-VERSION = '0.1b'
+VERSION = '0.2'
 class TiffWriter(Process):
     def __init__(self,inQ = None, loggerQ = None,
                  filename = 'dummy\\run',
@@ -41,11 +41,16 @@ class TiffWriter(Process):
         self.fileName = None
         self.incrementRuns = incrementRuns
         self.runs.value = 0
-        self.compression = compression
         self.fd = None
         self.inQ = inQ
         self.today = datetime.today().strftime('%Y%m%d')
         self.logfile = None
+        self.tracker = None
+        self.trackerFlag = Event()
+
+        if not compression is None:
+            if compression > 0:
+                self.compression = compression
         
     def setFilename(self,filename):
         self.write.clear()
@@ -89,45 +94,45 @@ class TiffWriter(Process):
             self.logfile.write('# Date: {0}'.format(datetime.today().strftime('%d-%m-%Y')) + '\n')
             self.logfile.write('# labcams version: {0}'.format(VERSION) + '\n')                
             self.logfile.write('# Log header:' + 'frame_id,timestamp' + '\n')
+        if self.trackerFlag.is_set():
+            display("Tracker is set.")
         self.nFiles += 1
         display('Opened: '+ filename)        
         self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - ' + filename + '\n')
+
+    def getFromQueueAndSave(self):
+        buff = self.inQ.get()
+        if buff[0] is None:
+            # Then parameters were passed to the queue
+            display(buff[1])
+            return None
+        frame,(frameid,timestamp,) = buff
+        if np.mod(self.frameCount.value,self.framesPerFile)==0:
+            self.openFile()
+            display('Queue size: {0}'.format(self.inQ.qsize()))
+            self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - '
+                               + 'Queue: {0}'.format(self.inQ.qsize())
+                               + '\n')
+        self.fd.save(frame,
+                     compress=self.compression,
+                     description='id:{0};timestamp:{1}'.format(frameid,
+                                                               timestamp))
+        self.logfile.write('{0},{1}\n'.format(frameid,
+                                              timestamp))
+        self.frameCount.value += 1
+        return frame
+    
     def run(self):
         while not self.close.is_set():
             self.frameCount.value = 0
             self.nFiles = 0
             while self.write.is_set():
                 if not self.inQ.empty():
-                    buff = self.inQ.get()
-                    frame,(frameid,timestamp,) = buff
-                    
-                    if np.mod(self.frameCount.value,self.framesPerFile)==0:
-                        self.openFile()
-                        display('Queue size: {0}'.format(self.inQ.qsize()))
-                        self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - '
-                                           + 'Queue: {0}'.format(self.inQ.qsize())
-                                           + '\n')
-                    self.fd.save(frame,
-                                 compress=self.compression,
-                                 description='id:{0};timestamp:{1}'.format(frameid,
-                                                                           timestamp))
-                    self.logfile.write('{0},{1}\n'.format(frameid,
-                                                          timestamp))
-                    
-                    self.frameCount.value += 1
+                    frame = self.getFromQueueAndSave()
             # If queue is not empty, empty if to files.
             if not self.inQ.empty():
-                while not self.inQ.empty():
-                    buff = self.inQ.get()
-                    frame,(frameid,timestamp,) = buff
-                    if np.mod(self.frameCount.value,self.framesPerFile)==0:
-                        self.openFile()
-                    self.fd.save(frame,compress=self.compression,
-                                 description='id:{0};timestamp:{1}'.format(frameid,timestamp))
-                    self.logfile.write('{0},{1}\n'.format(frameid,
-                                                          timestamp))
-                    self.frameCount.value += 1
-                display('Queue is empty.')
+                frame = self.getFromQueueAndSave()
+            #display('Queue is empty.')
             if not self.logfile is None:
                 self.closeFile()
                 self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - ' +

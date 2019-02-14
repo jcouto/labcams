@@ -120,7 +120,7 @@ class OpenCVCam(GenericCam):
         
         while not self.closeEvent.is_set():
             self.nframes.value = 0
-            lastFrameID = -1
+            lastframeid = -1
             cam = cv2.VideoCapture(self.camId)
             self.cameraReady.set()
             self.nframes.value = 0
@@ -142,7 +142,7 @@ class OpenCVCam(GenericCam):
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 self.nframes.value += 1
                 if self.saving.is_set():
-                    if not frameID in lastframeid :
+                    if not frameID == lastframeid :
                         self.queue.put((frame.copy(),(frameID,timestamp)))
                         lastframeid = frameID
                 buf[:,:] = frame[:,:]

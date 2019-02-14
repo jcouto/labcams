@@ -115,25 +115,13 @@ class LabCamsGUI(QMainWindow):
                     cam['TriggerMode'] = 'LevelHigh'
                 if not 'TriggerSelector' in cam.keys():
                     cam['TriggerSelector'] = 'FrameStart'
-                    display('Using FrameStart for triggering.')
                 if not 'AcquisitionMode' in cam.keys():
                     cam['AcquisitionMode'] = 'Continuous'
                 if not 'AcquisitionFrameCount' in cam.keys():
                     cam['AcquisitionFrameCount'] = 1000
                 if not 'nFrameBuffers' in cam.keys():
                     cam['nFrameBuffers'] = 1
-                    
-                self.camQueues.append(Queue())
-                if cam['Save']:
-                    self.writers.append(TiffWriter(inQ = self.camQueues[-1],
-                                                   dataFolder=self.parameters['recorder_path'],
-                                                   framesPerFile=self.parameters['recorder_frames_per_file'],
-                                                   sleepTime = self.parameters['recorder_sleep_time'],
-                                                   filename = expName,
-                                                   dataName = cam['description']))
-                else:
-                    self.writers.append(None)
-                
+                self.camQueues.append(Queue())                
                 self.cams.append(AVTCam(camId=camids[0][0],
                                         outQ = self.camQueues[-1],
                                         frameRate=cam['frameRate'],
@@ -148,16 +136,6 @@ class LabCamsGUI(QMainWindow):
                 connected_avt_cams.append(camids[0][0])
             elif cam['driver'] == 'QImaging':
                 self.camQueues.append(Queue())
-                if cam['Save']:
-                    self.writers.append(
-                        TiffWriter(inQ = self.camQueues[-1],
-                                   dataFolder=self.parameters['recorder_path'],
-                                   framesPerFile=self.parameters['recorder_frames_per_file'],
-                                   sleepTime = self.parameters['recorder_sleep_time'],
-                                   filename = expName,
-                                   dataName = cam['description']))
-                else:
-                    self.writers.append(None)
                 if not 'binning' in cam.keys():
                     cam['binning'] = 2
                 self.cams.append(QImagingCam(camId=cam['id'],
@@ -169,31 +147,11 @@ class LabCamsGUI(QMainWindow):
                                              triggered = self.triggered))
             elif cam['driver'] == 'OpenCV':
                 self.camQueues.append(Queue())
-                if cam['Save']:
-                    self.writers.append(
-                        TiffWriter(inQ = self.camQueues[-1],
-                                   dataFolder=self.parameters['recorder_path'],
-                                   framesPerFile=self.parameters['recorder_frames_per_file'],
-                                   sleepTime = self.parameters['recorder_sleep_time'],
-                                   filename = expName,
-                                   dataName = cam['description']))
-                else:
-                    self.writers.append(None)
                 self.cams.append(OpenCVCam(camId=cam['id'],
                                            outQ = self.camQueues[-1],
                                            triggered = self.triggered))
             elif cam['driver'] == 'PCO':
                 self.camQueues.append(Queue())
-                if cam['Save']:
-                    self.writers.append(
-                        TiffWriter(inQ = self.camQueues[-1],
-                                   dataFolder=self.parameters['recorder_path'],
-                                   framesPerFile=self.parameters['recorder_frames_per_file'],
-                                   sleepTime = self.parameters['recorder_sleep_time'],
-                                   filename = expName,
-                                   dataName = cam['description']))
-                else:
-                    self.writers.append(None)
                 from .pixelfly import PCOCam
                 self.cams.append(PCOCam(camId=cam['id'],
                                         binning = cam['binning'],
@@ -202,6 +160,19 @@ class LabCamsGUI(QMainWindow):
                                         triggered = self.triggered))
             else:
             	display('Unknown camera driver' + cam['driver'])
+
+            if cam['Save']:
+                if not 'compress' in self.parameters:
+                    self.parameters['compress'] = 0
+                self.writers.append(TiffWriter(inQ = self.camQueues[-1],
+                                               dataFolder=self.parameters['recorder_path'],
+                                               framesPerFile=self.parameters['recorder_frames_per_file'],
+                                               sleepTime = self.parameters['recorder_sleep_time'],
+                                               compression = self.parameters['compress'],
+                                               filename = expName,
+                                               dataName = cam['description']))
+            else:
+                self.writers.append(None)
             # Print parameteres
             display('\t Camera: {0}'.format(cam['name']))
             for k in np.sort(list(cam.keys())):
