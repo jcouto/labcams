@@ -228,6 +228,7 @@ class CamWidget(QWidget):
         if not writer is None:
             if value:
                 writer.trackerFlag.set()
+                writer.inQ.put((None,self.eyeTracker.parameters))
             else:
                 writer.trackerFlag.clear()
             

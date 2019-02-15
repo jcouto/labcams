@@ -46,6 +46,8 @@ class TiffWriter(Process):
         self.today = datetime.today().strftime('%Y%m%d')
         self.logfile = None
         self.tracker = None
+        self.trackerpar = None
+        self.trackerfile = None
         self.trackerFlag = Event()
 
         if not compression is None:
@@ -90,28 +92,60 @@ class TiffWriter(Process):
             self.logfile = open(pjoin(folder,'{0}_run{1:03d}.camlog'.format(
                 self.today,
                 self.runs.value)),'w')
-            self.logfile.write('# Camera: {0} log file'.format(self.dataName) + '\n')
-            self.logfile.write('# Date: {0}'.format(datetime.today().strftime('%d-%m-%Y')) + '\n')
-            self.logfile.write('# labcams version: {0}'.format(VERSION) + '\n')                
+            self.logfile.write('# Camera: {0} log file'.format(
+                self.dataName) + '\n')
+            self.logfile.write('# Date: {0}'.format(
+                datetime.today().strftime('%d-%m-%Y')) + '\n')
+            self.logfile.write('# labcams version: {0}'.format(
+                VERSION) + '\n')                
             self.logfile.write('# Log header:' + 'frame_id,timestamp' + '\n')
         self.nFiles += 1
         display('Opened: '+ filename)        
         self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - ' + filename + '\n')
         if self.trackerFlag.is_set():
             # MPTRACKER hack
-            import cv2
-            cv2.setNumThreads(1)
-            from mptracker import MPTracker
-            self.tracker = MPTracker()
-            display("Tracker is set.")
+            display('Running eye tracker.')
+            if self.tracker is None:
+                import cv2
+                cv2.setNumThreads(1)
+                from mptracker import MPTracker
+                self.tracker = MPTracker()
+                self._updateTrackerPar()
+            if self.trackerfile is None:
+                self.trackerfile = open(pjoin(
+                    folder,
+                    '{0}_run{1:03d}.eyetracker'.format(
+                        self.today,
+                        self.runs.value)),'w')
+                self.trackerfile.write('# [' +
+                                       datetime.today().strftime(
+                                           '%y-%m-%d %H:%M:%S')+'] - ' +
+                                       'opening file.')
+
         else:
             self.tracker = None
-
+            self._close_trackerfile()
+            
+    def _close_trackerfile(self):
+        if not self.trackerfile is None:
+            self.trackerfile.write('# [' +
+                                   datetime.today().strftime(
+                                       '%y-%m-%d %H:%M:%S')+'] - ' +
+            'closing file.')
+            self.trackerfile.close()
+            self.trackerfile = None
+    def _updateTrackerPar(self):
+        if not self.trackerpar is None and not self.tracker is None:
+            print('Updating eye tracker parameters.')
+            for k in self.trackerpar:
+                self.tracker.parameters[k] = self.trackerpar[k]
     def getFromQueueAndSave(self):
         buff = self.inQ.get()
         if buff[0] is None:
             # Then parameters were passed to the queue
-            display(buff[1])
+            if type(buff[1]) is dict():
+                self.trackerpar = buff[1]
+                self._updateTrackerPar()
             return None,None
         frame,(frameid,timestamp,) = buff
         if np.mod(self.frameCount.value,self.framesPerFile)==0:
@@ -128,7 +162,27 @@ class TiffWriter(Process):
                                               timestamp))
         self.frameCount.value += 1
         return frameid,frame
-    
+    def closeRun(self):
+        if not self.logfile is None:
+            self.closeFile()
+            self.logfile.write('# [' +
+                               datetime.today().strftime(
+                                   '%y-%m-%d %H:%M:%S')+'] - ' +
+                               "Wrote {0} frames on {1} ({2} files).".format(
+                                   self.frameCount.value,
+                                   self.dataName,
+                                   self.nFiles) + '\n')
+            self.logfile.close()
+            self.logfile = None
+            self.runs.value += 1
+        if not self.frameCount.value == 0:
+            display("Wrote {0} frames on {1} ({2} files).".format(
+                self.frameCount.value,
+                self.dataName,
+                self.nFiles))
+        if not self.trackerfile is None:
+            self._close_trackerfile()
+
     def run(self):
         while not self.close.is_set():
             self.frameCount.value = 0
@@ -138,7 +192,6 @@ class TiffWriter(Process):
                     frameid,frame = self.getFromQueueAndSave()
                     if not frameid is None and not self.tracker is None:
                         res = self.tracker.apply(frame)
-                        print(res[3])
             # If queue is not empty, empty if to files.
             if not self.inQ.empty():
                 frameid,frame = self.getFromQueueAndSave()
@@ -149,21 +202,7 @@ class TiffWriter(Process):
                     # (short_axis/2.,long_axis/2.),
                     # (short_axis,long_axis,phi))
             #display('Queue is empty.')
-            if not self.logfile is None:
-                self.closeFile()
-                self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - ' +
-                                "Wrote {0} frames on {1} ({2} files).".format(
-                                    self.frameCount.value,
-                                    self.dataName,
-                                    self.nFiles) + '\n')
-                self.logfile.close()
-                self.logfile = None
-                self.runs.value += 1
-            if not self.frameCount.value == 0:
-                display("Wrote {0} frames on {1} ({2} files).".format(
-                    self.frameCount.value,
-                    self.dataName,
-                    self.nFiles))
+            self.closeRun()
             # self.closeFile()
             # spare the processor just in case...
             time.sleep(self.sleepTime)
