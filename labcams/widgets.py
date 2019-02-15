@@ -228,10 +228,9 @@ class CamWidget(QWidget):
         if not writer is None:
             if value:
                 writer.trackerFlag.set()
-                writer.inQ.put((None,self.eyeTracker.parameters))
+                writer.parQ.put((None,self.eyeTracker.parameters))
             else:
                 writer.trackerFlag.clear()
-            
     def _tracker_selectPoints(self,event):
         pt = self.view.mapToScene(event.pos())
         if event.button() == 1:

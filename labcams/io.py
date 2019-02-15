@@ -43,13 +43,13 @@ class TiffWriter(Process):
         self.runs.value = 0
         self.fd = None
         self.inQ = inQ
+        self.parQ = Queue()
         self.today = datetime.today().strftime('%Y%m%d')
         self.logfile = None
         self.tracker = None
-        self.trackerpar = None
         self.trackerfile = None
         self.trackerFlag = Event()
-
+        self.trackerpar = None
         if not compression is None:
             if compression > 0:
                 self.compression = compression
@@ -112,40 +112,59 @@ class TiffWriter(Process):
                 self.tracker = MPTracker()
                 self._updateTrackerPar()
             if self.trackerfile is None:
-                self.trackerfile = open(pjoin(
-                    folder,
-                    '{0}_run{1:03d}.eyetracker'.format(
-                        self.today,
-                        self.runs.value)),'w')
-                self.trackerfile.write('# [' +
-                                       datetime.today().strftime(
-                                           '%y-%m-%d %H:%M:%S')+'] - ' +
-                                       'opening file.')
-
+                self.trackerfile = pjoin(folder,
+                                         '{0}_run{1:03d}.eyetracker'.format(
+                                             self.today,
+                                             self.runs.value))
+                display('[TiffWriter] Started eye tracker storing dict.')
+                self._trackerres = dict(ellipsePix = [],
+                                        pupilPix = [],
+                                        crPix = [])
         else:
             self.tracker = None
             self._close_trackerfile()
             
     def _close_trackerfile(self):
         if not self.trackerfile is None:
-            self.trackerfile.write('# [' +
-                                   datetime.today().strftime(
-                                       '%y-%m-%d %H:%M:%S')+'] - ' +
-            'closing file.')
-            self.trackerfile.close()
+            from mptracker.io import exportResultsToHDF5
+            self.tracker.parameters['points'] = self.tracker.ROIpoints
+            self._trackerres = dict(
+                ellipsePix = np.array(self._trackerres['ellipsePix']),
+                pupilPix = np.array(self._trackerres['pupilPix']),
+                crPix = np.array(self._trackerres['crPix']),
+                reference  = [self.tracker.parameters['points'][0],
+                              self.tracker.parameters['points'][2]])
+            res = exportResultsToHDF5(self.trackerfile,
+                                      self.tracker.parameters,
+                                      self._trackerres)
+            if not res is None:
+                if res:
+                    display('[TiffWriter] Saving tracker results to {0}'.format(self.trackerfile))
+            else:
+                display('[TiffWriter] Could not save tracker results to {0}'.format(self.trackerfile))
+            self._trackerres = None
             self.trackerfile = None
     def _updateTrackerPar(self):
         if not self.trackerpar is None and not self.tracker is None:
             print('Updating eye tracker parameters.')
-            for k in self.trackerpar:
+            for k in self.trackerpar.keys():
                 self.tracker.parameters[k] = self.trackerpar[k]
+                display('\t\t {0}: {1}'.format(k,self.trackerpar[k]))
+            self.tracker.setROI(self.trackerpar['points'])
+
+    def getFromParQueue(self):
+        buff = self.parQ.get()
+        if buff[0] is None:
+            # Then parameters were passed to the queue
+            display('[TiffWriter] - Received tracker parameters.')
+            self.trackerpar = buff[1]
+            self._updateTrackerPar()
+        
     def getFromQueueAndSave(self):
         buff = self.inQ.get()
         if buff[0] is None:
             # Then parameters were passed to the queue
-            if type(buff[1]) is dict():
-                self.trackerpar = buff[1]
-                self._updateTrackerPar()
+            display('[TiffWriter] - Received None...')
             return None,None
         frame,(frameid,timestamp,) = buff
         if np.mod(self.frameCount.value,self.framesPerFile)==0:
@@ -162,6 +181,7 @@ class TiffWriter(Process):
                                               timestamp))
         self.frameCount.value += 1
         return frameid,frame
+    
     def closeRun(self):
         if not self.logfile is None:
             self.closeFile()
@@ -182,25 +202,38 @@ class TiffWriter(Process):
                 self.nFiles))
         if not self.trackerfile is None:
             self._close_trackerfile()
+            
+    def _storeTrackerResults(self,res):
+        cr_pos,pupil_pos,pupil_radius,pupil_ellipse_par = res
+        self._trackerres['ellipsePix'].append(
+            np.hstack([pupil_radius,pupil_ellipse_par]))
+        self._trackerres['pupilPix'].append(pupil_pos)
+        self._trackerres['crPix'].append(cr_pos)
 
     def run(self):
         while not self.close.is_set():
             self.frameCount.value = 0
             self.nFiles = 0
+            if not self.parQ.empty():
+                self.getFromParQueue()
             while self.write.is_set():
                 if not self.inQ.empty():
                     frameid,frame = self.getFromQueueAndSave()
                     if not frameid is None and not self.tracker is None:
                         res = self.tracker.apply(frame)
+                        self._storeTrackerResults(res)
+
             # If queue is not empty, empty if to files.
             if not self.inQ.empty():
                 frameid,frame = self.getFromQueueAndSave()
                 if not frame is None and not self.tracker is None:
                     res = self.tracker.apply(frame)
-                    #(outimg,(maxL[0] + x1,
-                    #         maxL[1] + y1),pupil_pos,
-                    # (short_axis/2.,long_axis/2.),
-                    # (short_axis,long_axis,phi))
+                    self._storeTrackerResults(res)
+
+                    #(maxL[0] + x1,
+                    # maxL[1] + y1),pupil_pos,
+                    #(short_axis/2.,long_axis/2.),
+                    #(short_axis,long_axis,phi))
             #display('Queue is empty.')
             self.closeRun()
             # self.closeFile()
