@@ -244,11 +244,30 @@ class CamWidget(QWidget):
     def image(self,image,nframe):
         if self.lastnFrame != nframe:
             self.scene.clear()
+            tmp = image.copy()
+            if self.parameters['Equalize']:
+                try: # In case the type is messed up..
+                    tmp = cv2.equalizeHist(tmp)
+                except:
+                    pass
+            if self.parameters['SubtractBackground']:
+                tmp = tmp.astype(np.float32)
+                frame = (np.abs(tmp - self.lastFrame))*10.
+                self.lastFrame = ((1-1/self.nAcum)*(self.lastFrame.astype(np.float32)) +
+                                  (1/self.nAcum)*tmp)
+            else:
+                frame = tmp
+
             if bool(self.parameters['TrackEye']):
                 if self.eyeTracker is None:
                     self._open_mptracker(image.copy())
-                img = self.eyeTracker.apply(image.copy()) 
-                frame = self.eyeTracker.img
+                img = self.eyeTracker.apply(image.copy())
+                if not self.eyeTracker.concatenateBinaryImage:
+                    (x1,y1,w,h) = self.eyeTracker.parameters['imagecropidx']
+                    frame = cv2.cvtColor(frame,cv2.COLOR_GRAY2RGB)
+                    frame[y1:y1+h,x1:x1+w,:] = self.eyeTracker.img
+                else:
+                    frame = self.eyeTracker.img
             else:
                 tmp = image.copy()
                 if self.parameters['Equalize']:
