@@ -136,9 +136,9 @@ class OpenCVCam(GenericCam):
             display('OpenCV [{0}] - Started acquisition.'.format(self.camId))
             self.cameraReady.clear()
             while not self.stopTrigger.is_set():
-                timestamp = 0
                 frameID = self.nframes.value
                 ret_val, frame = cam.read()
+                timestamp = time.time()
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 self.nframes.value += 1
                 if self.saving.is_set():
