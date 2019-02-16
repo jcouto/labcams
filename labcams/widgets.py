@@ -206,7 +206,7 @@ class CamWidget(QWidget):
         
     def _open_mptracker(self,image):
         self.eyeTracker = MPTracker(drawProcessedFrame=True)
-        self.trackerTab = QDockWidget("MousePupilTRACKER",self.parent)
+        self.trackerTab = QDockWidget("mptracker cam {0}".format(self.iCam), self)
         self.eyeTracker.parameters['crTrack'] = True
         self.eyeTracker.parameters['sequentialCRMode'] = False
         self.eyeTracker.parameters['sequentialPupilMode'] = False
