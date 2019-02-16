@@ -207,8 +207,11 @@ class TiffWriter(Process):
                 self.dataName,
                 self.nFiles))
         if not self.trackerfile is None:
-            self._close_trackerfile()
-            
+            try:
+                self._close_trackerfile()
+            except Exception as err:
+                display("There was an error when trying to save the tracker results.")
+                print(err)
     def _storeTrackerResults(self,res):
         cr_pos,pupil_pos,pupil_radius,pupil_ellipse_par = res
         self._trackerres['ellipsePix'].append(
