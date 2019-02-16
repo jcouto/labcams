@@ -50,10 +50,10 @@ class TiffWriter(Process):
         self.trackerfile = None
         self.trackerFlag = Event()
         self.trackerpar = None
+        self.compression = None
         if not compression is None:
             if compression > 0:
                 self.compression = compression
-        
     def setFilename(self,filename):
         self.write.clear()
         for i in range(len(self.filename)):
@@ -128,6 +128,12 @@ class TiffWriter(Process):
         if not self.trackerfile is None:
             from mptracker.io import exportResultsToHDF5
             self.tracker.parameters['points'] = self.tracker.ROIpoints
+            if len(self.tracker.parameters['points']) < 4:
+                (x1,y1,w,h) = self.tracker.parameters['imagecropidx']
+                self.tracker.parameters['points'] = [[y1+h/2,0],
+                                                     [0,x1+w/2],
+                                                     [y1+h/2,x1+w],
+                                                     [y1+h,x1+w/2]]
             self._trackerres = dict(
                 ellipsePix = np.array(self._trackerres['ellipsePix']),
                 pupilPix = np.array(self._trackerres['pupilPix']),
@@ -224,7 +230,7 @@ class TiffWriter(Process):
                         self._storeTrackerResults(res)
 
             # If queue is not empty, empty if to files.
-            if not self.inQ.empty():
+            while not self.inQ.empty():
                 frameid,frame = self.getFromQueueAndSave()
                 if not frame is None and not self.tracker is None:
                     res = self.tracker.apply(frame)
