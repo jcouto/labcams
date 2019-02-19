@@ -295,8 +295,7 @@ class LabCamsGUI(QMainWindow):
                                           Qt.BottomDockWidgetArea |
                                           Qt.TopDockWidgetArea)
             self.tabs[-1].setFeatures(QDockWidget.DockWidgetMovable |
-                                      QDockWidget.DockWidgetFloatable |
-                                      not QDockWidget.DockWidgetClosable)
+                                      QDockWidget.DockWidgetFloatable)
             self.addDockWidget(
                 Qt.LeftDockWidgetArea,
                 self.tabs[-1])
