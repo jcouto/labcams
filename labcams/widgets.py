@@ -171,7 +171,7 @@ class CamWidget(QWidget):
         if not self.parameters['Save']:
             self.string = 'no save -{0}'
         self.image(np.array(frame),-1)
-        self.setFixedSize(w,h)        
+        self.setFixedSize(w,h)
         #self.show()
         
     def toggleSubtract(self):
@@ -220,9 +220,12 @@ class CamWidget(QWidget):
         self.trackerTab.setWidget(self.trackerpar)
         self.trackerTab.setFloating(True)
         self.trackerpar.resize(400,250)
-        self.parent.addDockWidget(Qt.RightDockWidgetArea and
-                                  Qt.BottomDockWidgetArea,
-                                  self.trackerTab)
+        self.parent.addDockWidget(Qt.RightDockWidgetArea
+                                  ,self.trackerTab)
+        self.trackerTab.setAllowedAreas(Qt.LeftDockWidgetArea |
+                                        Qt.LeftDockWidgetArea |
+                                        Qt.BottomDockWidgetArea |
+                                        Qt.TopDockWidgetArea )
         self.view.mouseReleaseEvent = self._tracker_selectPoints
     def trackerSaveToggle(self,value):
         writer = self.parent.writers[self.iCam]
