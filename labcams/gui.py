@@ -265,6 +265,10 @@ class LabCamsGUI(QMainWindow):
         
     def initUI(self):
         # Menu
+        self.setDockOptions(QMainWindow.AllowTabbedDocks |
+                            QMainWindow.AllowNestedDocks |
+                            QMainWindow.AnimatedDocks
+)
         from .widgets import CamWidget,RecordingControlWidget
         bar = self.menuBar()
         editmenu = bar.addMenu("Experiment")
@@ -286,23 +290,21 @@ class LabCamsGUI(QMainWindow):
                                              parameters = self.cam_descriptions[c]))
             self.tabs[-1].setWidget(self.camwidgets[-1])
             self.tabs[-1].setFloating(False)
-            #if c < 1:
-            #self.addDockWidget(
-            #    Qt.RightDockWidgetArea and Qt.TopDockWidgetArea,
-            #    self.tabs[-1])
-            #else:
+            self.tabs[-1].setAllowedAreas(Qt.LeftDockWidgetArea |
+                                          Qt.LeftDockWidgetArea |
+                                          Qt.BottomDockWidgetArea |
+                                          Qt.TopDockWidgetArea)
+            self.tabs[-1].setFeatures(QDockWidget.DockWidgetMovable |
+                                      QDockWidget.DockWidgetFloatable |
+                                      not QDockWidget.DockWidgetClosable)
             self.addDockWidget(
                 Qt.LeftDockWidgetArea,
                 self.tabs[-1])
                 
             display('Init view: ' + str(c))
-        self.tabs.append(QDockWidget("Controller",self))
         self.recController = RecordingControlWidget(self)
-        self.tabs[-1].setWidget(self.recController)
-        self.tabs[-1].setFloating(False)
-        self.addDockWidget(
-            Qt.RightDockWidgetArea and Qt.TopDockWidgetArea,
-            self.tabs[-1])
+        self.setCentralWidget(self.recController)
+
         self.timer = QTimer()
         self.timer.timeout.connect(self.timerUpdate)
         self.timer.start(self.updateFrequency)
