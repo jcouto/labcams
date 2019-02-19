@@ -226,6 +226,10 @@ class CamWidget(QWidget):
                                         Qt.LeftDockWidgetArea |
                                         Qt.BottomDockWidgetArea |
                                         Qt.TopDockWidgetArea )
+        self.trackerTab.setFeatures(QDockWidget.DockWidgetMovable |
+                                  QDockWidget.DockWidgetFloatable |
+                                  QDockWidget.DockWidgetClosable)
+
         self.view.mouseReleaseEvent = self._tracker_selectPoints
     def trackerSaveToggle(self,value):
         writer = self.parent.writers[self.iCam]
