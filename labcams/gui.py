@@ -91,8 +91,9 @@ class LabCamsGUI(QMainWindow):
         if 'AVT' in camdrivers:
             try:
                 avtids,avtnames = AVT_get_ids()
-            except:
+            except Exception as e:
                 display('AVT camera error? Connections? Parameters?')
+                print(e)
         self.camQueues = []
         self.writers = []
         connected_avt_cams = []
@@ -105,10 +106,12 @@ class LabCamsGUI(QMainWindow):
                           if cam['name'] in name]
                 camids = [camid for camid in camids
                           if not camid[0] in connected_avt_cams]
+                print(cam['name'])
                 if len(camids) == 0:
                     display('Could not find or already connected to: '+cam['name'])
                     sys.exit()
                 cam['name'] = camids[0][1]
+                print(camids[0])
                 if not 'TriggerSource' in cam.keys():
                     cam['TriggerSource'] = 'Line1'
                 if not 'TriggerMode' in cam.keys():
@@ -271,7 +274,10 @@ class LabCamsGUI(QMainWindow):
         self.tabs = []
         self.camwidgets = []
         for c,cam in enumerate(self.cams):
-            self.tabs.append(QDockWidget("Camera: "+str(c),self))
+            tt = ''
+            if not self.writers[c] is None:
+                tt +=  ' - ' + self.writers[c].dataName +' ' 
+            self.tabs.append(QDockWidget("Camera: "+str(c) + tt,self))
             layout = QVBoxLayout()
             self.camwidgets.append(CamWidget(frame = np.zeros((cam.h,cam.w),
                                                               dtype=cam.dtype),
@@ -308,7 +314,10 @@ class LabCamsGUI(QMainWindow):
             	
     def timerUpdate(self):
         for c,(cam,frame) in enumerate(zip(self.cams,self.camframes)):
-            self.camwidgets[c].image(frame,cam.nframes.value)
+            try:
+                self.camwidgets[c].image(frame,cam.nframes.value)
+            except:
+                print('Could not draw cam: {0}'.format(c))
 
     def closeEvent(self,event):
         for cam in self.cams:

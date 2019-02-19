@@ -215,7 +215,8 @@ class CamWidget(QWidget):
             self.trackerToggle = QCheckBox()
             self.trackerToggle.setChecked(self.parent.writers[self.iCam].trackerFlag.is_set())
             self.trackerToggle.stateChanged.connect(self.trackerSaveToggle)
-            self.trackerpar.pGridSave.addRow(QLabel("Save cameras: "),self.trackerToggle)
+            self.trackerpar.pGridSave.addRow(
+                QLabel("Save cameras: "),self.trackerToggle)
         self.trackerTab.setWidget(self.trackerpar)
         self.trackerTab.setFloating(True)
         self.trackerpar.resize(400,250)
@@ -236,8 +237,10 @@ class CamWidget(QWidget):
         if event.button() == 1:
             x = pt.x()
             y = pt.y()
-            self.eyeTracker.parameters['points'].append([int(round(x)),int(round(y))])
-            self.eyeTracker.setROI(self.eyeTracker.parameters['points'])
+            self.eyeTracker.parameters['points'].append(
+                [int(round(x)),int(round(y))])
+            self.eyeTracker.setROI(
+                self.eyeTracker.parameters['points'])
             self.trackerpar.putPoints()
 
     def image(self,image,nframe):

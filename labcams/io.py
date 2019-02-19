@@ -150,6 +150,7 @@ class TiffWriter(Process):
                 display('[TiffWriter] Could not save tracker results to {0}'.format(self.trackerfile))
             self._trackerres = None
             self.trackerfile = None
+            
     def _updateTrackerPar(self):
         if not self.trackerpar is None and not self.tracker is None:
             print('Updating eye tracker parameters.')
@@ -229,20 +230,27 @@ class TiffWriter(Process):
                 if not self.inQ.empty():
                     frameid,frame = self.getFromQueueAndSave()
                     if not frameid is None and not self.tracker is None:
-                        res = self.tracker.apply(frame)
+                        try:
+                            res = self.tracker.apply(frame)
+                        except Exception as e:
+                            print(e)
+                            res = ((0,0),(np.nan,np.nan),
+                                   (np.nan,np.nan),
+                                   (np.nan,np.nan,np.nan))
                         self._storeTrackerResults(res)
 
             # If queue is not empty, empty if to files.
             while not self.inQ.empty():
                 frameid,frame = self.getFromQueueAndSave()
                 if not frame is None and not self.tracker is None:
-                    res = self.tracker.apply(frame)
+                    try:
+                        res = self.tracker.apply(frame)
+                    except Exception as e:
+                        print(e)
+                        res = ((0,0),(np.nan,np.nan),
+                               (np.nan,np.nan),
+                               (np.nan,np.nan,np.nan))
                     self._storeTrackerResults(res)
-
-                    #(maxL[0] + x1,
-                    # maxL[1] + y1),pupil_pos,
-                    #(short_axis/2.,long_axis/2.),
-                    #(short_axis,long_axis,phi))
             #display('Queue is empty.')
             self.closeRun()
             # self.closeFile()
