@@ -171,15 +171,17 @@ def AVT_get_ids():
         camsIds = vimba.getCameraIds()
         cams = [vimba.getCamera(id) for id in camsIds]
         camsModel = []
-        for cam in cams:
+        for camid,cam in zip(camsIds,cams):
             try:
                 cam.openCamera()
                 
             except:
                 camsModel.append('')
                 continue
-            camsModel.append('{0} {1}'.format(cam.DeviceModelName,
-                                              cam.DevicePartNumber))
+            camsModel.append('{0} {1} {2}'.format(cam.DeviceModelName,
+                                                  cam.DevicePartNumber,
+                                                  cam.DeviceID))
+        print(camsModel)
     return camsIds,camsModel
 
 class AVTCam(GenericCam):
