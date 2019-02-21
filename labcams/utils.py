@@ -130,8 +130,8 @@ def triggeredTrials(camdata,
                     camtime,
                     stimtimes,
                     tpre = 2,
-                    global_baseline = True,
-                    do_df_f = False,
+                    global_baseline = False,
+                    do_df_f = True,
                     display_progress = True):
     dt = np.mean(np.diff(camtime))
     stimavgs = []
@@ -155,18 +155,19 @@ def triggeredTrials(camdata,
             else:
                 baseline = F[:wpre].mean(axis = 0)
             if do_df_f:
-                stimavg[i] += (F - baseline)/baseline
+                stimavg[i] = (F - baseline)/baseline
             else:
-                stimavg[i] += F - baseline
+                stimavg[i] = F - baseline
         stimavg[:,:,:10,:10] = np.min(stimavg)
         stimavg[:,wpre:wpost,:10,:10] = np.max(stimavg)
-        stimavgs.append(stimavg/len(stimavg))
+        stimavgs.append(stimavg)
     return stimavgs
 
 def triggeredAverage(camdata,
                      camtime,
                      stimtimes,
                      tpre = 2.,
+                     global_baseline = False,
                      do_df_f = True,display_progress = True):
     dt = np.mean(np.diff(camtime))
     stimavgs = []
@@ -184,13 +185,16 @@ def triggeredAverage(camdata,
                 zip(iTrials,starttimes)),total = ntrials) if display_progress else enumerate(
             zip(iTrials,starttimes)):
             ii = np.where(camtime < time)[0][-1]
-            dF = camdata[ii-wpre:ii+wpost:1,:,:].astype(np.float32)
-            if do_df_f:
-#                F = np.mean(dF[:wpre],axis = 0)
-                F = np.min(dF[:wpre],axis = 0)
-                stimavg += (dF - F)/F
+            F = camdata[ii-wpre:ii+wpost:1,:,:].astype(np.float32)
+            if global_baseline:
+                baseline = F[:].min(axis = 0)
             else:
-                stimavg += dF
+                baseline = F[:wpre].mean(axis = 0)
+            if do_df_f:
+                stimavg += (F - baseline)/baseline
+            else:
+                stimavg += F - baseline
+        stimavg /= float(ntrials)
         stimavg[:,:10,:10] = np.min(stimavg)
         stimavg[wpre:wpost,:10,:10] = np.max(stimavg)
         stimavgs.append(stimavg)

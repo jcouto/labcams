@@ -373,6 +373,12 @@ def main():
     parser.add_argument('--laps-trigger',
                         default=False,
                         action='store_true')
+    parser.add_argument('--analysis-global-baseline',
+                        default=False,
+                        action='store_true')
+    parser.add_argument('--analysis-df-f',
+                        default=False,
+                        action='store_true')
     opts = parser.parse_args()
     if not opts.make_config is None:
         fname = opts.make_config
@@ -432,9 +438,12 @@ def main():
             tpre = 0
             if 'BlankDuration' in protopts.keys():
                 tpre = float(protopts['BlankDuration'])/2.
-            stimavgs = triggeredAverage(camdata,camtime,
-                                        stimtimes,
-                                        tpre = tpre)
+            stimavgs = triggeredAverage(
+                camdata,camtime,
+                stimtimes,
+                tpre = tpre,
+                global_baseline = opts.analysis_global_baseline,
+                do_df_f = opts.analysis_df_f)
             # remove loops if there
             for iStim in range(len(stimavgs)):
                 nloops = 0
