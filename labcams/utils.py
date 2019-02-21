@@ -129,8 +129,10 @@ def findVStimLog(expname):
 def triggeredTrials(camdata,
                     camtime,
                     stimtimes,
-                    tpre = 2.,
-                    do_df_f = True,display_progress = True):
+                    tpre = 2,
+                    global_baseline = True,
+                    do_df_f = False,
+                    display_progress = True):
     dt = np.mean(np.diff(camtime))
     stimavgs = []
     wpre = int(int(np.ceil(tpre/dt)))
@@ -147,16 +149,18 @@ def triggeredTrials(camdata,
             zip(iTrials,starttimes))) if display_progress else enumerate(
             zip(iTrials,starttimes)):
             ii = np.where(camtime < time)[0][-1]
-            dF = camdata[ii-wpre:ii+wpost:1,:,:].astype(np.float32)
-            if do_df_f:
-                F = np.mean(dF[:wpre],axis = 0)
-#                F = np.min(dF[:wpre],axis = 0)
-                stimavg[i] = (dF - F)/F
+            F = camdata[ii-wpre:ii+wpost:1,:,:].astype(np.float32)
+            if global_baseline:
+                baseline = F[:].min(axis = 0)
             else:
-                stimavg[i] = dF
+                baseline = F[:wpre].mean(axis = 0)
+            if do_df_f:
+                stimavg[i] += (F - baseline)/baseline
+            else:
+                stimavg[i] += F - baseline
         stimavg[:,:,:10,:10] = np.min(stimavg)
         stimavg[:,wpre:wpost,:10,:10] = np.max(stimavg)
-        stimavgs.append(stimavg)
+        stimavgs.append(stimavg/len(stimavg))
     return stimavgs
 
 def triggeredAverage(camdata,

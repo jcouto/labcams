@@ -429,7 +429,12 @@ def main():
             protopts,prot = parseProtocolFile(logfile.replace('.log','.prot'))
             (stimtimes,stimpars,stimoptions) = getStimuliTimesFromLog(
                 logfile,plog)
-            stimavgs = triggeredAverage(camdata,camtime,stimtimes)
+            tpre = 0
+            if 'BlankDuration' in protopts.keys():
+                tpre = float(protopts['BlankDuration'])/2.
+            stimavgs = triggeredAverage(camdata,camtime,
+                                        stimtimes,
+                                        tpre = tpre)
             # remove loops if there
             for iStim in range(len(stimavgs)):
                 nloops = 0
@@ -461,6 +466,7 @@ def main():
                 if not os.path.isdir(os.path.dirname(fname)):
                     os.makedirs(os.path.dirname(fname))
                 from tifffile import imsave
+                print(fname)
                 imsave(fname,savg)
         else:
             from pyvstim import treadmillBehaviorFromRelativePosition
