@@ -302,9 +302,9 @@ class CamWidget(QWidget):
                     pass
             if self.parameters['SubtractBackground']:
                 tmp = tmp.astype(np.float32)
-                frame = (np.abs(tmp - self.lastFrame))*10.
-                self.lastFrame = ((1-1/self.nAcum)*(self.lastFrame.astype(np.float32)) +
-                                  (1/self.nAcum)*tmp)
+                frame = (tmp - self.lastFrame)
+                self.lastFrame = ((1.-1./self.nAcum)*(self.lastFrame.astype(np.float32)) +
+                                  (1./self.nAcum)*tmp)
             else:
                 frame = tmp
             if bool(self.parameters['TrackEye']):
@@ -317,8 +317,8 @@ class CamWidget(QWidget):
                     frame[y1:y1+h,x1:x1+w,:] = self.eyeTracker.img
                 else:
                     frame = self.eyeTracker.img
-            if self.parameters['driver'] in ['QImaging','PCO']:
-                frame = np.array((frame.astype(np.float32)/2.**14)*2.**8).astype(np.uint8)
+            #if self.parameters['driver'] in ['QImaging','PCO']:
+            #    frame = np.array((frame.astype(np.float32)/2.**14)*2.**8).astype(np.uint8)
             #if len(frame.shape) == 2 :
             #    frame = cv2.cvtColor(frame.astype(np.uint8), cv2.COLOR_GRAY2BGR)
             #cv2.putText(frame,self.string.format(nframe), (10,100), cv2.FONT_HERSHEY_SIMPLEX,
