@@ -11,8 +11,9 @@ class PCOCam(GenericCam):
     def __init__(self, camId = None, outQ = None,
                  frameRate = .1,
                  binning = 2,
-                 exposure = 200,
+                 exposure = 100,
                  dtype = np.uint16,
+                 useCameraParameters = True,
                  triggerSource = np.uint16(2),
                  triggered = Event(),
                  dllpath = 'C:\\Program Files (x86)\\pco\\pco.sdk\\bin64\\SC2_Cam.dll',
@@ -38,8 +39,10 @@ class PCOCam(GenericCam):
         self.dtype = dtype
         ret = self.camopen(self.camId)
         assert ret == 0, "PCO: Could not open camera {0}".format(camId)
-        ret = self.set_binning(binning,binning)
-        display('PCO - Binning: {0}'.format(ret))
+        self.useCameraParameters = useCameraParameters
+        if self.useCameraParameters:
+            ret = self.set_binning(binning,binning)
+            display('PCO - Binning: {0}'.format(ret))
         ret = self.set_exposure_time(self.exposure)
         display('PCO - Exposure: {0} {1}'.format(*ret))
         self.set_trigger_mode(0)
@@ -64,7 +67,7 @@ class PCOCam(GenericCam):
         buf[:,:] = frame[:,:]
 
         display("Got info from camera (name: {0})".format(
-             'PixelFly'))
+             'PCO'))
 
         self.cameraReady = Event()
     
@@ -76,8 +79,8 @@ class PCOCam(GenericCam):
         opencamera.restype = ctypes.c_int
         self.hCam = ctypes.c_int()
         ret = opencamera(self.hCam, camid)
-        if ret == 0 and reset:
-            self._dll.PCO_ResetSettingsToDefault(self.hCam)
+        #if ret == 0 and reset:
+        #    self._dll.PCO_ResetSettingsToDefault(self.hCam)
         return ret
     
     def camclose(self):
@@ -378,10 +381,11 @@ class PCOCam(GenericCam):
             self.nframes.value = 0
             lastframeid = -1
             ret = self.camopen(self.camId)
-            ret = self.set_binning(self.binning,self.binning)
-            display('PCO - Binning: {0}'.format(ret))
-            ret = self.set_exposure_time(self.exposure)
-            display('PCO - Exposure: {0} {1}'.format(*ret))
+            if self.useCameraParameters:
+                ret = self.set_binning(self.binning,self.binning)
+                display('PCO - Binning: {0}'.format(ret))
+                ret = self.set_exposure_time(self.exposure)
+                display('PCO - Exposure: {0} {1}'.format(*ret))
             if self.triggered.is_set():
                 display('PCO - Trigger mode settting to: {0}'.format(self.triggerSource))
                 display('\t\t\tPCO - {0}'.format(self.set_trigger_mode(self.triggerSource)))
