@@ -73,7 +73,7 @@ class LabCamsGUI(QMainWindow):
                  server = True,
                  saveOnStart = False,
                  triggered = False,
-                 updateFrequency = 50):
+                 updateFrequency = 33):
         super(LabCamsGUI,self).__init__()
         display('Starting labcams interface.')
         self.parameters = parameters
@@ -205,7 +205,7 @@ class LabCamsGUI(QMainWindow):
         display('Initialized cameras.')
         self.zmqTimer = QTimer()
         self.zmqTimer.timeout.connect(self.zmqActions)
-        self.zmqTimer.start(500)
+        self.zmqTimer.start(100)
         self.triggerCams(save=self.saveOnStart)
 
     def setExperimentName(self,expname):
