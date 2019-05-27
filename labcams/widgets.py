@@ -33,7 +33,7 @@ try:
                                  QMainWindow,
                                  QDockWidget,
                                  QFileDialog)
-    from PyQt5.QtGui import QImage, QPixmap,QBrush,QPen,QColor
+    from PyQt5.QtGui import QImage, QPixmap,QBrush,QPen,QColor,QFont
     from PyQt5.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
 except:
     from PyQt4.QtGui import (QWidget,
@@ -137,22 +137,33 @@ class CamWidget(QWidget):
         h,w = frame.shape[:2]
         self.w = w
         self.h = h
-        self.setContextMenuPolicy(Qt.ActionsContextMenu)
-        saveImg = QAction("Take camera shot",self)
-        saveImg.triggered.connect(self.saveImageFromCamera)
-        self.addAction(saveImg)
-        toggleSubtract = QAction("Background subtraction",self)
-        toggleSubtract.triggered.connect(self.toggleSubtract)
-        self.addAction(toggleSubtract)
-        tEq = QAction('Equalize histogram',self)
-        tEq.triggered.connect(self.toggleEqualize)
-        self.addAction(tEq)
-        tEt = QAction('Eye tracker',self)
-        tEt.triggered.connect(self.toggleEyeTracker)
-        self.addAction(tEt)
-        self.scene=QGraphicsScene(0,0,frame.shape[1],
-                                  frame.shape[0],self)
-        self.view = QGraphicsView(self.scene, self)
+        self.addActions()
+        self.layout = QGridLayout()
+        self.setLayout(self.layout)
+        import pyqtgraph as pg
+        pg.setConfigOption('background', [200,200,200])
+        pg.setConfigOptions(imageAxisOrder='row-major')
+        win = pg.GraphicsLayoutWidget()
+        p1 = win.addPlot(title="")
+        self.view = pg.ImageItem(background=[1,1,1])
+        p1.getViewBox().invertY(True)
+        p1.getViewBox().invertX(True)
+        p1.hideAxis('left')
+        p1.hideAxis('bottom')
+        p1.addItem(self.view)
+#        hist = pg.HistogramLUTItem()
+#        p1.addItem(hist)
+#        hist.setImageItem(self.view)
+        self.text = pg.TextItem('',color = [200,100,100],anchor = [1,0])
+        p1.addItem(self.text)
+        b=QFont()
+        b.setPixelSize(24)
+        self.text.setFont(b)
+        self.layout.addWidget(win,0,0)
+        self.p1 = p1
+#       self.scene=QGraphicsScene(0,0,frame.shape[1],
+ #                                 frame.shape[0],self)
+ #       self.view = QGraphicsView(self.scene, self)
         self.lastnFrame = 0
         if not 'SubtractBackground' in parameters.keys():
             parameters['SubtractBackground'] = False
@@ -173,7 +184,20 @@ class CamWidget(QWidget):
         self.image(np.array(frame),-1)
         self.setFixedSize(w,h)
         #self.show()
-        
+    def addActions(self):
+        self.setContextMenuPolicy(Qt.ActionsContextMenu)
+        saveImg = QAction("Take camera shot",self)
+        saveImg.triggered.connect(self.saveImageFromCamera)
+        self.addAction(saveImg)
+        toggleSubtract = QAction("Background subtraction",self)
+        toggleSubtract.triggered.connect(self.toggleSubtract)
+        self.addAction(toggleSubtract)
+        tEq = QAction('Equalize histogram',self)
+        tEq.triggered.connect(self.toggleEqualize)
+        self.addAction(tEq)
+        tEt = QAction('Eye tracker',self)
+        tEt.triggered.connect(self.toggleEyeTracker)
+        self.addAction(tEt)
     def toggleSubtract(self):
         self.parameters['SubtractBackground'] = not self.parameters['SubtractBackground']
     def toggleEqualize(self):
@@ -183,6 +207,8 @@ class CamWidget(QWidget):
             self.eyeTracker = None
             self.trackerpar.close()
             self.trackerTab.close()
+            self.tracker_roi.sigRemoveRequested.emit(self.tracker_roi)
+            self.p1.removeItem(self.tracker_roi)
             self.view.mouseReleaseEvent = None
 
         self.parameters['TrackEye'] = not self.parameters['TrackEye']
@@ -229,8 +255,15 @@ class CamWidget(QWidget):
         self.trackerTab.setFeatures(QDockWidget.DockWidgetMovable |
                                   QDockWidget.DockWidgetFloatable |
                                   QDockWidget.DockWidgetClosable)
-
+        import pyqtgraph as pg
+        self.tracker_roi = pg.RectROI([200, 200], [100, 100], pen=(0,9),removable=True)
+        self.p1.addItem(self.tracker_roi)
+        self.tracker_roi.sigRegionChanged.connect(self.print_roi)
         self.view.mouseReleaseEvent = self._tracker_selectPoints
+    def print_roi(self,evt):
+        a,b = self.tracker_roi.pos()
+        c,d = self.tracker_roi.size()
+        print([a,b,c,d])#getArrayImage(self.lastFrame,self.view))
     def trackerSaveToggle(self,value):
         writer = self.parent.writers[self.iCam]
         if not writer is None:
@@ -252,7 +285,6 @@ class CamWidget(QWidget):
 
     def image(self,image,nframe):
         if self.lastnFrame != nframe:
-            self.scene.clear()
             tmp = image.copy()
             if self.parameters['Equalize']:
                 try: # In case the type is messed up..
@@ -266,7 +298,6 @@ class CamWidget(QWidget):
                                   (1/self.nAcum)*tmp)
             else:
                 frame = tmp
-
             if bool(self.parameters['TrackEye']):
                 if self.eyeTracker is None:
                     self._open_mptracker(image.copy())
@@ -277,32 +308,20 @@ class CamWidget(QWidget):
                     frame[y1:y1+h,x1:x1+w,:] = self.eyeTracker.img
                 else:
                     frame = self.eyeTracker.img
-            else:
-                tmp = image.copy()
-                if self.parameters['Equalize']:
-                    try: # In case the type is messed up..
-                        tmp = cv2.equalizeHist(tmp)
-                    except:
-                        pass
-                if self.parameters['SubtractBackground']:
-                    tmp = tmp.astype(np.float32)
-                    frame = (np.abs(tmp - self.lastFrame))*10.
-                    self.lastFrame = ((1-1/self.nAcum)*(self.lastFrame.astype(np.float32)) +
-                                      (1/self.nAcum)*tmp)
-                else:
-                    frame = tmp
             if self.parameters['driver'] in ['QImaging','PCO']:
                 frame = np.array((frame.astype(np.float32)/2.**14)*2.**8).astype(np.uint8)
-            if len(frame.shape) == 2 :
-                frame = cv2.cvtColor(frame.astype(np.uint8), cv2.COLOR_GRAY2BGR)
-            cv2.putText(frame,self.string.format(nframe), (10,100), cv2.FONT_HERSHEY_SIMPLEX,
-                        1, 105,2)
-            self.qimage = QImage(frame, frame.shape[1], frame.shape[0], 
-                                 frame.strides[0], QImage.Format_RGB888)
-            self.scene.addPixmap(QPixmap.fromImage(self.qimage))
+            #if len(frame.shape) == 2 :
+            #    frame = cv2.cvtColor(frame.astype(np.uint8), cv2.COLOR_GRAY2BGR)
+            #cv2.putText(frame,self.string.format(nframe), (10,100), cv2.FONT_HERSHEY_SIMPLEX,
+            #            1, 105,2)
+            self.text.setText(self.string.format(nframe))
+            self.view.setImage(frame,autoHistogramRange=False)
+            #self.qimage = QImage(frame, frame.shape[1], frame.shape[0], 
+            #                     frame.strides[0], QImage.Format_RGB888)
+            #self.scene.addPixmap(QPixmap.fromImage(self.qimage))
             #self.view.fitInView(QRectF(0,0,
             #                           frame.shape[1],
             #                           frame.shape[0]),
             #                    Qt.KeepAspectRatio)
             self.lastnFrame = nframe
-            self.scene.update()
+            #self.scene.update()

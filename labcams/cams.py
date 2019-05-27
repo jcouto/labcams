@@ -93,6 +93,8 @@ class OpenCVCam(GenericCam):
         self.queue = outQ
         self.dtype = dtype
         cam = cv2.VideoCapture(self.camId)
+        res = cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+        res = cam.set(cv2.CAP_PROP_EXPOSURE,1./self.frameRate)
         ret_val, frame = cam.read()
         frame = frame[:,:,0]
         self.h = frame.shape[0]
@@ -122,6 +124,8 @@ class OpenCVCam(GenericCam):
             self.nframes.value = 0
             lastframeid = -1
             cam = cv2.VideoCapture(self.camId)
+            res = cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+            res = cam.set(cv2.CAP_PROP_EXPOSURE,1./self.frameRate)
             self.cameraReady.set()
             self.nframes.value = 0
             # Wait for trigger
