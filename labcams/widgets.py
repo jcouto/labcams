@@ -161,6 +161,7 @@ class CamWidget(QWidget):
         self.text.setFont(b)
         self.layout.addWidget(win,0,0)
         self.p1 = p1
+        self.autoRange = True
 #       self.scene=QGraphicsScene(0,0,frame.shape[1],
  #                                 frame.shape[0],self)
  #       self.view = QGraphicsView(self.scene, self)
@@ -182,7 +183,9 @@ class CamWidget(QWidget):
         if not self.parameters['Save']:
             self.string = 'no save -{0}'
         self.image(np.array(frame),-1)
-        self.setFixedSize(w,h)
+        size = 600
+        ratio = h/float(w)
+        self.setFixedSize(size,int(size*ratio))
         #self.show()
     def addActions(self):
         self.setContextMenuPolicy(Qt.ActionsContextMenu)
@@ -198,8 +201,14 @@ class CamWidget(QWidget):
         tEt = QAction('Eye tracker',self)
         tEt.triggered.connect(self.toggleEyeTracker)
         self.addAction(tEt)
+        tEt = QAction('Auto range',self)
+        tEt.triggered.connect(self.toggleAutoRange)
+        self.addAction(tEt)
     def toggleSubtract(self):
-        self.parameters['SubtractBackground'] = not self.parameters['SubtractBackground']
+        self.parameters['SubtractBackground'] = not self.parameters[
+            'SubtractBackground']
+    def toggleAutoRange(self):
+        self.autoRange = not self.autoRange
     def toggleEqualize(self):
         self.parameters['Equalize'] = not self.parameters['Equalize']
     def toggleEyeTracker(self):
@@ -315,7 +324,7 @@ class CamWidget(QWidget):
             #cv2.putText(frame,self.string.format(nframe), (10,100), cv2.FONT_HERSHEY_SIMPLEX,
             #            1, 105,2)
             self.text.setText(self.string.format(nframe))
-            self.view.setImage(frame,autoHistogramRange=False)
+            self.view.setImage(frame,autoHistogramRange=self.autoRange)
             #self.qimage = QImage(frame, frame.shape[1], frame.shape[0], 
             #                     frame.strides[0], QImage.Format_RGB888)
             #self.scene.addPixmap(QPixmap.fromImage(self.qimage))
