@@ -4,7 +4,7 @@ cv2.setNumThreads(1)
 import time
 try:
     from mptracker import MPTracker
-    from mptracker.widgets import MptrackerParameters
+    from mptracker.widgets import MptrackerParameters,EyeROIWidget
 except:
     pass
 try:
@@ -216,9 +216,7 @@ class CamWidget(QWidget):
             self.eyeTracker = None
             self.trackerpar.close()
             self.trackerTab.close()
-            self.tracker_roi.sigRemoveRequested.emit(self.tracker_roi)
-            self.p1.removeItem(self.tracker_roi)
-            self.view.mouseReleaseEvent = None
+            [self.p1.removeItem(c) for c in self.tracker_roi.items()]
 
         self.parameters['TrackEye'] = not self.parameters['TrackEye']
     def saveImageFromCamera(self):
@@ -245,7 +243,10 @@ class CamWidget(QWidget):
         self.eyeTracker.parameters['crTrack'] = True
         self.eyeTracker.parameters['sequentialCRMode'] = False
         self.eyeTracker.parameters['sequentialPupilMode'] = False
-        self.trackerpar = MptrackerParameters(self.eyeTracker,image)
+        self.tracker_roi = EyeROIWidget()
+        [self.p1.addItem(c) for c in  self.tracker_roi.items()]
+        
+        self.trackerpar = MptrackerParameters(self.eyeTracker,image,eyewidget=self.tracker_roi)
         if not self.parent.writers[self.iCam] is None:
             self.trackerToggle = QCheckBox()
             self.trackerToggle.setChecked(self.parent.writers[self.iCam].trackerFlag.is_set())
@@ -264,15 +265,6 @@ class CamWidget(QWidget):
         self.trackerTab.setFeatures(QDockWidget.DockWidgetMovable |
                                   QDockWidget.DockWidgetFloatable |
                                   QDockWidget.DockWidgetClosable)
-        import pyqtgraph as pg
-        self.tracker_roi = pg.RectROI([200, 200], [100, 100], pen=(0,9),removable=True)
-        self.p1.addItem(self.tracker_roi)
-        self.tracker_roi.sigRegionChanged.connect(self.print_roi)
-        self.view.mouseReleaseEvent = self._tracker_selectPoints
-    def print_roi(self,evt):
-        a,b = self.tracker_roi.pos()
-        c,d = self.tracker_roi.size()
-        print([a,b,c,d])#getArrayImage(self.lastFrame,self.view))
     def trackerSaveToggle(self,value):
         writer = self.parent.writers[self.iCam]
         if not writer is None:
@@ -281,16 +273,6 @@ class CamWidget(QWidget):
                 writer.parQ.put((None,self.eyeTracker.parameters))
             else:
                 writer.trackerFlag.clear()
-    def _tracker_selectPoints(self,event):
-        pt = self.view.mapToScene(event.pos())
-        if event.button() == 1:
-            x = pt.x()
-            y = pt.y()
-            self.eyeTracker.parameters['points'].append(
-                [int(round(x)),int(round(y))])
-            self.eyeTracker.setROI(
-                self.eyeTracker.parameters['points'])
-            self.trackerpar.putPoints()
 
     def image(self,image,nframe):
         if self.lastnFrame != nframe:
