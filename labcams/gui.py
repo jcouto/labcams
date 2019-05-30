@@ -111,7 +111,6 @@ class LabCamsGUI(QMainWindow):
                     display('Could not find or already connected to: '+cam['name'])
                     sys.exit()
                 cam['name'] = camids[0][1]
-                print(camids[0])
                 if not 'TriggerSource' in cam.keys():
                     cam['TriggerSource'] = 'Line1'
                 if not 'TriggerMode' in cam.keys():
@@ -318,7 +317,7 @@ class LabCamsGUI(QMainWindow):
             try:
                 self.camwidgets[c].image(frame,cam.nframes.value)
             except:
-                print('Could not draw cam: {0}'.format(c))
+                display('Could not draw cam: {0}'.format(c))
 
     def closeEvent(self,event):
         for cam in self.cams:
@@ -424,7 +423,7 @@ def main():
         camlog = parseCamLog(camlogfile)[0]
         logfile = findVStimLog(expname)
         if not len(logfile):
-            print('Could not find log file.')
+            display('Could not find log file.')
             sys.exit()
         plog,pcomms = parseVStimLog(logfile)
         camidx = 3
@@ -475,7 +474,7 @@ def main():
                 if not os.path.isdir(os.path.dirname(fname)):
                     os.makedirs(os.path.dirname(fname))
                 from tifffile import imsave
-                print(fname)
+                display(fname)
                 imsave(fname,savg)
         else:
             from pyvstim import treadmillBehaviorFromRelativePosition
@@ -496,9 +495,9 @@ def main():
 
             stillframes = np.where(nvel*150. < 1.)[0]
             if not len(stillframes):
-                print('Mouse was always running?')
+                display('Mouse was always running?')
                 stillframes = np.arange(1000)
-            print("There are {0} still frames.".format(len(stillframes)))
+            display("There are {0} still frames.".format(len(stillframes)))
             if len(stillframes) > 1000:
                 stillframes = stillframes[:1000]
             tmp = camdata[stillframes,:,:]
@@ -506,7 +505,7 @@ def main():
             #import pylab as plt
             #plt.imshow(baseline)
             #plt.show()
-            print('Computing the lap maps for {0} laps.'.format(len(laps)))
+            display('Computing the lap maps for {0} laps.'.format(len(laps)))
             lapFrames = binFramesToLaps(laps,camtime,
                                         npos*150.,
                                         camdata,baseline = baseline)
@@ -519,7 +518,7 @@ def main():
                 os.makedirs(os.path.dirname(fname))
             from tifffile import imsave
             imsave(fname,lapFrames)
-            print('Saved {0}'.format(fname))
+            display('Saved {0}'.format(fname))
         sys.exit()
 if __name__ == '__main__':
     main()

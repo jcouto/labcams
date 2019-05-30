@@ -162,9 +162,6 @@ class CamWidget(QWidget):
         self.layout.addWidget(win,0,0)
         self.p1 = p1
         self.autoRange = True
-#       self.scene=QGraphicsScene(0,0,frame.shape[1],
- #                                 frame.shape[0],self)
- #       self.view = QGraphicsView(self.scene, self)
         self.lastnFrame = 0
         if not 'SubtractBackground' in parameters.keys():
             parameters['SubtractBackground'] = False
@@ -299,20 +296,8 @@ class CamWidget(QWidget):
                     frame[y1:y1+h,x1:x1+w,:] = self.eyeTracker.img
                 else:
                     frame = self.eyeTracker.img
-            #if self.parameters['driver'] in ['QImaging','PCO']:
-            #    frame = np.array((frame.astype(np.float32)/2.**14)*2.**8).astype(np.uint8)
-            #if len(frame.shape) == 2 :
-            #    frame = cv2.cvtColor(frame.astype(np.uint8), cv2.COLOR_GRAY2BGR)
-            #cv2.putText(frame,self.string.format(nframe), (10,100), cv2.FONT_HERSHEY_SIMPLEX,
-            #            1, 105,2)
+
             self.text.setText(self.string.format(nframe))
             self.view.setImage(frame,autoHistogramRange=self.autoRange)
-            #self.qimage = QImage(frame, frame.shape[1], frame.shape[0], 
-            #                     frame.strides[0], QImage.Format_RGB888)
-            #self.scene.addPixmap(QPixmap.fromImage(self.qimage))
-            #self.view.fitInView(QRectF(0,0,
-            #                           frame.shape[1],
-            #                           frame.shape[0]),
-            #                    Qt.KeepAspectRatio)
             self.lastnFrame = nframe
-            #self.scene.update()
+
