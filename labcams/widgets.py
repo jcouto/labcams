@@ -2,11 +2,7 @@ import numpy as np
 import cv2
 cv2.setNumThreads(1)
 import time
-try:
-    from mptracker import MPTracker
-    from mptracker.widgets import MptrackerParameters,EyeROIWidget
-except:
-    pass
+
 try:
     from PyQt5.QtWidgets import (QWidget,
                                  QApplication,
@@ -137,7 +133,6 @@ class CamWidget(QWidget):
         h,w = frame.shape[:2]
         self.w = w
         self.h = h
-        self.addActions()
         self.layout = QGridLayout()
         self.setLayout(self.layout)
         import pyqtgraph as pg
@@ -163,6 +158,7 @@ class CamWidget(QWidget):
         self.p1 = p1
         self.autoRange = True
         self.lastnFrame = 0
+        self.rois = []
         if not 'SubtractBackground' in parameters.keys():
             parameters['SubtractBackground'] = False
         if not 'Equalize' in parameters.keys():
@@ -183,6 +179,8 @@ class CamWidget(QWidget):
         size = 600
         ratio = h/float(w)
         self.setFixedSize(size,int(size*ratio))
+        self.addActions()
+
         #self.show()
     def addActions(self):
         self.setContextMenuPolicy(Qt.ActionsContextMenu)
@@ -192,6 +190,9 @@ class CamWidget(QWidget):
         toggleSubtract = QAction("Background subtraction",self)
         toggleSubtract.triggered.connect(self.toggleSubtract)
         self.addAction(toggleSubtract)
+        addroi = QAction("Add ROI",self)
+        addroi.triggered.connect(self.addROI)
+        self.addAction(addroi)
         tEq = QAction('Equalize histogram',self)
         tEq.triggered.connect(self.toggleEqualize)
         self.addAction(tEq)
@@ -201,6 +202,26 @@ class CamWidget(QWidget):
         tEt = QAction('Auto range',self)
         tEt.triggered.connect(self.toggleAutoRange)
         self.addAction(tEt)
+    def addROI(self):
+        roiTab = QDockWidget("roi cam {0}".format(self.iCam), self)
+        roi = ROIPlotWidget(roi_target = self.p1, view = self.view)
+        self.rois.append(roi)
+        roiTab.setWidget(roi)
+        roi.resize(300,700)
+        self.parent.addDockWidget(Qt.TopDockWidgetArea
+                                  ,roiTab)
+        roiTab.setAllowedAreas(Qt.BottomDockWidgetArea |
+                               Qt.TopDockWidgetArea )
+        roiTab.setFeatures(QDockWidget.DockWidgetMovable |
+                           QDockWidget.DockWidgetFloatable |
+                           QDockWidget.DockWidgetClosable)
+        def closetab(ev):
+            # This probably does not clean up memory...
+            self.p1.removeItem(roi.items())
+            self.rois = []
+            ev.accept()
+        roiTab.closeEvent = closetab
+
     def toggleSubtract(self):
         self.parameters['SubtractBackground'] = not self.parameters[
             'SubtractBackground']
@@ -235,6 +256,13 @@ class CamWidget(QWidget):
         self.parent.timer.start()
         
     def _open_mptracker(self,image):
+        try:
+            from mptracker import MPTracker
+            from mptracker.widgets import MptrackerParameters,EyeROIWidget
+        except:
+            display('Could not load tracker.')
+            display('\nInstall mptracker: https://bitbucket.org/jpcouto/mptracker')
+            return
         self.eyeTracker = MPTracker(drawProcessedFrame=True)
         self.trackerTab = QDockWidget("mptracker cam {0}".format(self.iCam), self)
         self.eyeTracker.parameters['crTrack'] = True
@@ -286,6 +314,8 @@ class CamWidget(QWidget):
                                   (1./self.nAcum)*tmp)
             else:
                 frame = tmp
+            for roi in self.rois:
+                roi.update(frame,iFrame=nframe)
             if bool(self.parameters['TrackEye']):
                 if self.eyeTracker is None:
                     self._open_mptracker(image.copy())
@@ -301,3 +331,37 @@ class CamWidget(QWidget):
             self.view.setImage(frame,autoHistogramRange=self.autoRange)
             self.lastnFrame = nframe
 
+
+class ROIPlotWidget(QWidget):
+    def __init__(self, roi_target= None,view=None,npoints = 300):
+        super(ROIPlotWidget,self).__init__()	
+        import pyqtgraph as pg
+        layout = QGridLayout()
+        self.setLayout(layout)
+        self.view = view
+        self.roi_target = roi_target
+        self.roi = pg.RectROI(pos=[100,100],size=100)
+        win = pg.GraphicsLayoutWidget()
+        p1 = win.addPlot(title="ROI plot",background='black')
+        self.plot = pg.PlotCurveItem(pen='k')
+        p1.addItem(self.plot)
+        layout.addWidget(win,0,0)
+        self.N = npoints
+        self.buf = np.zeros([2,npoints],dtype=np.float32)
+        self.buf[0,:] = np.arange(npoints)
+        self.buf[1,:] = np.nan
+        self.roi_target.addItem(self.roi)
+
+    def items(self):
+        return self.roi
+    def closeEvent(self,ev):
+        self.roi_target.removeItem(self.roi)
+        ev.accept()
+    def update(self,img,iFrame):
+        roi = self.roi.getArrayRegion(img, self.view)
+        self.buf = np.roll(self.buf, -1, axis = 1)
+        self.buf[1,-1] = np.mean(roi)
+        self.buf[0,-1] = iFrame
+        dat = self.buf
+        self.plot.setData(x = dat[0,:],
+                          y = dat[1,:])

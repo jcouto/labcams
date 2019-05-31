@@ -316,9 +316,9 @@ class LabCamsGUI(QMainWindow):
         for c,(cam,frame) in enumerate(zip(self.cams,self.camframes)):
             try:
                 self.camwidgets[c].image(frame,cam.nframes.value)
-            except:
+            except Exception as e:
                 display('Could not draw cam: {0}'.format(c))
-
+                print(e)
     def closeEvent(self,event):
         for cam in self.cams:
             cam.stop_acquisition()
