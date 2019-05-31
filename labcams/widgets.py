@@ -133,6 +133,7 @@ class CamWidget(QWidget):
         h,w = frame.shape[:2]
         self.w = w
         self.h = h
+        self.roiwidget = None
         self.layout = QGridLayout()
         self.setLayout(self.layout)
         import pyqtgraph as pg
@@ -158,7 +159,6 @@ class CamWidget(QWidget):
         self.p1 = p1
         self.autoRange = True
         self.lastnFrame = 0
-        self.rois = []
         if not 'SubtractBackground' in parameters.keys():
             parameters['SubtractBackground'] = False
         if not 'Equalize' in parameters.keys():
@@ -204,23 +204,28 @@ class CamWidget(QWidget):
         self.addAction(tEt)
     def addROI(self):
         roiTab = QDockWidget("roi cam {0}".format(self.iCam), self)
-        roi = ROIPlotWidget(roi_target = self.p1, view = self.view)
-        self.rois.append(roi)
-        roiTab.setWidget(roi)
-        roi.resize(300,700)
-        self.parent.addDockWidget(Qt.TopDockWidgetArea
-                                  ,roiTab)
-        roiTab.setAllowedAreas(Qt.BottomDockWidgetArea |
-                               Qt.TopDockWidgetArea )
-        roiTab.setFeatures(QDockWidget.DockWidgetMovable |
-                           QDockWidget.DockWidgetFloatable |
-                           QDockWidget.DockWidgetClosable)
-        def closetab(ev):
-            # This probably does not clean up memory...
-            self.p1.removeItem(roi.items())
-            self.rois = []
-            ev.accept()
-        roiTab.closeEvent = closetab
+        if self.roiwidget is None:
+            self.roiwidget = ROIPlotWidget(roi_target = self.p1, view = self.view)
+            roiTab.setWidget(self.roiwidget)
+            self.roiwidget.resize(300,700)
+            self.parent.addDockWidget(Qt.TopDockWidgetArea
+                                      ,roiTab)
+            roiTab.setAllowedAreas(Qt.BottomDockWidgetArea |
+                                   Qt.TopDockWidgetArea )
+            roiTab.setFeatures(QDockWidget.DockWidgetMovable |
+                               QDockWidget.DockWidgetFloatable |
+                               QDockWidget.DockWidgetClosable)
+            def closetab(ev):
+                # This probably does not clean up memory...
+                if not self.roiwidget is None:
+                    [self.p1.removeItem(r)
+                     for r in self.roiwidget.items()]
+                    del self.roiwidget
+                    self.roiwidget = None
+                ev.accept()
+            roiTab.closeEvent = closetab
+        else:
+            self.roiwidget.add_roi()
 
     def toggleSubtract(self):
         self.parameters['SubtractBackground'] = not self.parameters[
@@ -314,8 +319,8 @@ class CamWidget(QWidget):
                                   (1./self.nAcum)*tmp)
             else:
                 frame = tmp
-            for roi in self.rois:
-                roi.update(frame,iFrame=nframe)
+            if not self.roiwidget is None:
+                self.roiwidget.update(frame,iFrame=nframe)
             if bool(self.parameters['TrackEye']):
                 if self.eyeTracker is None:
                     self._open_mptracker(image.copy())
@@ -340,28 +345,40 @@ class ROIPlotWidget(QWidget):
         self.setLayout(layout)
         self.view = view
         self.roi_target = roi_target
-        self.roi = pg.RectROI(pos=[100,100],size=100)
         win = pg.GraphicsLayoutWidget()
-        p1 = win.addPlot(title="ROI plot",background='black')
-        self.plot = pg.PlotCurveItem(pen='k')
-        p1.addItem(self.plot)
+        self.p1 = win.addPlot(title="ROI plot",background='black')
         layout.addWidget(win,0,0)
         self.N = npoints
-        self.buf = np.zeros([2,npoints],dtype=np.float32)
-        self.buf[0,:] = np.arange(npoints)
-        self.buf[1,:] = np.nan
-        self.roi_target.addItem(self.roi)
-
+        self.rois = []
+        self.plots = []
+        self.buffers = []
+        self.colors = ['k','r','g','b','y']
+        self.add_roi()
+    def add_roi(self):
+        import pyqtgraph as pg
+        self.rois.append(pg.RectROI(pos=[100,100],size=100))
+        self.plots.append(pg.PlotCurveItem(pen=self.colors[
+            np.mod(len(self.plots),len(self.colors))]))
+        self.p1.addItem(self.plots[-1])
+        self.roi_target.addItem(self.rois[-1])
+        buf = np.zeros([2,self.N],dtype=np.float32)
+        buf[0,:] = np.arange(self.N)
+        buf[1,:] = np.nan
+        self.buffers.append(buf)
+        print('added roi')
     def items(self):
-        return self.roi
+        return self.rois
     def closeEvent(self,ev):
-        self.roi_target.removeItem(self.roi)
+        print(self.rois)
+        for roi in self.rois:
+            self.roi_target.removeItem(roi)
         ev.accept()
     def update(self,img,iFrame):
-        roi = self.roi.getArrayRegion(img, self.view)
-        self.buf = np.roll(self.buf, -1, axis = 1)
-        self.buf[1,-1] = np.mean(roi)
-        self.buf[0,-1] = iFrame
-        dat = self.buf
-        self.plot.setData(x = dat[0,:],
-                          y = dat[1,:])
+        for i,(roi,plot) in enumerate(zip(self.rois,self.plots)):
+            r = roi.getArrayRegion(img, self.view)
+            buf = np.roll(self.buffers[i], -1, axis = 1)
+            buf[1,-1] = np.mean(r)
+            buf[0,-1] = iFrame
+            self.buffers[i] = buf
+            plot.setData(x = buf[0,:],
+                         y = buf[1,:])
