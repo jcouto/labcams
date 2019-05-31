@@ -144,6 +144,7 @@ class CamWidget(QWidget):
         self.view = pg.ImageItem(background=[1,1,1])
         p1.getViewBox().invertY(True)
         p1.getViewBox().invertX(True)
+        p1.getViewBox().setAspectLocked(True)
         p1.hideAxis('left')
         p1.hideAxis('bottom')
         p1.addItem(self.view)
@@ -178,7 +179,8 @@ class CamWidget(QWidget):
         self.image(np.array(frame),-1)
         size = 600
         ratio = h/float(w)
-        self.setFixedSize(size,int(size*ratio))
+###        self.setFixedSize(size,int(size*ratio))
+        self.resize(size,int(size*ratio))
         self.addActions()
 
         #self.show()
@@ -207,8 +209,8 @@ class CamWidget(QWidget):
         if self.roiwidget is None:
             self.roiwidget = ROIPlotWidget(roi_target = self.p1, view = self.view)
             roiTab.setWidget(self.roiwidget)
-            self.roiwidget.resize(300,700)
-            self.parent.addDockWidget(Qt.TopDockWidgetArea
+            self.roiwidget.resize(500,700)
+            self.parent.addDockWidget(Qt.BottomDockWidgetArea
                                       ,roiTab)
             roiTab.setAllowedAreas(Qt.BottomDockWidgetArea |
                                    Qt.TopDockWidgetArea )
@@ -338,7 +340,7 @@ class CamWidget(QWidget):
 
 
 class ROIPlotWidget(QWidget):
-    def __init__(self, roi_target= None,view=None,npoints = 300):
+    def __init__(self, roi_target= None,view=None,npoints = 500):
         super(ROIPlotWidget,self).__init__()	
         import pyqtgraph as pg
         layout = QGridLayout()
