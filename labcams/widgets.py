@@ -209,7 +209,6 @@ class CamWidget(QWidget):
         if self.roiwidget is None:
             self.roiwidget = ROIPlotWidget(roi_target = self.p1, view = self.view)
             roiTab.setWidget(self.roiwidget)
-            self.roiwidget.resize(500,700)
             self.parent.addDockWidget(Qt.BottomDockWidgetArea
                                       ,roiTab)
             roiTab.setAllowedAreas(Qt.BottomDockWidgetArea |
@@ -217,6 +216,7 @@ class CamWidget(QWidget):
             roiTab.setFeatures(QDockWidget.DockWidgetMovable |
                                QDockWidget.DockWidgetFloatable |
                                QDockWidget.DockWidgetClosable)
+            self.roiwidget.resize(500,700)
             def closetab(ev):
                 # This probably does not clean up memory...
                 if not self.roiwidget is None:
