@@ -151,7 +151,8 @@ class LabCamsGUI(QMainWindow):
                 self.camQueues.append(Queue())
                 self.cams.append(OpenCVCam(camId=cam['id'],
                                            outQ = self.camQueues[-1],
-                                           triggered = self.triggered))
+                                           triggered = self.triggered,
+                                           **cam))
             elif cam['driver'] == 'PCO':
                 self.camQueues.append(Queue())
                 from .pixelfly import PCOCam
@@ -298,7 +299,7 @@ class LabCamsGUI(QMainWindow):
             self.addDockWidget(
                 Qt.LeftDockWidgetArea,
                 self.tabs[-1])
-                
+            self.tabs[-1].setMinimumHeight(200)
             display('Init view: ' + str(c))
         self.recController = RecordingControlWidget(self)
         self.setCentralWidget(self.recController)

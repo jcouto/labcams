@@ -60,6 +60,10 @@ except:
                              QPixmap)
     from PyQt4.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
 
+import pyqtgraph as pg
+pg.setConfigOption('background', [200,200,200])
+pg.setConfigOptions(imageAxisOrder='row-major')
+
 from .utils import display
 
 class RecordingControlWidget(QWidget):
@@ -136,9 +140,6 @@ class CamWidget(QWidget):
         self.roiwidget = None
         self.layout = QGridLayout()
         self.setLayout(self.layout)
-        import pyqtgraph as pg
-        pg.setConfigOption('background', [200,200,200])
-        pg.setConfigOptions(imageAxisOrder='row-major')
         win = pg.GraphicsLayoutWidget()
         p1 = win.addPlot(title="")
         self.view = pg.ImageItem(background=[1,1,1])
@@ -148,9 +149,6 @@ class CamWidget(QWidget):
         p1.hideAxis('left')
         p1.hideAxis('bottom')
         p1.addItem(self.view)
-#        hist = pg.HistogramLUTItem()
-#        p1.addItem(hist)
-#        hist.setImageItem(self.view)
         self.text = pg.TextItem('',color = [200,100,100],anchor = [1,0])
         p1.addItem(self.text)
         b=QFont()
@@ -204,19 +202,53 @@ class CamWidget(QWidget):
         tEt = QAction('Auto range',self)
         tEt.triggered.connect(self.toggleAutoRange)
         self.addAction(tEt)
+        tEt = QAction('Histogram',self)
+        tEt.triggered.connect(self.histogramWin)
+        self.addAction(tEt)
+
+    def histogramWin(self):
+        histTab = QDockWidget("histogram cam {0}".format(self.iCam), self)
+        widget = QWidget()
+        layout = QGridLayout()
+        widget.setLayout(layout)
+        win = pg.GraphicsLayoutWidget()
+        p1 = win.addPlot()
+        p1.getViewBox().invertY(True)
+        p1.hideAxis('left')
+        p1.hideAxis('bottom')
+
+        hist = pg.HistogramLUTItem()
+        hist.axis.setPen('k')
+        p1.addItem(hist)
+        hist.setImageItem(self.view)
+        layout.addWidget(win,0,0)
+        histTab.setWidget(widget)
+        histTab.setAllowedAreas(Qt.BottomDockWidgetArea |
+                                Qt.TopDockWidgetArea )
+        histTab.setFeatures(QDockWidget.DockWidgetMovable |
+                           QDockWidget.DockWidgetFloatable |
+                           QDockWidget.DockWidgetClosable)
+        self.parent.addDockWidget(Qt.BottomDockWidgetArea
+                                  ,histTab)
+        histTab.setFloating(True)
+        histTab.resize(200,300)
+        
+
     def addROI(self):
         roiTab = QDockWidget("roi cam {0}".format(self.iCam), self)
         if self.roiwidget is None:
             self.roiwidget = ROIPlotWidget(roi_target = self.p1, view = self.view)
             roiTab.setWidget(self.roiwidget)
-            self.parent.addDockWidget(Qt.BottomDockWidgetArea
-                                      ,roiTab)
             roiTab.setAllowedAreas(Qt.BottomDockWidgetArea |
                                    Qt.TopDockWidgetArea )
             roiTab.setFeatures(QDockWidget.DockWidgetMovable |
                                QDockWidget.DockWidgetFloatable |
                                QDockWidget.DockWidgetClosable)
-            self.roiwidget.resize(500,700)
+            self.parent.addDockWidget(Qt.BottomDockWidgetArea
+                                      ,roiTab)
+            roiTab.setFloating(True)
+            roiTab.resize(400,150)
+            
             def closetab(ev):
                 # This probably does not clean up memory...
                 if not self.roiwidget is None:
@@ -340,34 +372,46 @@ class CamWidget(QWidget):
 
 
 class ROIPlotWidget(QWidget):
+    colors = ['#d62728',
+          '#1f77b4',
+          '#ff7f0e',
+          '#2ca02c',
+          '#9467bd',
+          '#8c564b',
+          '#e377c2',
+          '#7f7f7f',
+          '#bcbd22']
+    penwidth = 1.5
     def __init__(self, roi_target= None,view=None,npoints = 500):
         super(ROIPlotWidget,self).__init__()	
-        import pyqtgraph as pg
         layout = QGridLayout()
         self.setLayout(layout)
         self.view = view
         self.roi_target = roi_target
         win = pg.GraphicsLayoutWidget()
-        self.p1 = win.addPlot(title="ROI plot",background='black')
+        self.p1 = win.addPlot()
+        self.p1.getAxis('bottom').setPen('k') 
+        self.p1.getAxis('left').setPen('k') 
         layout.addWidget(win,0,0)
         self.N = npoints
         self.rois = []
         self.plots = []
         self.buffers = []
-        self.colors = ['k','r','g','b','y']
         self.add_roi()
     def add_roi(self):
-        import pyqtgraph as pg
-        self.rois.append(pg.RectROI(pos=[100,100],size=100))
-        self.plots.append(pg.PlotCurveItem(pen=self.colors[
-            np.mod(len(self.plots),len(self.colors))]))
+        pencolor = self.colors[
+            np.mod(len(self.plots),len(self.colors))]
+        self.rois.append(pg.RectROI(pos=[100,100],
+                                    size=100,
+                                    pen=pencolor))
+        self.plots.append(pg.PlotCurveItem(pen=pg.mkPen(
+            color=pencolor,width=self.penwidth)))
         self.p1.addItem(self.plots[-1])
         self.roi_target.addItem(self.rois[-1])
         buf = np.zeros([2,self.N],dtype=np.float32)
-        buf[0,:] = np.arange(self.N)
+        buf[0,:] = np.nan
         buf[1,:] = np.nan
         self.buffers.append(buf)
-        print('added roi')
     def items(self):
         return self.rois
     def closeEvent(self,ev):
