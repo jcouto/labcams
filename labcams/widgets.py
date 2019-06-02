@@ -19,6 +19,7 @@ try:
                                  QPushButton,
                                  QLabel,
                                  QAction,
+                                 QWidgetAction,
                                  QMenuBar,
                                  QGraphicsView,
                                  QGraphicsScene,
@@ -167,7 +168,7 @@ class CamWidget(QWidget):
         self.parameters = parameters
         self.lastFrame = frame.copy().astype(np.float32)
         if not 'NBackgroundFrames' in parameters.keys():
-            self.nAcum = 3.
+            self.nAcum = 0
         else:
             self.nAcum = float(parameters['NBackgroundFrames'])
         self.eyeTracker = None
@@ -187,8 +188,23 @@ class CamWidget(QWidget):
         saveImg = QAction("Take camera shot",self)
         saveImg.triggered.connect(self.saveImageFromCamera)
         self.addAction(saveImg)
-        toggleSubtract = QAction("Background subtraction",self)
-        toggleSubtract.triggered.connect(self.toggleSubtract)
+        
+        toggleSubtract = QWidgetAction(self)
+        subw = QWidget()
+        sublay = QFormLayout()
+        subwid = QSlider()
+        subwid.setOrientation(Qt.Horizontal)
+        sublab = QLabel('Nsubtract [{0}]:'.format(int(self.nAcum)))
+        sublay.addRow(sublab,subwid)
+        subw.setLayout(sublay)
+        toggleSubtract.setDefaultWidget(subw)
+        subwid.setMaximum(1000)
+        subwid.setMinimum(0)
+        subwid.valueChanged.connect(lambda x: sublab.setText(
+            'Nsubtract [{0}]:'.format(int(x))))
+        def vchanged(val):
+            self.nAcum = float(np.floor(val))
+        subwid.valueChanged.connect(vchanged) 
         self.addAction(toggleSubtract)
         addroi = QAction("Add ROI",self)
         addroi.triggered.connect(self.addROI)
@@ -261,9 +277,9 @@ class CamWidget(QWidget):
         else:
             self.roiwidget.add_roi()
 
-    def toggleSubtract(self):
-        self.parameters['SubtractBackground'] = not self.parameters[
-            'SubtractBackground']
+#    def toggleSubtract(self):
+#        self.parameters['SubtractBackground'] = not self.parameters[
+#            'SubtractBackground']
     def toggleAutoRange(self):
         self.autoRange = not self.autoRange
     def toggleEqualize(self):
@@ -346,7 +362,7 @@ class CamWidget(QWidget):
                     tmp = cv2.equalizeHist(tmp)
                 except:
                     pass
-            if self.parameters['SubtractBackground']:
+            if self.nAcum > 0:
                 tmp = tmp.astype(np.float32)
                 frame = (tmp - self.lastFrame)
                 self.lastFrame = ((1.-1./self.nAcum)*(self.lastFrame.astype(np.float32)) +
