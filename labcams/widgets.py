@@ -167,7 +167,7 @@ class CamWidget(QWidget):
             parameters['TrackEye'] = False
         self.parameters = parameters
         self.lastFrame = frame.copy().astype(np.float32)
-        if not 'NBackgroundFrames' in parameters.keys():
+        if not 'NBackgroundFrames' in parameters.keys() or not parameters['SubtractBackground']:
             self.nAcum = 0
         else:
             self.nAcum = float(parameters['NBackgroundFrames'])
@@ -188,7 +188,7 @@ class CamWidget(QWidget):
         saveImg = QAction("Take camera shot",self)
         saveImg.triggered.connect(self.saveImageFromCamera)
         self.addAction(saveImg)
-        
+        # Slider
         toggleSubtract = QWidgetAction(self)
         subw = QWidget()
         sublay = QFormLayout()
@@ -206,15 +206,25 @@ class CamWidget(QWidget):
         def vchanged(val):
             self.nAcum = float(np.floor(val))
         subwid.valueChanged.connect(vchanged) 
+        # ROIs
         self.addAction(toggleSubtract)
         addroi = QAction("Add ROI",self)
         addroi.triggered.connect(self.addROI)
         self.addAction(addroi)
-        def toggleEqualize():
+        # Equalize histogram
+        toggleEqualize = QWidgetAction(self)
+        eqw = QWidget()
+        eqlay = QFormLayout()
+        eqc = QCheckBox()
+        eqlay.addRow(eqc,QLabel('Equalize histogram'))
+        eqw.setLayout(eqlay)
+        toggleEqualize.setDefaultWidget(eqw)
+        def toggleEq():
             self.parameters['Equalize'] = not self.parameters['Equalize']
-        tEq = QAction('Equalize histogram',self)
-        tEq.triggered.connect(toggleEqualize)
-        self.addAction(tEq)
+            eqc.setChecked(self.parameters['Equalize'])
+        eqc.stateChanged.connect(toggleEq)
+        self.addAction(toggleEqualize)
+        # Eye tracker
         tEt = QAction('Eye tracker',self)
         tEt.triggered.connect(self.toggleEyeTracker)
         self.addAction(tEt)
