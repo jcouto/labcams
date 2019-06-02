@@ -199,6 +199,7 @@ class CamWidget(QWidget):
         subw.setLayout(sublay)
         toggleSubtract.setDefaultWidget(subw)
         subwid.setMaximum(1000)
+        subwid.setValue(self.nAcum)
         subwid.setMinimum(0)
         subwid.valueChanged.connect(lambda x: sublab.setText(
             'Nsubtract [{0}]:'.format(int(x))))
@@ -209,14 +210,18 @@ class CamWidget(QWidget):
         addroi = QAction("Add ROI",self)
         addroi.triggered.connect(self.addROI)
         self.addAction(addroi)
+        def toggleEqualize():
+            self.parameters['Equalize'] = not self.parameters['Equalize']
         tEq = QAction('Equalize histogram',self)
-        tEq.triggered.connect(self.toggleEqualize)
+        tEq.triggered.connect(toggleEqualize)
         self.addAction(tEq)
         tEt = QAction('Eye tracker',self)
         tEt.triggered.connect(self.toggleEyeTracker)
         self.addAction(tEt)
+        def toggleAutoRange():
+            self.autoRange = not self.autoRange
         tEt = QAction('Auto range',self)
-        tEt.triggered.connect(self.toggleAutoRange)
+        tEt.triggered.connect(toggleAutoRange)
         self.addAction(tEt)
         tEt = QAction('Histogram',self)
         tEt.triggered.connect(self.histogramWin)
@@ -247,7 +252,7 @@ class CamWidget(QWidget):
         self.parent.addDockWidget(Qt.BottomDockWidgetArea
                                   ,histTab)
         histTab.setFloating(True)
-        histTab.resize(200,300)
+        histTab.resize(200,200)
         
 
     def addROI(self):
@@ -280,10 +285,6 @@ class CamWidget(QWidget):
 #    def toggleSubtract(self):
 #        self.parameters['SubtractBackground'] = not self.parameters[
 #            'SubtractBackground']
-    def toggleAutoRange(self):
-        self.autoRange = not self.autoRange
-    def toggleEqualize(self):
-        self.parameters['Equalize'] = not self.parameters['Equalize']
     def toggleEyeTracker(self):
         if self.parameters['TrackEye']:
             self.eyeTracker = None
