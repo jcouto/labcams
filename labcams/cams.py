@@ -221,6 +221,7 @@ class AVTCam(GenericCam):
         self.queue = outQ
         self.dtype = np.uint8
         self.triggerMode = triggerMode
+        self.tickfreq = float(1.0)
         with Vimba() as vimba:
             system = vimba.getSystem()
             if system.GeVTLIsPresent:
@@ -233,6 +234,7 @@ class AVTCam(GenericCam):
             cam.acquisitionMode = 'SingleFrame'
             cam.AcquisitionFrameRateAbs = self.frameRate
             cam.ExposureTimeAbs =  self.exposure
+            self.tickfreq = float(cam.GevTimestampTickFrequency)
             cam.GainRaw = self.gain 
             cam.TriggerSource = 'FixedRate'
             cam.TriggerMode = 'Off'
@@ -354,7 +356,7 @@ class AVTCam(GenericCam):
                         f = frames[ibuf]
                         avterr = f.waitFrameCapture(timeout = self.frameTimeout)
                         if avterr == 0:
-                            timestamp = f._frame.timestamp
+                            timestamp = f._frame.timestamp/self.tickfreq
                             frameID = f._frame.frameID
                             #print('Frame id:{0}'.format(frameID))
                             if not frameID in recorded_frames:
@@ -387,7 +389,7 @@ class AVTCam(GenericCam):
                     f = frames[ibuf]
                     try:
                         f.waitFrameCapture(timeout = 100)
-                        timestamp = f._frame.timestamp
+                        timestamp = f._frame.timestamp/self.tickfreq
                         frameID = f._frame.frameID
                         frame = np.ndarray(buffer = f.getBufferByteData(),
                                            dtype = np.uint8,
