@@ -191,7 +191,7 @@ def AVT_get_ids():
 class AVTCam(GenericCam):
     def __init__(self, camId = None, outQ = None,exposure = 29000,
                  frameRate = 30., gain = 10,frameTimeout = 100,
-                 nFrameBuffers = 1,
+                 nFrameBuffers = 10,
                  triggered = Event(),
                  triggerSource = 'Line1',
                  triggerMode = 'LevelHigh',

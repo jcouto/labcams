@@ -73,7 +73,7 @@ class LabCamsGUI(QMainWindow):
                  server = True,
                  saveOnStart = False,
                  triggered = False,
-                 updateFrequency = 33):
+                 updateFrequency = 50):
         super(LabCamsGUI,self).__init__()
         display('Starting labcams interface.')
         self.parameters = parameters
@@ -122,7 +122,7 @@ class LabCamsGUI(QMainWindow):
                 if not 'AcquisitionFrameCount' in cam.keys():
                     cam['AcquisitionFrameCount'] = 1000
                 if not 'nFrameBuffers' in cam.keys():
-                    cam['nFrameBuffers'] = 1
+                    cam['nFrameBuffers'] = 6
                 self.camQueues.append(Queue())                
                 self.cams.append(AVTCam(camId=camids[0][0],
                                         outQ = self.camQueues[-1],
