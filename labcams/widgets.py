@@ -131,7 +131,12 @@ class RecordingControlWidget(QWidget):
         display('Toggled ManualSave [{0}]'.format(state))
         
 class CamWidget(QWidget):
-    def __init__(self,frame, iCam = 0, parent = None, parameters = None):
+    def __init__(self,
+                 frame,
+                 iCam = 0,
+                 parent = None,
+                 parameters = None,
+                 invertX = False):
         super(CamWidget,self).__init__()
         self.parent = parent
         self.iCam = iCam
@@ -145,7 +150,8 @@ class CamWidget(QWidget):
         p1 = win.addPlot(title="")
         self.view = pg.ImageItem(background=[1,1,1])
         p1.getViewBox().invertY(True)
-        p1.getViewBox().invertX(True)
+        if invertX:
+            p1.getViewBox().invertX(True)
         p1.getViewBox().setAspectLocked(True)
         p1.hideAxis('left')
         p1.hideAxis('bottom')
