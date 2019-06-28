@@ -131,7 +131,9 @@ class RecordingControlWidget(QWidget):
         display('Toggled ManualSave [{0}]'.format(state))
         
 class CamWidget(QWidget):
-    def __init__(self,frame, iCam = 0, parent = None, parameters = None):
+    def __init__(self,frame, iCam = 0, parent = None,
+                 parameters = None,
+                 invertX = False):
         super(CamWidget,self).__init__()
         self.parent = parent
         self.iCam = iCam
@@ -145,7 +147,8 @@ class CamWidget(QWidget):
         p1 = win.addPlot(title="")
         self.view = pg.ImageItem(background=[1,1,1])
         p1.getViewBox().invertY(True)
-        p1.getViewBox().invertX(True)
+        if invertX:
+            p1.getViewBox().invertX(True)
         p1.getViewBox().setAspectLocked(True)
         p1.hideAxis('left')
         p1.hideAxis('bottom')
@@ -194,7 +197,7 @@ class CamWidget(QWidget):
         sublay = QFormLayout()
         subwid = QSlider()
         subwid.setOrientation(Qt.Horizontal)
-        sublab = QLabel('Nsubtract [{0}]:'.format(int(self.nAcum)))
+        sublab = QLabel('Nsubtract [{0:03d}]:'.format(int(self.nAcum)))
         sublay.addRow(sublab,subwid)
         subw.setLayout(sublay)
         toggleSubtract.setDefaultWidget(subw)
@@ -202,7 +205,7 @@ class CamWidget(QWidget):
         subwid.setValue(self.nAcum)
         subwid.setMinimum(0)
         subwid.valueChanged.connect(lambda x: sublab.setText(
-            'Nsubtract [{0}]:'.format(int(x))))
+            'Nsubtract [{0:03d}]:'.format(int(x))))
         def vchanged(val):
             self.nAcum = float(np.floor(val))
         subwid.valueChanged.connect(vchanged) 
