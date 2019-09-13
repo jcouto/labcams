@@ -64,6 +64,7 @@ except:
 import pyqtgraph as pg
 pg.setConfigOption('background', [200,200,200])
 pg.setConfigOptions(imageAxisOrder='row-major')
+pg.setConfigOption('crashWarning', True)
 
 from .utils import display
 
