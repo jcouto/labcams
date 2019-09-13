@@ -324,6 +324,8 @@ class LabCamsGUI(QMainWindow):
                     exc_tb.tb_frame.f_code.co_filename)[1]
                 print(e, fname, exc_tb.tb_lineno)
     def closeEvent(self,event):
+        self.zmqTimer.stop()
+        self.timer.stop()
         for cam in self.cams:
             cam.stop_acquisition()
         display('Acquisition stopped (close event).')
@@ -342,6 +344,8 @@ class LabCamsGUI(QMainWindow):
                         str(cam.nframes.value) + ' - Saved: ' + 
                         str(writer.frameCount.value) +']')
                 writer.join()
+        from widgets import pg
+        pg.setConfigOption('crashWarning', False)
         event.accept()
 
 
