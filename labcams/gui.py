@@ -3,7 +3,6 @@ import os
 from .utils import display,getPreferences
 from .cams import *
 from .io import *
-import ctypes
 # Qt imports
 try:
     from PyQt5.QtWidgets import (QWidget,
@@ -266,8 +265,7 @@ class LabCamsGUI(QMainWindow):
     def initUI(self):
         # Menu
         self.setDockOptions(QMainWindow.AllowTabbedDocks |
-                            QMainWindow.AllowNestedDocks |
-                            QMainWindow.AnimatedDocks
+                            QMainWindow.AllowNestedDocks
 )
         from .widgets import CamWidget,RecordingControlWidget
         bar = self.menuBar()
@@ -277,12 +275,14 @@ class LabCamsGUI(QMainWindow):
         self.setWindowTitle("LabCams")
         self.tabs = []
         self.camwidgets = []
+        self.recController = RecordingControlWidget(self)
+        self.setCentralWidget(self.recController)
+        
         for c,cam in enumerate(self.cams):
             tt = ''
             if not self.writers[c] is None:
                 tt +=  ' - ' + self.writers[c].dataName +' ' 
             self.tabs.append(QDockWidget("Camera: "+str(c) + tt,self))
-            layout = QVBoxLayout()
             self.camwidgets.append(CamWidget(frame = np.zeros((cam.h,cam.w),
                                                               dtype=cam.dtype),
                                              iCam = c,
@@ -301,8 +301,6 @@ class LabCamsGUI(QMainWindow):
                 self.tabs[-1])
             self.tabs[-1].setMinimumHeight(200)
             display('Init view: ' + str(c))
-        self.recController = RecordingControlWidget(self)
-        self.setCentralWidget(self.recController)
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.timerUpdate)

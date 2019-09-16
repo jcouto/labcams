@@ -241,6 +241,26 @@ class CamWidget(QWidget):
         tEt.triggered.connect(self.histogramWin)
         self.addAction(tEt)
 
+        toggleSave = QWidgetAction(self)
+        savew = QWidget()
+        savelay = QFormLayout()
+        savec = QCheckBox()
+        savelay.addRow(savec,QLabel('Save camera'))
+        savew.setLayout(savelay)
+        toggleSave.setDefaultWidget(savew)
+        savec.setChecked(self.parameters['Save'])
+        def toggleSaveCam():
+            print('This is not working yet.')
+            self.parameters['Save'] = not self.parameters['Save']
+            savec.setChecked(self.parameters['Save'])
+            if not self.parameters['Save']:
+                self.string = 'no save -{0}'
+            else:
+                self.string = '{0}'            
+        savec.stateChanged.connect(toggleSaveCam)
+        self.addAction(toggleSave)
+
+        
     def histogramWin(self):
         histTab = QDockWidget("histogram cam {0}".format(self.iCam), self)
         widget = QWidget()
@@ -351,7 +371,7 @@ class CamWidget(QWidget):
         self.trackerTab.setWidget(self.trackerpar)
         self.trackerTab.setFloating(True)
         self.trackerpar.resize(400,250)
-        self.parent.addDockWidget(Qt.RightDockWidgetArea
+        self.parent.addDockWidget(Qt.LeftDockWidgetArea
                                   ,self.trackerTab)
         self.trackerTab.setAllowedAreas(Qt.LeftDockWidgetArea |
                                         Qt.LeftDockWidgetArea |
