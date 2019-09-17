@@ -3,64 +3,7 @@ import os
 from .utils import display,getPreferences
 from .cams import *
 from .io import *
-# Qt imports
-try:
-    from PyQt5.QtWidgets import (QWidget,
-                                 QApplication,
-                                 QGridLayout,
-                                 QFormLayout,
-                                 QVBoxLayout,
-                                 QTabWidget,
-                                 QCheckBox,
-                                 QTextEdit,
-                                 QLineEdit,
-                                 QComboBox,
-                                 QFileDialog,
-                                 QSlider,
-                                 QPushButton,
-                                 QLabel,
-                                 QAction,
-                                 QMenuBar,
-                                 QGraphicsView,
-                                 QGraphicsScene,
-                                 QGraphicsItem,
-                                 QGraphicsLineItem,
-                                 QGroupBox,
-                                 QTableWidget,
-                                 QMainWindow,
-                                 QDockWidget,
-                                 QFileDialog)
-    from PyQt5.QtGui import QImage, QPixmap,QBrush,QPen,QColor
-    from PyQt5.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
-except:
-    from PyQt4.QtGui import (QWidget,
-                             QApplication,
-                             QAction,
-                             QMainWindow,
-                             QDockWidget,
-                             QMenuBar,
-                             QGridLayout,
-                             QFormLayout,
-                             QLineEdit,
-                             QFileDialog,
-                             QVBoxLayout,
-                             QCheckBox,
-                             QTextEdit,
-                             QComboBox,
-                             QSlider,
-                             QLabel,
-                             QPushButton,
-                             QGraphicsView,
-                             QGraphicsScene,
-                             QGraphicsItem,
-                             QGraphicsLineItem,
-                             QGroupBox,
-                             QTableWidget,
-                             QFileDialog,
-                             QImage,
-                             QPixmap)
-    from PyQt4.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
-
+from .widgets import *
 from multiprocessing import Queue,Event
 
 class LabCamsGUI(QMainWindow):
@@ -200,7 +143,7 @@ class LabCamsGUI(QMainWindow):
                 writer.start()
         camready = 0
         while camready != len(self.cams):
-            camready = np.sum([cam.cameraReady.is_set() for cam in self.cams])
+            camready = np.sum([cam.camera_ready.is_set() for cam in self.cams])
         display('Initialized cameras.')
         self.zmqTimer = QTimer()
         self.zmqTimer.timeout.connect(self.zmqActions)
@@ -240,7 +183,7 @@ class LabCamsGUI(QMainWindow):
         # stops previous saves if there were any
         display("Waiting for the cameras to be ready.")
         for c,cam in enumerate(self.cams):
-            while not cam.cameraReady.is_set():
+            while not cam.camera_ready.is_set():
                 time.sleep(0.02)
             display('Camera {{0}} ready.'.format(c))
         display('Doing save ({0}) and trigger'.format(save))
@@ -256,7 +199,7 @@ class LabCamsGUI(QMainWindow):
                     writer.write.clear()
         #time.sleep(2)
         for c,cam in enumerate(self.cams):
-            cam.startTrigger.set()
+            cam.start_trigger.set()
         display('Software triggered cameras.')
         
     def experimentMenuTrigger(self,q):
@@ -272,7 +215,7 @@ class LabCamsGUI(QMainWindow):
         editmenu = bar.addMenu("Experiment")
         editmenu.addAction("New")
         editmenu.triggered[QAction].connect(self.experimentMenuTrigger)
-        self.setWindowTitle("LabCams")
+        self.setWindowTitle("labcams")
         self.tabs = []
         self.camwidgets = []
         self.recController = RecordingControlWidget(self)
@@ -283,7 +226,7 @@ class LabCamsGUI(QMainWindow):
             if not self.writers[c] is None:
                 tt +=  ' - ' + self.writers[c].dataName +' ' 
             self.tabs.append(QDockWidget("Camera: "+str(c) + tt,self))
-            self.camwidgets.append(CamWidget(frame = np.zeros((cam.h,cam.w),
+            self.camwidgets.append(CamWidget(frame = np.zeros((cam.h,cam.w,cam.nchan),
                                                               dtype=cam.dtype),
                                              iCam = c,
                                              parent = self,
@@ -332,7 +275,7 @@ class LabCamsGUI(QMainWindow):
                 cam.saving.clear()
                 writer.write.clear()
                 writer.stop()
-            cam.stop()
+            cam.close()
         for c in self.cams:
             c.join()
         for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
@@ -342,7 +285,7 @@ class LabCamsGUI(QMainWindow):
                         str(cam.nframes.value) + ' - Saved: ' + 
                         str(writer.frameCount.value) +']')
                 writer.join()
-        from widgets import pg
+        from .widgets import pg
         pg.setConfigOption('crashWarning', False)
         event.accept()
 

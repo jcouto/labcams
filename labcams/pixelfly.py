@@ -9,7 +9,6 @@ class PCOCam(GenericCam):
     time_modes = {0:"ns", 1: "us", 2: "ms"}
     armed = False
     def __init__(self, camId = None, outQ = None,
-                 frameRate = .1,
                  binning = 2,
                  exposure = 100,
                  dtype = np.uint16,
@@ -24,17 +23,9 @@ class PCOCam(GenericCam):
         self.trigerMode = 0
         self.exposure = exposure
         self.binning = binning
-        self.h = None
-        self.w = None
-        self.closeEvent = Event()
-        self.startTrigger = Event()
-        self.stopTrigger = Event()
-        self.saving = Event()
-        self.nframes = Value('i',0)
         if camId is None:
             display('Need to supply a camera ID.')
         self.camId = camId
-        self.frameRate = frameRate
         self.queue = outQ
         self.dtype = dtype
         ret = self.camopen(self.camId)
@@ -55,22 +46,16 @@ class PCOCam(GenericCam):
         self.w = frame.shape[1]
         display('PCO - size: {0} x {1}'.format(self.h,self.w))
         self.nchannels = 1 #frame.shape[2]
-        self.initVariables(dtype)
+        self._init_variables(dtype)
         self.triggered = triggered
         self.triggerSource = triggerSource
 
         self._dll = None
-        buf = np.frombuffer(self.frame.get_obj(),
-                            dtype = np.uint16).reshape([self.h,
-                                                       self.w])
-        
-        buf[:,:] = frame[:,:]
+        self.img[...] = frame[...]
 
         display("Got info from camera (name: {0})".format(
              'PCO'))
 
-        self.cameraReady = Event()
-    
     def camopen(self,camid,reset = True):
         '''Open PCO camera'''
         opencamera = self._dll.PCO_OpenCamera
@@ -374,10 +359,10 @@ class PCOCam(GenericCam):
         self._dll = ctypes.WinDLL(self.dllpath)
         buf = np.frombuffer(self.frame.get_obj(),
                             dtype = np.uint16).reshape([self.h,self.w])
-        self.closeEvent.clear()
+        self.close_event.clear()
         display('PixelFly camera [{0}] starting.'.format(self.camId))
         poll_timeout=1
-        while not self.closeEvent.is_set():
+        while not self.close_event.is_set():
             self.nframes.value = 0
             lastframeid = -1
             ret = self.camopen(self.camId)
@@ -394,19 +379,19 @@ class PCOCam(GenericCam):
             display('PCO - Trigger mode: {0}'.format(self.get_trigger_mode()))
             display('PCO - size: {0} x {1}'.format(self.h,self.w))
             self.arm()
-            self.cameraReady.set()
+            self.camera_ready.set()
             self.nframes.value = 0
-            self.stopTrigger.clear()
+            self.stop_trigger.clear()
             # Wait for trigger
             display('PixelFly camera [{0}] waiting for software trigger.'.format(self.camId))
-            while not self.startTrigger.is_set():
+            while not self.start_trigger.is_set():
                 # limits resolution to 1 ms 
                 time.sleep(0.001)
-            if self.closeEvent.is_set():
+            if self.close_event.is_set():
                 break
             self.acquisitionstart()
             display('PixelFly [{0}] - Started acquisition.'.format(self.camId))
-            self.cameraReady.clear()
+            self.camera_ready.clear()
             self._prepare_to_mem()
             (dw1stImage, dwLastImage, wBitsPerPixel, dwStatusDll,
              dwStatusDrv, bytes_per_pixel,
@@ -414,7 +399,7 @@ class PCOCam(GenericCam):
             assert bytes_per_pixel.value == 2
             out = np.zeros((self.wYResAct.value, self.wXResAct.value),
                            dtype=np.uint16)
-            while not self.stopTrigger.is_set():
+            while not self.stop_trigger.is_set():
                 timestamp = 0
                 message = 0
                 num_acquired = 0
@@ -476,7 +461,7 @@ class PCOCam(GenericCam):
             ret = self.camclose()
             display('PixelFly - returned {0} on close'.format(ret))
             self.saving.clear()
-            self.startTrigger.clear()
-            self.stopTrigger.clear()
+            self.start_trigger.clear()
+            self.stop_trigger.clear()
             display('PixelFly {0} - Close event: {1}'.format(self.camId,
-                                                           self.closeEvent.is_set()))
+                                                           self.close_event.is_set()))
