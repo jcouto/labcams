@@ -466,7 +466,6 @@ class ROIPlotWidget(QWidget):
     def items(self):
         return self.rois
     def closeEvent(self,ev):
-        print(self.rois)
         for roi in self.rois:
             self.roi_target.removeItem(roi)
         ev.accept()
