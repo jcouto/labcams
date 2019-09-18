@@ -1,9 +1,4 @@
-import ctypes
-from multiprocessing import Process,Queue,Event,Array,Value
-from labcams.cams import GenericCam
-import numpy as np
-import time
-from .utils import display
+from .cams import *
 
 class PCOCam(GenericCam):
     time_modes = {0:"ns", 1: "us", 2: "ms"}
@@ -51,7 +46,7 @@ class PCOCam(GenericCam):
         self.triggerSource = triggerSource
 
         self._dll = None
-        self.img[...] = frame[...]
+        self.img[:] = frame[:]
 
         display("Got info from camera (name: {0})".format(
              'PCO'))
@@ -360,7 +355,7 @@ class PCOCam(GenericCam):
         buf = np.frombuffer(self.frame.get_obj(),
                             dtype = np.uint16).reshape([self.h,self.w])
         self.close_event.clear()
-        display('PixelFly camera [{0}] starting.'.format(self.camId))
+        display('PCO camera [{0}] starting.'.format(self.camId))
         poll_timeout=1
         while not self.close_event.is_set():
             self.nframes.value = 0
@@ -383,14 +378,14 @@ class PCOCam(GenericCam):
             self.nframes.value = 0
             self.stop_trigger.clear()
             # Wait for trigger
-            display('PixelFly camera [{0}] waiting for software trigger.'.format(self.camId))
+            display('PCO camera [{0}] waiting for software trigger.'.format(self.camId))
             while not self.start_trigger.is_set():
                 # limits resolution to 1 ms 
                 time.sleep(0.001)
             if self.close_event.is_set():
                 break
             self.acquisitionstart()
-            display('PixelFly [{0}] - Started acquisition.'.format(self.camId))
+            display('PCO [{0}] - Started acquisition.'.format(self.camId))
             self.camera_ready.clear()
             self._prepare_to_mem()
             (dw1stImage, dwLastImage, wBitsPerPixel, dwStatusDll,
@@ -455,13 +450,13 @@ class PCOCam(GenericCam):
                             wBitsPerPixel)
                         added_buffers.append(which_buf)
                 
-            display('PixelFly [{0}] - Stopping acquisition.'.format(self.camId))
+            display('PCO [{0}] - Stopping acquisition.'.format(self.camId))
             self.acquisitionstop()
             self.disarm()
             ret = self.camclose()
-            display('PixelFly - returned {0} on close'.format(ret))
+            display('PCO - returned {0} on close'.format(ret))
             self.saving.clear()
             self.start_trigger.clear()
             self.stop_trigger.clear()
-            display('PixelFly {0} - Close event: {1}'.format(self.camId,
+            display('PCO {0} - Close event: {1}'.format(self.camId,
                                                            self.close_event.is_set()))
