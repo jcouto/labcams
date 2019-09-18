@@ -44,6 +44,7 @@ class LabCamsGUI(QMainWindow):
             if not 'Save' in cam.keys():
                 cam['Save'] = True
             if cam['driver'] == 'AVT':
+                from .avt import AVTCam
                 camids = [(camid,name) for (camid,name) in zip(avtids,avtnames) 
                           if cam['name'] in name]
                 camids = [camid for camid in camids
@@ -79,6 +80,7 @@ class LabCamsGUI(QMainWindow):
                                         nFrameBuffers = cam['nFrameBuffers']))
                 connected_avt_cams.append(camids[0][0])
             elif cam['driver'] == 'QImaging':
+                from .qimaging import QImagingCam
                 self.camQueues.append(Queue())
                 if not 'binning' in cam.keys():
                     cam['binning'] = 2
@@ -96,6 +98,7 @@ class LabCamsGUI(QMainWindow):
                                            triggered = self.triggered,
                                            **cam))
             elif cam['driver'] == 'PCO':
+                from .pco import PCOCam
                 self.camQueues.append(Queue())
                 from .pixelfly import PCOCam
                 self.cams.append(PCOCam(camId=cam['id'],
@@ -104,7 +107,7 @@ class LabCamsGUI(QMainWindow):
                                         outQ = self.camQueues[-1],
                                         triggered = self.triggered))
             else:
-            	display('Unknown camera driver' + cam['driver'])
+            	display('[WARNING] -----> Unknown camera driver' + cam['driver'])
 
             if cam['Save']:
                 if not 'compress' in self.parameters:
