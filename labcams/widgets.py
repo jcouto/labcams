@@ -418,7 +418,8 @@ class CamWidget(QWidget):
                     frame = self.eyeTracker.img
 
             self.text.setText(self.string.format(nframe))
-            self.view.setImage(frame,autoHistogramRange=self.autoRange)
+            self.view.setImage(frame.squeeze(),
+                               autoHistogramRange=self.autoRange)
             self.lastnFrame = nframe
 
 

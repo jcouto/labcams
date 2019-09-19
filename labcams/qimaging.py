@@ -47,21 +47,24 @@ class QImagingCam(GenericCam):
         cam.StartStreaming()
         frame = cam.GrabFrame()
         self.dtype = frame.dtype
-        buf = np.frombuffer(frame.stringBuffer,dtype = self.dtype).reshape((frame.width,frame.height))
+        buf = np.frombuffer(frame.stringBuffer,
+                            dtype = self.dtype).reshape(
+                                (frame.width,frame.height))
         self.h = frame.height
         self.w = frame.width
-
+        self.img[:] = np.reshape(frame,self.img.shape)[:]
         cam.StopStreaming()
         cam.CloseCamera()
         QCam.ReleaseDriver()
-        self.initVariables(dtype = self.dtype)
+        self._init_variables(dtype = self.dtype)
 
         display("Got info from camera (name: {0})".format(camId))
         self.camera_ready = Event()
 
     def run(self):
         buf = np.frombuffer(self.frame.get_obj(),
-                            dtype = np.uint16).reshape([self.w,self.h])
+                            dtype = np.uint16).reshape([
+                                self.w,self.h,self.nchan])
         QCam.ReleaseDriver()
         self.close_event.clear()
         while not self.close_event.is_set():
@@ -122,7 +125,8 @@ class QImagingCam(GenericCam):
                 if self.saving.is_set():
                     self.queue.put((frame.reshape([self.h,self.w]),
                                     (frameID,timestamp)))
-                buf[:] = frame[:]
+                buf[:] = np.reshape(frame,buf.shape)[:]
+
                 queue.put(f)
 
             queue.stop()
