@@ -409,7 +409,7 @@ class CamWidget(QWidget):
             if bool(self.parameters['TrackEye']):
                 if self.eyeTracker is None:
                     self._open_mptracker(image.copy())
-                img = self.eyeTracker.apply(image.copy())
+                img = self.eyeTracker.apply(image.squeeze())
                 if not self.eyeTracker.concatenateBinaryImage:
                     (x1,y1,w,h) = self.eyeTracker.parameters['imagecropidx']
                     frame = cv2.cvtColor(frame,cv2.COLOR_GRAY2RGB)
