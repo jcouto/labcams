@@ -46,7 +46,7 @@ class PCOCam(GenericCam):
         self.triggerSource = triggerSource
 
         self._dll = None
-        self.img[:] = frame[:]
+        self.img[:] = np.reshape(frame,self.img.shape)[:]
 
         display("Got info from camera (name: {0})".format(
              'PCO'))
@@ -353,7 +353,8 @@ class PCOCam(GenericCam):
     def run(self):
         self._dll = ctypes.WinDLL(self.dllpath)
         buf = np.frombuffer(self.frame.get_obj(),
-                            dtype = np.uint16).reshape([self.h,self.w])
+                            dtype = self.dtype).reshape(
+                                [self.h,self.w,self.nchan])
         self.close_event.clear()
         display('PCO camera [{0}] starting.'.format(self.camId))
         poll_timeout=1
@@ -441,7 +442,7 @@ class PCOCam(GenericCam):
                                 self.queue.put((frame.copy(),
                                                 (frameID,timestamp)))
                                 lastframeid = frameID
-                        buf[:,:] = frame[:,:]
+                        buf[:,:] = np.reshape(frame[:,:],buf.shape)[:]
 
                     finally:
                         self._dll.PCO_AddBufferEx(  # Put the buffer back in the queue

@@ -31,6 +31,7 @@ class LabCamsGUI(QMainWindow):
         # Init cameras
         camdrivers = [cam['driver'] for cam in camDescriptions]
         if 'AVT' in camdrivers:
+            from .avt import AVT_get_ids
             try:
                 avtids,avtnames = AVT_get_ids()
             except Exception as e:
@@ -100,7 +101,6 @@ class LabCamsGUI(QMainWindow):
             elif cam['driver'] == 'PCO':
                 from .pco import PCOCam
                 self.camQueues.append(Queue())
-                from .pixelfly import PCOCam
                 self.cams.append(PCOCam(camId=cam['id'],
                                         binning = cam['binning'],
                                         exposure = cam['exposure'],

@@ -80,13 +80,13 @@ class AVTCam(GenericCam):
             cam.runFeatureCommand('AcquisitionStop')
             self.h = frame.height
             self.w = frame.width
-            self.dtype = frame.dtype
+            self.dtype = np.uint8
             self._init_variables(dtype = self.dtype)
             framedata = np.ndarray(buffer = frame.getBufferByteData(),
                                    dtype = self.dtype,
                                    shape = (frame.height,
                                             frame.width)).copy()
-            self.img[:] = framedata[:]
+            self.img[:] = np.reshape(framedata,self.img.shape)[:]
             cam.endCapture()
             cam.revokeAllFrames()
             display("AVT [{1}] = Got info from camera (name: {0})".format(
@@ -98,7 +98,7 @@ class AVTCam(GenericCam):
     
     def run(self):
         buf = np.frombuffer(self.frame.get_obj(),
-                            dtype = self.dtype).reshape([self.h,self.w])
+                            dtype = self.dtype).reshape([self.h,self.w,self.nchan])
         self.close_event.clear()
         while not self.close_event.is_set():
             self.nframes.value = 0
@@ -194,7 +194,6 @@ class AVTCam(GenericCam):
                                                    dtype = self.dtype,
                                                    shape = (f.height,
                                                             f.width)).copy()
-                                newframe = frame.copy()
                                 #display("Time {0} - {1}:".format(str(1./(time.time()-tstart)),self.nframes.value))
                                 #tstart = time.time()
                             try:
@@ -207,7 +206,7 @@ class AVTCam(GenericCam):
                                 if not frameID in lastframeid :
                                     self.queue.put((frame.copy(),(frameID,timestamp)))
                                     lastframeid[ibuf] = frameID
-                            buf[:] = frame[:]
+                            buf[:] = np.reshape(frame,buf.shape)[:]
                         elif avterr == -12:
                             #display('VimbaException: ' +  str(avterr))        
                             break
