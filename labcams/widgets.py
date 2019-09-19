@@ -408,12 +408,12 @@ class CamWidget(QWidget):
                 self.roiwidget.update(frame,iFrame=nframe)
             if bool(self.parameters['TrackEye']):
                 if self.eyeTracker is None:
-                    self._open_mptracker(image.copy())
+                    self._open_mptracker(image.squeeze())
                 img = self.eyeTracker.apply(image.squeeze())
                 if not self.eyeTracker.concatenateBinaryImage:
                     (x1,y1,w,h) = self.eyeTracker.parameters['imagecropidx']
                     frame = cv2.cvtColor(frame,cv2.COLOR_GRAY2RGB)
-                    frame[y1:y1+h,x1:x1+w,:] = self.eyeTracker.img
+                    frame[y1:y1+h,x1:x1+w] = self.eyeTracker.img
                 else:
                     frame = self.eyeTracker.img
 
