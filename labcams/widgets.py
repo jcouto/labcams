@@ -394,7 +394,7 @@ class CamWidget(QWidget):
             tmp = image.copy()
             if self.parameters['Equalize']:
                 try: # In case the type is messed up..
-                    tmp = cv2.equalizeHist(tmp)
+                    tmp = cv2.equalizeHist(tmp).reshape(image.shape)
                 except:
                     pass
             if self.nAcum > 0:
