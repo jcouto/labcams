@@ -107,7 +107,7 @@ class LabCamsGUI(QMainWindow):
                                         outQ = self.camQueues[-1],
                                         triggered = self.triggered))
             else:
-            	display('[WARNING] -----> Unknown camera driver' + cam['driver'])
+                display('[WARNING] -----> Unknown camera driver' + cam['driver'])
 
             if cam['Save']:
                 if not 'compress' in self.parameters:
@@ -121,7 +121,7 @@ class LabCamsGUI(QMainWindow):
                                                dataName = cam['description']))
             else:
                 self.writers.append(None)
-            # Print parameteres
+            # Print parameters
             display('\t Camera: {0}'.format(cam['name']))
             for k in np.sort(list(cam.keys())):
                 if not k == 'name':
@@ -324,7 +324,7 @@ def main():
     opts = parser.parse_args()
     if not opts.make_config is None:
         fname = opts.make_config
-        getPreferences(fname,create=True)
+        getPreferences(fname, create=True)
         sys.exit()
     parameters = getPreferences(opts.preffile)
     cams = parameters['cams']
