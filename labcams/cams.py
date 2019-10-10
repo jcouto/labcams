@@ -35,6 +35,7 @@ class GenericCam(Process):
         self.queue = outQ
         self.cmd_queue = Queue()
         self.camera_ready = Event()
+        self.eventsQ = Queue()
     def _init_variables(self,dtype=np.uint8):
         if dtype == np.uint8:
             cdtype = ctypes.c_ubyte
@@ -44,6 +45,42 @@ class GenericCam(Process):
         self.img = np.frombuffer(
             self.frame.get_obj(),
             dtype = cdtype).reshape([self.h,self.w,self.nchan])
+    def run(self):
+        self.buf = np.frombuffer(self.frame.get_obj(),
+                            dtype = self.dtype).reshape([self.h,self.w,self.nchan])
+        self.close_event.clear()
+        while not self.close_event.is_set():
+            self._cam_init()
+            self._cam_waitsoftwaretrigger()
+            if not self.stop_trigger.is_set():
+                self._cam_startacquisition()
+            self.camera_ready.clear()
+            while not self.stop_trigger.is_set():
+                self._cam_loop()
+            self._cam_close()
+
+    def _cam_init(self):
+        pass
+
+    def _cam_startacquisition(self):
+        pass
+    
+    def _cam_close(self):
+        pass
+
+    def _cam_loop(self):
+        pass
+    
+    def _cam_waitsoftwaretrigger(self):
+        display('{0} camera [{1}] waiting for software trigger.'.format(self.drivername,self.cam_id))
+        while not self.start_trigger.is_set():
+            # limits resolution to 1 ms 
+            time.sleep(0.001)
+            if self.close_event.is_set():
+                break
+        if self.close_event.is_set():
+            return
+        self.camera_ready.clear()
 
     def stop_acquisition(self):
         self.stop_trigger.set()
@@ -59,6 +96,7 @@ class OpenCVCam(GenericCam):
                  triggered = Event(),
                  **kwargs):
         super(OpenCVCam,self).__init__(outQ = outQ)
+        self.drivername = 'openCV'
         if camId is None:
             display('Need to supply a camera ID.')
         self.cam_id = camId
@@ -85,50 +123,38 @@ class OpenCVCam(GenericCam):
         if self.triggered.is_set():
             display('[OpenCV {0}] Triggered mode ON.'.format(self.cam_id))
             self.triggerSource = triggerSource
-    
-    def run(self):
-        buf = np.frombuffer(self.frame.get_obj(),
-                            dtype = self.dtype).reshape([self.h,self.w,self.nchan])
-        self.close_event.clear()
-        
-        while not self.close_event.is_set():
-            self.nframes.value = 0
-            lastframeid = -1
-            cam = cv2.VideoCapture(self.cam_id)
-            if not self.frame_rate == float(0):
-                res = cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0)
-                res = cam.set(cv2.CAP_PROP_EXPOSURE,1./float(self.frame_rate))
-            else:
-                res = cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
-            self.camera_ready.set()
-            self.nframes.value = 0
-            # Wait for trigger
-            display('OpenCV camera [{0}] waiting for software trigger.'.format(self.cam_id))
-            while not self.start_trigger.is_set():
-                # limits resolution to 1 ms 
-                time.sleep(0.001)
-                if self.close_event.is_set():
-                    break
-            if self.close_event.is_set():
-                break
-            display('OpenCV [{0}] - Started acquisition.'.format(self.cam_id))
-            self.camera_ready.clear()
-            while not self.stop_trigger.is_set():
-                frameID = self.nframes.value
-                ret_val, frame = cam.read()
-                timestamp = time.time()
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                self.nframes.value += 1
-                if self.saving.is_set():
-                    if not frameID == lastframeid :
-                        self.queue.put((frame.copy(),(frameID,timestamp)))
-                        lastframeid = frameID
-                buf[:] = frame[:]
-            cam.release()
-            display('OpenCV [{0}] - Stopped acquisition.'.format(self.cam_id))
-            self.saving.clear()
-            self.start_trigger.clear()
-            self.stop_trigger.clear()
-            display('OpenCV {0} - Close event: {1}'.format(self.cam_id,
-                                                           self.close_event.is_set()))
+
+    def _cam_init(self):
+        self.nframes.value = 0
+        lastframeid = -1
+        self.cam = cv2.VideoCapture(self.cam_id)
+        if not self.frame_rate == float(0):
+            res = self.cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0)
+            res = self.cam.set(cv2.CAP_PROP_EXPOSURE,1./float(self.frame_rate))
+        else:
+            res = self.cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+        self.camera_ready.set()
+        self.nframes.value = 0
+        # Wait for trigger
+
+    def _cam_loop(self):
+        frameID = self.nframes.value
+        ret_val, frame = self.cam.read()
+        timestamp = time.time()
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        self.nframes.value += 1
+        if self.saving.is_set():
+            if not frameID == lastframeid :
+                self.queue.put((frame.copy(),(frameID,timestamp)))
+                lastframeid = frameID
+            self.buf[:] = frame[:]
+
+    def _cam_close(self):
+        self.cam.release()
+        display('OpenCV [{0}] - Stopped acquisition.'.format(self.cam_id))
+        self.saving.clear()
+        self.start_trigger.clear()
+        self.stop_trigger.clear()
+        display('{0} {1} - Close event: {2}'.format(self.drivername,self.cam_id,
+                                                    self.close_event.is_set()))
         

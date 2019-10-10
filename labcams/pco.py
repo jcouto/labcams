@@ -13,8 +13,11 @@ class PCOCam(GenericCam):
                  dllpath = 'C:\\Program Files (x86)\\pco\\pco.sdk\\bin64\\SC2_Cam.dll',
                  **kwargs):
         super(PCOCam,self).__init__()
+        self.drivername = 'PCO'
         self._dll = ctypes.WinDLL(dllpath)
         self.dllpath = dllpath
+        self.poll_timeout=1
+                
         self.trigerMode = 0
         self.exposure = exposure
         self.binning = binning
@@ -349,115 +352,106 @@ class PCOCam(GenericCam):
         self.acquisitionstop()
         self.disarm()
         return out
-    
-    def run(self):
-        self._dll = ctypes.WinDLL(self.dllpath)
-        buf = np.frombuffer(self.frame.get_obj(),
-                            dtype = self.dtype).reshape(
-                                [self.h,self.w,self.nchan])
-        self.close_event.clear()
-        display('PCO camera [{0}] starting.'.format(self.camId))
-        poll_timeout=1
-        while not self.close_event.is_set():
-            self.nframes.value = 0
-            lastframeid = -1
-            ret = self.camopen(self.camId)
-            if self.useCameraParameters:
-                ret = self.set_binning(self.binning,self.binning)
-                display('PCO - Binning: {0}'.format(ret))
-                ret = self.set_exposure_time(self.exposure)
-                display('PCO - Exposure: {0} {1}'.format(*ret))
-            if self.triggered.is_set():
-                display('PCO - Trigger mode settting to: {0}'.format(self.triggerSource))
-                display('\t\t\tPCO - {0}'.format(self.set_trigger_mode(self.triggerSource)))
-            else:
-                self.set_trigger_mode(0)
-            display('PCO - Trigger mode: {0}'.format(self.get_trigger_mode()))
-            display('PCO - size: {0} x {1}'.format(self.h,self.w))
-            self.arm()
-            self.camera_ready.set()
-            self.nframes.value = 0
-            self.stop_trigger.clear()
-            # Wait for trigger
-            display('PCO camera [{0}] waiting for software trigger.'.format(self.camId))
-            while not self.start_trigger.is_set():
-                # limits resolution to 1 ms 
-                time.sleep(0.001)
-            if self.close_event.is_set():
-                break
-            self.acquisitionstart()
-            display('PCO [{0}] - Started acquisition.'.format(self.camId))
-            self.camera_ready.clear()
-            self._prepare_to_mem()
-            (dw1stImage, dwLastImage, wBitsPerPixel, dwStatusDll,
-             dwStatusDrv, bytes_per_pixel,
-             pixels_per_image, added_buffers, ArrayType) = self._prepared
-            assert bytes_per_pixel.value == 2
-            out = np.zeros((self.wYResAct.value, self.wXResAct.value),
-                           dtype=np.uint16)
-            while not self.stop_trigger.is_set():
-                timestamp = 0
-                message = 0
-                num_acquired = 0
-                num_polls = 0
-                polling = True
-                while polling:
-                    which_buf = None
-                    num_polls += 1
-                    message = self._dll.PCO_GetBufferStatus(
-                        self.hCam, self.buffer_numbers[added_buffers[0]],
-                        ctypes.byref(dwStatusDll), ctypes.byref(dwStatusDrv))
-                    if dwStatusDll.value == 0xc0008000:
-                        which_buf = added_buffers.pop(0)  # Buffer exits the queue
-                        #print("After", num_polls, "polls, buffer")
-                        #print(self.buffer_numbers[which_buf].value)
-                        #print("is ready.")
-                        frameID = self.nframes.value
-                        polling = False
-                        break
-                    else:
-                        time.sleep(0.00005)  # Wait 50 microseconds
-                    if num_polls > poll_timeout:
-                        break
-                if not which_buf is None:
-                    try:
-                        if dwStatusDrv.value == 0x00000000:
-                            pass
-                        elif dwStatusDrv.value == 0x80332028:
-                            print('DMA error during record_to_memory')
-                            raise MemoryError('DMA error during record_to_memory')
-                        else:
-                            print("dwStatusDrv:", dwStatusDrv.value)
-                            print("Buffer status error")
-                            raise UserWarning("Buffer status error")
-                        #print("Record to memory result:")
-                        #print(hex(dwStatusDll.value), hex(dwStatusDrv.value))
-                        buffer_ptr = ctypes.cast(self.buffer_pointers[which_buf], ctypes.POINTER(ArrayType))
-                        out[:, :] = np.frombuffer(buffer_ptr.contents, dtype=np.uint16).reshape(out.shape)
-                        num_acquired += 1
-                        frame = out.copy()
-                        self.nframes.value += 1
-                        if self.saving.is_set():
-                            if not frameID == lastframeid :
-                                self.queue.put((frame.copy(),
-                                                (frameID,timestamp)))
-                                lastframeid = frameID
-                        buf[:,:] = np.reshape(frame[:,:],buf.shape)[:]
 
-                    finally:
-                        self._dll.PCO_AddBufferEx(  # Put the buffer back in the queue
-                            self.hCam, dw1stImage, dwLastImage,
-                            self.buffer_numbers[which_buf], self.wXResAct, self.wYResAct,
-                            wBitsPerPixel)
-                        added_buffers.append(which_buf)
+    def _cam_init(self):
+        self._dll = ctypes.WinDLL(self.dllpath)
+        self.nframes.value = 0
+        lastframeid = -1
+        ret = self.camopen(self.camId)
+        if self.useCameraParameters:
+            ret = self.set_binning(self.binning,self.binning)
+            display('PCO - Binning: {0}'.format(ret))
+            ret = self.set_exposure_time(self.exposure)
+            display('PCO - Exposure: {0} {1}'.format(*ret))
+        if self.triggered.is_set():
+            display('PCO - Trigger mode settting to: {0}'.format(self.triggerSource))
+            display('\t\t\tPCO - {0}'.format(self.set_trigger_mode(self.triggerSource)))
+        else:
+            self.set_trigger_mode(0)
+        display('PCO - Trigger mode: {0}'.format(self.get_trigger_mode()))
+        display('PCO - size: {0} x {1}'.format(self.h,self.w))
+        self.arm()
+        self.camera_ready.set()
+        self.nframes.value = 0
+        self.stop_trigger.clear()
+
+    def _cam_startacquisition(self):
+        self.acquisitionstart()
+        display('PCO [{0}] - Started acquisition.'.format(self.camId))
+        self.camera_ready.clear()
+        self._prepare_to_mem()
+        (self.dw1stImage, self.dwLastImage, self.wBitsPerPixel, self.dwStatusDll,
+         self.dwStatusDrv, bytes_per_pixel,
+         pixels_per_image, self.added_buffers, self.ArrayType) = self._prepared
+        assert bytes_per_pixel.value == 2
+        self.out = np.zeros((self.wYResAct.value, self.wXResAct.value),
+                            dtype=np.uint16)
+        
+    def _cam_loop(self):
+
+        timestamp = 0
+        message = 0
+        num_acquired = 0
+        num_polls = 0
+        polling = True
+        while polling:
+            which_buf = None
+            num_polls += 1
+            message = self._dll.PCO_GetBufferStatus(
+                self.hCam, self.buffer_numbers[self.added_buffers[0]],
+                ctypes.byref(self.dwStatusDll), ctypes.byref(self.dwStatusDrv))
+            if self.dwStatusDll.value == 0xc0008000:
+                which_buf = self.added_buffers.pop(0)  # Buffer exits the queue
+                #print("After", num_polls, "polls, buffer")
+                #print(self.buffer_numbers[which_buf].value)
+                #print("is ready.")
+                frameID = self.nframes.value
+                polling = False
+                break
+            else:
+                time.sleep(0.00005)  # Wait 50 microseconds
+                if num_polls > self.poll_timeout:
+                    break
+        if not which_buf is None:
+            try:
+                if self.dwStatusDrv.value == 0x00000000:
+                    pass
+                elif self.dwStatusDrv.value == 0x80332028:
+                    print('DMA error during record_to_memory')
+                    raise MemoryError('DMA error during record_to_memory')
+                else:
+                    print("dwStatusDrv:", self.dwStatusDrv.value)
+                    print("Buffer status error")
+                    raise UserWarning("Buffer status error")
+                #print("Record to memory result:")
+                #print(hex(dwStatusDll.value), hex(dwStatusDrv.value))
+                buffer_ptr = ctypes.cast(self.buffer_pointers[which_buf], ctypes.POINTER(self.ArrayType))
+                self.out[:, :] = np.frombuffer(buffer_ptr.contents, dtype=np.uint16).reshape(self.out.shape)
+                num_acquired += 1
+                frame = self.out.copy()
+                self.nframes.value += 1
+                if self.saving.is_set():
+                    if not frameID == lastframeid :
+                        self.queue.put((frame.copy(),
+                                        (frameID,timestamp)))
+                lastframeid = frameID
+                self.buf[:,:] = np.reshape(frame[:,:],self.buf.shape)[:]
+
+            finally:
+                self._dll.PCO_AddBufferEx(  # Put the buffer back in the queue
+                    self.hCam, self.dw1stImage, self.dwLastImage,
+                    self.buffer_numbers[which_buf], self.wXResAct, self.wYResAct,
+                    self.wBitsPerPixel)
+                self.added_buffers.append(which_buf)
                 
-            display('PCO [{0}] - Stopping acquisition.'.format(self.camId))
-            self.acquisitionstop()
-            self.disarm()
-            ret = self.camclose()
-            display('PCO - returned {0} on close'.format(ret))
-            self.saving.clear()
-            self.start_trigger.clear()
-            self.stop_trigger.clear()
-            display('PCO {0} - Close event: {1}'.format(self.camId,
-                                                           self.close_event.is_set()))
+    def _cam_close(self):
+        display('PCO [{0}] - Stopping acquisition.'.format(self.camId))
+        self.acquisitionstop()
+        self.disarm()
+        ret = self.camclose()
+        display('PCO - returned {0} on close'.format(ret))
+        self.saving.clear()
+        self.start_trigger.clear()
+        self.stop_trigger.clear()
+        display('PCO {0} - Close event: {1}'.format(self.camId,
+                                                    self.close_event.is_set()))
