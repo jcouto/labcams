@@ -57,7 +57,18 @@ class GenericCam(Process):
             self.camera_ready.clear()
             while not self.stop_trigger.is_set():
                 self._cam_loop()
+                self._parse_command_queue()
             self._cam_close()
+            
+    def _parse_command_queue(self):
+        if not self.eventsQ.empty():
+            cmd = self.eventsQ.get()
+            if hasattr(self,'ctrevents'):
+                if '=' in cmd:
+                    cmd = cmd.split('=')
+                    if cmd[0] in self.ctrevents.keys():
+                        print(cmd)
+            
 
     def _cam_init(self):
         pass

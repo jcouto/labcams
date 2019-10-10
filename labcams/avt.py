@@ -27,6 +27,9 @@ def AVT_get_ids():
     return camsIds,camsModel
 
 class AVTCam(GenericCam):
+    # this sets the name of the command (needs a _set_"name" function) and the range of parameters (min max for example)
+    ctrevents = dict(exposure=dict(range = [int(0.001),int(100000)]))
+    
     def __init__(self, camId = None, outQ = None,exposure = 29000,
                  frameRate = 30., gain = 10,frameTimeout = 100,
                  nFrameBuffers = 10,
@@ -96,6 +99,12 @@ class AVTCam(GenericCam):
         if self.triggered.is_set():
             display('AVT [{0}] - Triggered mode ON.'.format(self.cam_id))
             self.triggerSource = triggerSource
+
+    def _set_exposure(exposure = 30):
+        '''exposure time is in ms'''
+        self.exposure = int(exposure*1000)
+        self.cam.ExposureTimeAbs =  self.exposure
+        display('AVT cam set exposure.')
     
     def _cam_init(self):
         self.nframes.value = 0
