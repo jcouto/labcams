@@ -71,18 +71,23 @@ class GenericCam(Process):
             
 
     def _cam_init(self):
+        '''initialize the camera'''
         pass
 
     def _cam_startacquisition(self):
+        '''start camera acq'''
         pass
     
     def _cam_close(self):
+        '''close cam - release driver'''
         pass
 
     def _cam_loop(self):
+        '''get a frame and move on'''
         pass
     
     def _cam_waitsoftwaretrigger(self):
+        '''wait for software trigger'''
         display('{0} camera [{1}] waiting for software trigger.'.format(self.drivername,self.cam_id))
         while not self.start_trigger.is_set():
             # limits resolution to 1 ms 
@@ -158,7 +163,7 @@ class OpenCVCam(GenericCam):
             if not frameID == lastframeid :
                 self.queue.put((frame.copy(),(frameID,timestamp)))
                 lastframeid = frameID
-            self.buf[:] = frame[:]
+        self.buf[:] = frame[:]
 
     def _cam_close(self):
         self.cam.release()
