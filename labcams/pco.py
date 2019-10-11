@@ -356,7 +356,7 @@ class PCOCam(GenericCam):
     def _cam_init(self):
         self._dll = ctypes.WinDLL(self.dllpath)
         self.nframes.value = 0
-        lastframeid = -1
+        self.lastframeid = -1
         ret = self.camopen(self.camId)
         if self.useCameraParameters:
             ret = self.set_binning(self.binning,self.binning)
@@ -431,10 +431,10 @@ class PCOCam(GenericCam):
                 frame = self.out.copy()
                 self.nframes.value += 1
                 if self.saving.is_set():
-                    if not frameID == lastframeid :
+                    if not frameID == self.lastframeid :
                         self.queue.put((frame.copy(),
                                         (frameID,timestamp)))
-                lastframeid = frameID
+                self.lastframeid = frameID
                 self.buf[:,:] = np.reshape(frame[:,:],self.buf.shape)[:]
 
             finally:

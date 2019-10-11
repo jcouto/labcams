@@ -142,7 +142,7 @@ class OpenCVCam(GenericCam):
 
     def _cam_init(self):
         self.nframes.value = 0
-        lastframeid = -1
+        self.lastframeid = -1
         self.cam = cv2.VideoCapture(self.cam_id)
         if not self.frame_rate == float(0):
             res = self.cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0)
@@ -160,9 +160,9 @@ class OpenCVCam(GenericCam):
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         self.nframes.value += 1
         if self.saving.is_set():
-            if not frameID == lastframeid :
+            if not frameID == self.lastframeid :
                 self.queue.put((frame.copy(),(frameID,timestamp)))
-                lastframeid = frameID
+        self.lastframeid = frameID
         self.buf[:] = frame[:]
 
     def _cam_close(self):
