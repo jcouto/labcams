@@ -36,6 +36,14 @@ class GenericCam(Process):
         self.cmd_queue = Queue()
         self.camera_ready = Event()
         self.eventsQ = Queue()
+        self._init_ctrevents()
+    def _init_ctrevents(self):
+        if hasattr(self,'ctrevents'):
+            for c in self.ctrevents.keys():
+                self.ctrevents[c]['call'] = eval(
+                    'self.' +
+                    self.ctrevents[c]['function'])  
+            
     def _init_variables(self,dtype=np.uint8):
         if dtype == np.uint8:
             cdtype = ctypes.c_ubyte
@@ -46,6 +54,7 @@ class GenericCam(Process):
             self.frame.get_obj(),
             dtype = cdtype).reshape([self.h,self.w,self.nchan])
     def run(self):
+        self._init_ctrevents()
         self.buf = np.frombuffer(self.frame.get_obj(),
                             dtype = self.dtype).reshape([self.h,self.w,self.nchan])
         self.close_event.clear()
@@ -59,16 +68,24 @@ class GenericCam(Process):
                 self._cam_loop()
                 self._parse_command_queue()
             self._cam_close()
-            
+            self.saving.clear()
+            self.start_trigger.clear()
+            self.stop_trigger.clear()
+
     def _parse_command_queue(self):
         if not self.eventsQ.empty():
             cmd = self.eventsQ.get()
             if hasattr(self,'ctrevents'):
                 if '=' in cmd:
                     cmd = cmd.split('=')
-                    if cmd[0] in self.ctrevents.keys():
-                        print(cmd)
-            
+                    self._call_event(cmd[0],cmd[1])
+
+    def _call_event(self,eventname,eventvalue):
+        if eventname in self.ctrevents.keys():
+            val = self.ctrevents[eventname]['type'](eventvalue)
+            self.ctrevents[eventname]['call'](val)
+        else:
+            display('No event found {0} {1}'.format(eventname,eventvalue))
 
     def _cam_init(self):
         '''initialize the camera'''
@@ -88,7 +105,7 @@ class GenericCam(Process):
     
     def _cam_waitsoftwaretrigger(self):
         '''wait for software trigger'''
-        display('{0} camera [{1}] waiting for software trigger.'.format(self.drivername,self.cam_id))
+        display('[{0} {1}] waiting for software trigger.'.format(self.drivername,self.cam_id))
         while not self.start_trigger.is_set():
             # limits resolution to 1 ms 
             time.sleep(0.001)
@@ -107,6 +124,17 @@ class GenericCam(Process):
         
 # OpenCV camera; some functionality limited (like triggers)
 class OpenCVCam(GenericCam):
+    ctrevents = dict(
+        framerate=dict(
+            function = 'set_framerate',
+            widget = 'slider',
+            variable = 'frame_rate',
+            units = 'fps',
+            type = lambda x: float(x),
+            min = 0.0,
+            max = 1000,
+            step = 0.1))
+    
     def __init__(self, camId = None, outQ = None,
                  frameRate = 30.,
                  triggered = Event(),
@@ -117,13 +145,9 @@ class OpenCVCam(GenericCam):
             display('Need to supply a camera ID.')
         self.cam_id = camId
         self.frame_rate = float(frameRate)
-        cam = cv2.VideoCapture(self.cam_id)
-        if not self.frame_rate == float(0):
-            res = cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0)
-            res = cam.set(cv2.CAP_PROP_EXPOSURE,1./self.frame_rate)
-        else:
-            res = cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
-        ret_val, frame = cam.read()
+        self.cam = cv2.VideoCapture(self.cam_id)
+        self.set_framerate(self.frame_rate)
+        ret_val, frame = self.cam.read()
         frame = frame
         self.h = frame.shape[0]
         self.w = frame.shape[1]
@@ -132,26 +156,33 @@ class OpenCVCam(GenericCam):
         self.dtype = frame.dtype
 
         self._init_variables(dtype = self.dtype)
-        display("Got info from camera (name: {0})".format(
-            'openCV'))
-        cam.release()
+
+        self.cam.release()
+        self.cam = None
         self.triggered = triggered
         if self.triggered.is_set():
             display('[OpenCV {0}] Triggered mode ON.'.format(self.cam_id))
             self.triggerSource = triggerSource
 
+    def set_framerate(self,framerate = 30.):
+        '''Set frame rate in seconds'''
+        self.frame_rate = float(framerate)
+        if not self.cam is None:
+            if not self.frame_rate == float(0):
+                res = self.cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0)
+                res = self.cam.set(cv2.CAP_PROP_EXPOSURE,1./self.frame_rate)
+            else:
+                res = self.cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+            display('[OpenCV {0}] Set frame_rate to: {1}.'.format(self.cam_id,
+                                                                  self.frame_rate))
+
     def _cam_init(self):
         self.nframes.value = 0
         self.lastframeid = -1
         self.cam = cv2.VideoCapture(self.cam_id)
-        if not self.frame_rate == float(0):
-            res = self.cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0)
-            res = self.cam.set(cv2.CAP_PROP_EXPOSURE,1./float(self.frame_rate))
-        else:
-            res = self.cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+        self.set_framerate(self.frame_rate)        
         self.camera_ready.set()
         self.nframes.value = 0
-        # Wait for trigger
 
     def _cam_loop(self):
         frameID = self.nframes.value
@@ -164,13 +195,9 @@ class OpenCVCam(GenericCam):
                 self.queue.put((frame.copy(),(frameID,timestamp)))
         self.lastframeid = frameID
         self.buf[:] = frame[:]
-
+        # This artificially limits the frame rate. 
+        time.sleep(1./self.frame_rate)
     def _cam_close(self):
         self.cam.release()
-        display('OpenCV [{0}] - Stopped acquisition.'.format(self.cam_id))
-        self.saving.clear()
-        self.start_trigger.clear()
-        self.stop_trigger.clear()
-        display('{0} {1} - Close event: {2}'.format(self.drivername,self.cam_id,
-                                                    self.close_event.is_set()))
+        display('[OpenCV {0}] - Stopped acquisition.'.format(self.cam_id))
         

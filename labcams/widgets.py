@@ -120,9 +120,10 @@ class RecordingControlWidget(QWidget):
         #for cam in self.parent.cams:
         #    cam.stop_acquisition()
         #time.sleep(.5)
-        for c,(cam,writer) in enumerate(zip(self.parent.cams,
-                                            self.parent.writers)):
-            if not writer is None:
+        for c,(cam,flg,writer) in enumerate(zip(self.parent.cams,
+                                                self.parent.saveflags,
+                                                self.parent.writers)):
+            if flg:
                 if state:
                     cam.saving.set()
                     writer.write.set()
@@ -138,6 +139,8 @@ class CamWidget(QWidget):
         super(CamWidget,self).__init__()
         self.parent = parent
         self.iCam = iCam
+        self.cam = self.parent.cams[self.iCam]
+        print(self.cam.ctrevents)
         h,w = frame.shape[:2]
         self.w = w
         self.h = h
@@ -250,8 +253,8 @@ class CamWidget(QWidget):
         toggleSave.setDefaultWidget(savew)
         savec.setChecked(self.parameters['Save'])
         def toggleSaveCam():
-            print('This is not working yet.')
             self.parameters['Save'] = not self.parameters['Save']
+            self.parent.saveflags[self.iCam] = self.parameters['Save']
             savec.setChecked(self.parameters['Save'])
             if not self.parameters['Save']:
                 self.string = 'no save -{0}'
@@ -362,7 +365,7 @@ class CamWidget(QWidget):
         [self.p1.addItem(c) for c in  self.tracker_roi.items()]
         
         self.trackerpar = MptrackerParameters(self.eyeTracker,image,eyewidget=self.tracker_roi)
-        if not self.parent.writers[self.iCam] is None:
+        if self.parent.saveflags[self.iCam]:
             self.trackerToggle = QCheckBox()
             self.trackerToggle.setChecked(self.parent.writers[self.iCam].trackerFlag.is_set())
             self.trackerToggle.stateChanged.connect(self.trackerSaveToggle)
@@ -382,7 +385,7 @@ class CamWidget(QWidget):
                                   QDockWidget.DockWidgetClosable)
     def trackerSaveToggle(self,value):
         writer = self.parent.writers[self.iCam]
-        if not writer is None:
+        if self.parent.saveflags[self.iCam]:
             if value:
                 writer.trackerFlag.set()
                 writer.parQ.put((None,self.eyeTracker.parameters))

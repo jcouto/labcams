@@ -23,14 +23,37 @@ def AVT_get_ids():
             camsModel.append('{0} {1} {2}'.format(cam.DeviceModelName,
                                                   cam.DevicePartNumber,
                                                   cam.DeviceID))
-            #print(camsModel)
     return camsIds,camsModel
 
 class AVTCam(GenericCam):
-    # this sets the name of the command (needs a _set_"name" function) and the range of parameters (min max for example)
-    ctrevents = dict(exposure=dict(range = [int(0.001),int(100000)]))
+    ctrevents = dict(
+        exposure=dict(
+            function = 'set_exposure',
+            type = 'slider',
+            variable = 'exposure',
+            units = 'ms',
+            min = 0.001,
+            max = 100000,
+            step = 10),
+        gain = dict(
+            function = 'set_gain',
+            type = 'slider',
+            variable = 'gain',
+            units = 'ms',
+            min = 0,
+            max = 30,
+            step = 1),
+        framerate = dict(
+            function = 'set_framerate',
+            type = 'slider',
+            variable = 'frame_rate',
+            units = 'fps',
+            min = 0.001,
+            max = 1000,
+            step = 1))
     
-    def __init__(self, camId = None, outQ = None,exposure = 29000,
+    def __init__(self, camId = None, outQ = None,
+                 exposure = 29000,
                  frameRate = 30., gain = 10,frameTimeout = 100,
                  nFrameBuffers = 10,
                  triggered = Event(),
@@ -63,25 +86,25 @@ class AVTCam(GenericCam):
             if system.GeVTLIsPresent:
                 system.runFeatureCommand("GeVDiscoveryAllOnce")
             time.sleep(0.01)
-            cam = vimba.getCamera(camId)
-            cam.openCamera()
-            names = cam.getFeatureNames()
+            self.cam = vimba.getCamera(camId)
+            self.cam.openCamera()
+            names = self.cam.getFeatureNames()
             # get a frame
-            cam.acquisitionMode = 'SingleFrame'
-            cam.AcquisitionFrameRateAbs = self.frame_rate
-            cam.ExposureTimeAbs =  self.exposure
-            self.tickfreq = float(cam.GevTimestampTickFrequency)
-            cam.GainRaw = self.gain 
-            cam.TriggerSource = 'FixedRate'
-            cam.TriggerMode = 'Off'
-            cam.TriggerSelector = 'FrameStart'
-            frame = cam.getFrame()
+            self.cam.acquisitionMode = 'SingleFrame'
+            self.set_exposure(self.exposure/1000.)
+            self.set_framerate(self.frame_rate)
+            self.set_gain(self.gain)
+            self.tickfreq = float(self.cam.GevTimestampTickFrequency)
+            self.cam.TriggerSource = 'FixedRate'
+            self.cam.TriggerMode = 'Off'
+            self.cam.TriggerSelector = 'FrameStart'
+            frame = self.cam.getFrame()
             frame.announceFrame()
-            cam.startCapture()
+            self.cam.startCapture()
             frame.queueFrameCapture()
-            cam.runFeatureCommand('AcquisitionStart')
+            self.cam.runFeatureCommand('AcquisitionStart')
             frame.waitFrameCapture()
-            cam.runFeatureCommand('AcquisitionStop')
+            self.cam.runFeatureCommand('AcquisitionStop')
             self.h = frame.height
             self.w = frame.width
             self.dtype = np.uint8
@@ -91,8 +114,9 @@ class AVTCam(GenericCam):
                                    shape = (frame.height,
                                             frame.width)).copy()
             self.img[:] = np.reshape(framedata,self.img.shape)[:]
-            cam.endCapture()
-            cam.revokeAllFrames()
+            self.cam.endCapture()
+            self.cam.revokeAllFrames()
+            self.cam = None
             display("AVT [{1}] = Got info from camera (name: {0})".format(
                 cam.DeviceModelName,self.cam_id))
         self.triggered = triggered
@@ -100,11 +124,28 @@ class AVTCam(GenericCam):
             display('AVT [{0}] - Triggered mode ON.'.format(self.cam_id))
             self.triggerSource = triggerSource
 
-    def _set_exposure(exposure = 30):
-        '''exposure time is in ms'''
+    def set_exposure(self,exposure = 30):
+        '''Set the exposure time is in ms'''
         self.exposure = int(exposure*1000)
-        self.cam.ExposureTimeAbs =  self.exposure
-        display('AVT cam set exposure.')
+        if not self.cam is None:
+            self.cam.ExposureTimeAbs =  self.exposure
+            display('[AVT {0}] Setting exposure to {1} ms.'.format(
+                self.cam_id, self.exposure/1000.))
+
+    def set_framerate(self,frame_rate = 30):
+        '''set the frame rate of the AVT camera.''' 
+        self.frame_rate = frame_rate
+        if not self.cam is None:
+            self.cam.AcquisitionFrameRateAbs = self.frame_rate
+            display('[AVT {0}] Setting frame rate to {1} .'.format(
+                self.cam_id, self.frame_rate))
+    def set_gain(self,gain = 0):
+        ''' Set the gain of the AVT camera'''
+        self.gain = gain
+        if not self.cam is None:
+            self.cam.GainRaw = self.gain
+            display('[AVT {0}] Setting camera gain to {1} .'.format(
+                self.cam_id, self.gain))
     
     def _cam_init(self):
         self.nframes.value = 0
@@ -123,9 +164,10 @@ class AVTCam(GenericCam):
         self.cam.PixelFormat = 'Mono8'
         self.cameraFeatureNames = self.cam.getFeatureNames()
         #display('\n'.join(cameraFeatureNames))
-        self.cam.AcquisitionFrameRateAbs = self.frame_rate
-        self.cam.ExposureTimeAbs =  self.exposure
-        self.cam.GainRaw = self.gain
+        self.set_framerate(self.frame_rate)
+        self.set_gain(self.gain)
+        self.set_exposure(self.exposure)
+        
         self.cam.SyncOutSelector = 'SyncOut1'
         self.cam.SyncOutSource = 'FrameReadout'#'Exposing'
         if self.triggered.is_set():
