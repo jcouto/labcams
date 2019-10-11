@@ -50,9 +50,12 @@ class LabCamsGUI(QMainWindow):
                           if cam['name'] in name]
                 camids = [camid for camid in camids
                           if not camid[0] in connected_avt_cams]
-                print(cam['name'])
                 if len(camids) == 0:
                     display('Could not find or already connected to: '+cam['name'])
+                    display('Available AVT cameras:')
+                    print('\n                -> '+
+                          '\n                -> '.join(avtnames))
+                    
                     sys.exit()
                 cam['name'] = camids[0][1]
                 if not 'TriggerSource' in cam.keys():
