@@ -68,6 +68,42 @@ pg.setConfigOption('crashWarning', True)
 
 from .utils import display
 
+
+class QActionCheckBox(QWidgetAction):
+    ''' Check box for the right mouse button dropdown menu'''
+    def __init__(self,parent,label='',value=True):
+        super(QActionCheckBox,self).__init__(parent)
+        self.subw = QWidget()
+        self.sublay = QFormLayout()
+        self.checkbox = QCheckBox()
+        self.sublab = QLabel(label)
+        self.sublay.addRow(self.checkbox,self.sublab)
+        self.subw.setLayout(self.sublay)
+        self.setDefaultWidget(self.subw)
+        self.checkbox.setChecked(value)
+    def link(self,func):
+        self.checkbox.stateChanged.connect(func)
+
+class QActionSlider(QWidgetAction):
+    ''' Slider for the right mouse button dropdown menu'''
+    def __init__(self,parent,label='',value=0,vmin = 0,vmax = 1000):
+        super(QActionSlider,self).__init__(parent)
+        self.subw = QWidget()
+        self.sublay = QFormLayout()
+        self.slider = QSlider()
+        self.sublab = QLabel(label)
+        self.sublay.addRow(self.sublab,self.slider)
+        self.slider.setOrientation(Qt.Horizontal)
+        self.subw.setLayout(self.sublay)
+        self.setDefaultWidget(self.subw)
+        self.slider.setMaximum(vmax)
+        self.slider.setValue(value)
+        self.slider.setMinimum(vmin)
+
+    def link(self,func):
+        self.slider.valueChanged.connect(func)
+
+
 class RecordingControlWidget(QWidget):
     def __init__(self,parent):
         super(RecordingControlWidget,self).__init__()	
@@ -140,7 +176,6 @@ class CamWidget(QWidget):
         self.parent = parent
         self.iCam = iCam
         self.cam = self.parent.cams[self.iCam]
-        print(self.cam.ctrevents)
         h,w = frame.shape[:2]
         self.w = w
         self.h = h
@@ -196,72 +231,54 @@ class CamWidget(QWidget):
         saveImg.triggered.connect(self.saveImageFromCamera)
         self.addAction(saveImg)
         # Slider
-        toggleSubtract = QWidgetAction(self)
-        subw = QWidget()
-        sublay = QFormLayout()
-        subwid = QSlider()
-        subwid.setOrientation(Qt.Horizontal)
-        sublab = QLabel('Nsubtract [{0:03d}]:'.format(int(self.nAcum)))
-        sublay.addRow(sublab,subwid)
-        subw.setLayout(sublay)
-        toggleSubtract.setDefaultWidget(subw)
-        subwid.setMaximum(1000)
-        subwid.setValue(self.nAcum)
-        subwid.setMinimum(0)
-        subwid.valueChanged.connect(lambda x: sublab.setText(
+        toggleSubtract = QActionSlider(self,'Nsubtract [{0:03d}]:'.format(int(self.nAcum)),
+                                       value = 0,
+                                       vmin = 0,
+                                       vmax = 750)
+        toggleSubtract.link(lambda x: toggleSubtract.sublab.setText(
             'Nsubtract [{0:03d}]:'.format(int(x))))
         def vchanged(val):
             self.nAcum = float(np.floor(val))
-        subwid.valueChanged.connect(vchanged) 
+        toggleSubtract.link(vchanged) 
         # ROIs
         self.addAction(toggleSubtract)
         addroi = QAction("Add ROI",self)
         addroi.triggered.connect(self.addROI)
         self.addAction(addroi)
         # Equalize histogram
-        toggleEqualize = QWidgetAction(self)
-        eqw = QWidget()
-        eqlay = QFormLayout()
-        eqc = QCheckBox()
-        eqlay.addRow(eqc,QLabel('Equalize histogram'))
-        eqw.setLayout(eqlay)
-        toggleEqualize.setDefaultWidget(eqw)
+        toggleEqualize = QActionCheckBox(self,'Equalize histogram',self.parameters['Equalize'])
         def toggleEq():
             self.parameters['Equalize'] = not self.parameters['Equalize']
-            eqc.setChecked(self.parameters['Equalize'])
-        eqc.stateChanged.connect(toggleEq)
+            toggleEqualize.checkbox.setChecked(self.parameters['Equalize'])
+        toggleEqualize.link(toggleEq)
         self.addAction(toggleEqualize)
         # Eye tracker
         tEt = QAction('Eye tracker',self)
         tEt.triggered.connect(self.toggleEyeTracker)
         self.addAction(tEt)
+        # autorange
+        tar = QActionCheckBox(self,'Auto range',self.autoRange)
         def toggleAutoRange():
             self.autoRange = not self.autoRange
-        tEt = QAction('Auto range',self)
-        tEt.triggered.connect(toggleAutoRange)
-        self.addAction(tEt)
+            tar.checkbox.setChecked(self.autoRange)
+        tar.link(toggleAutoRange)
+        self.addAction(tar)
+        # histogram
         tEt = QAction('Histogram',self)
         tEt.triggered.connect(self.histogramWin)
         self.addAction(tEt)
-
-        toggleSave = QWidgetAction(self)
-        savew = QWidget()
-        savelay = QFormLayout()
-        savec = QCheckBox()
-        savelay.addRow(savec,QLabel('Save camera'))
-        savew.setLayout(savelay)
-        toggleSave.setDefaultWidget(savew)
-        savec.setChecked(self.parameters['Save'])
+        # Save
+        ts = QActionCheckBox(self,'Save camera',  self.parent.saveflags[self.iCam])
         def toggleSaveCam():
             self.parameters['Save'] = not self.parameters['Save']
             self.parent.saveflags[self.iCam] = self.parameters['Save']
-            savec.setChecked(self.parameters['Save'])
+            ts.checkbox.setChecked(self.parameters['Save'])
             if not self.parameters['Save']:
                 self.string = 'no save -{0}'
             else:
                 self.string = '{0}'            
-        savec.stateChanged.connect(toggleSaveCam)
-        self.addAction(toggleSave)
+        ts.link(toggleSaveCam)
+        self.addAction(ts)
 
         
     def histogramWin(self):
