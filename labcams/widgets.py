@@ -230,6 +230,22 @@ class CamWidget(QWidget):
         saveImg = QAction("Take camera shot",self)
         saveImg.triggered.connect(self.saveImageFromCamera)
         self.addAction(saveImg)
+        # add camera controls
+        if hasattr(self.cam,'ctrevents'):
+            for k in  self.cam.ctrevents.keys():
+                ev = self.cam.ctrevents[k]
+                if ev['widget'] == 'slider':
+                    val = eval('self.cam.' + ev['variable'])
+                    e = QActionSlider(self,k+' [{0:03d}]:'.format(int(val)),
+                                      value = val,
+                                      vmin = ev['min'],
+                                      vmax = ev['max'],)
+                    e.link(lambda x: e.sublab.setText(k + ' [{0:03d}]:'.format(int(val))))
+                    def vchanged(val):
+                        self.cam.eventsQ.put(k+'='+str(int(np.floor(val))))
+                    e.link(vchanged) 
+                self.addAction(e)
+
         # Slider
         toggleSubtract = QActionSlider(self,'Nsubtract [{0:03d}]:'.format(int(self.nAcum)),
                                        value = 0,

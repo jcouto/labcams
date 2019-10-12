@@ -129,7 +129,7 @@ class LabCamsGUI(QMainWindow):
                     display('\t\t - {0} {1}'.format(k,cam[k]))
             self.writers[-1].daemon = True
             self.cams[-1].daemon = True
-        self.resize(100,100)
+        #self.resize(100,100)
 
         self.initUI()
         
