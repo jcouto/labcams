@@ -53,6 +53,7 @@ class QActionCheckBox(QWidgetAction):
         self.subw.setLayout(self.sublay)
         self.setDefaultWidget(self.subw)
         self.checkbox.setChecked(value)
+        self.value = self.checkbox.isChecked
     def link(self,func):
         self.checkbox.stateChanged.connect(func)
 
@@ -71,7 +72,7 @@ class QActionSlider(QWidgetAction):
         self.slider.setMaximum(vmax)
         self.slider.setValue(value)
         self.slider.setMinimum(vmin)
-
+        self.value = self.slider.value
     def link(self,func):
         self.slider.valueChanged.connect(func)
 
@@ -91,9 +92,9 @@ class QActionFloat(QWidgetAction):
         self.spin.setValue(value)
         if not vmin is None:
             self.spin.setMinimum(vmin)
-
+        self.value = self.spin.value
     def link(self,func):
-        self.spin.valueChanged.connect(func)
+        self.spin.editingFinished.connect(func)
 
 
 class RecordingControlWidget(QWidget):
@@ -222,6 +223,9 @@ class CamWidget(QWidget):
         saveImg = QAction("Take camera shot",self)
         saveImg.triggered.connect(self.saveImageFromCamera)
         self.addAction(saveImg)
+        sep = QAction(self)
+        sep.setSeparator(True)
+        self.addAction(sep)
         # add camera controls
         if hasattr(self.cam,'ctrevents'):
             for k in  self.cam.ctrevents.keys():
@@ -239,17 +243,22 @@ class CamWidget(QWidget):
                                       vmin = ev['min'],
                                       vmax = ev['max'],)
                 if not e is None:
-                    def vchanged(val):
+                    def vchanged():
+                        val = e.value()
                         self.cam.eventsQ.put(k+'='+str(int(np.floor(val))))
                         #e.sublab.setText(k + ' [{0:03d}]:'.format(int(val)))
                     e.link(vchanged) 
                     self.addAction(e)
+            
+        sep = QAction(self)
+        sep.setSeparator(True)
+        self.addAction(sep)
 
         # Slider
         toggleSubtract = QActionSlider(self,'Nsubtract [{0:03d}]:'.format(int(self.nAcum)),
                                        value = 0,
                                        vmin = 0,
-                                       vmax = 750)
+                                       vmax = 200)
         toggleSubtract.link(lambda x: toggleSubtract.sublab.setText(
             'Nsubtract [{0:03d}]:'.format(int(x))))
         def vchanged(val):
@@ -268,9 +277,10 @@ class CamWidget(QWidget):
         toggleEqualize.link(toggleEq)
         self.addAction(toggleEqualize)
         # Eye tracker
-        tEt = QAction('Eye tracker',self)
-        tEt.triggered.connect(self.toggleEyeTracker)
-        self.addAction(tEt)
+        self.etrackercheck = QActionCheckBox(self,'Eye tracker',
+                                             self.parameters['TrackEye'])
+        self.etrackercheck.link(self.toggleEyeTracker)
+        self.addAction(self.etrackercheck)
         # autorange
         tar = QActionCheckBox(self,'Auto range',self.autoRange)
         def toggleAutoRange():
@@ -360,8 +370,8 @@ class CamWidget(QWidget):
             self.trackerpar.close()
             self.trackerTab.close()
             [self.p1.removeItem(c) for c in self.tracker_roi.items()]
-
         self.parameters['TrackEye'] = not self.parameters['TrackEye']
+        self.etrackercheck.checkbox.setChecked(self.parameters['TrackEye']) 
     def saveImageFromCamera(self):
         self.parent.timer.stop()
         frame = self.parent.camframes[self.iCam]
