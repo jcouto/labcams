@@ -240,9 +240,9 @@ class CamWidget(QWidget):
                                       value = val,
                                       vmin = ev['min'],
                                       vmax = ev['max'],)
-                    e.link(lambda x: e.sublab.setText(k + ' [{0:03d}]:'.format(int(val))))
                     def vchanged(val):
                         self.cam.eventsQ.put(k+'='+str(int(np.floor(val))))
+                        e.sublab.setText(k + ' [{0:03d}]:'.format(int(val))
                     e.link(vchanged) 
                 self.addAction(e)
 

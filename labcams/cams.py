@@ -64,12 +64,12 @@ class GenericCam(Process):
             if not self.stop_trigger.is_set():
                 self._cam_startacquisition()
             self.camera_ready.clear()
+            self.start_trigger.clear()
             while not self.stop_trigger.is_set():
                 self._cam_loop()
                 self._parse_command_queue()
             self._cam_close()
             self.saving.clear()
-            self.start_trigger.clear()
             self.stop_trigger.clear()
 
     def _parse_command_queue(self):
@@ -79,6 +79,9 @@ class GenericCam(Process):
                 if '=' in cmd:
                     cmd = cmd.split('=')
                     self._call_event(cmd[0],cmd[1])
+                    self.stop_trigger.set()
+                    self.start_trigger.set()
+
 
     def _call_event(self,eventname,eventvalue):
         if eventname in self.ctrevents.keys():
@@ -169,13 +172,14 @@ class OpenCVCam(GenericCam):
         self.frame_rate = float(framerate)
         if not self.cam is None:
             if not self.frame_rate == float(0):
-                res = self.cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0)
+                res = self.cam.set(cv2.CAP_PROP_FPS,self.frame_rate)
+                res = self.cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
                 res = self.cam.set(cv2.CAP_PROP_EXPOSURE,1./self.frame_rate)
             else:
                 res = self.cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
             display('[OpenCV {0}] Set frame_rate to: {1}.'.format(self.cam_id,
                                                                   self.frame_rate))
-
+            
     def _cam_init(self):
         self.nframes.value = 0
         self.lastframeid = -1
@@ -187,6 +191,8 @@ class OpenCVCam(GenericCam):
     def _cam_loop(self):
         frameID = self.nframes.value
         ret_val, frame = self.cam.read()
+        if not ret_val:
+            return
         timestamp = time.time()
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         self.nframes.value += 1
@@ -196,7 +202,6 @@ class OpenCVCam(GenericCam):
         self.lastframeid = frameID
         self.buf[:] = frame[:]
         # This artificially limits the frame rate. 
-        time.sleep(1./self.frame_rate)
     def _cam_close(self):
         self.cam.release()
         display('[OpenCV {0}] - Stopped acquisition.'.format(self.cam_id))
