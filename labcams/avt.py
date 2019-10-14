@@ -29,23 +29,26 @@ class AVTCam(GenericCam):
     ctrevents = dict(
         exposure=dict(
             function = 'set_exposure',
-            type = 'slider',
+            widget = 'float',
             variable = 'exposure',
             units = 'ms',
+            type = lambda x: float(x),
             min = 0.001,
             max = 100000,
             step = 10),
         gain = dict(
             function = 'set_gain',
-            type = 'slider',
+            widget = 'float',
             variable = 'gain',
             units = 'ms',
+            type = lambda x: float(x),
             min = 0,
             max = 30,
             step = 1),
         framerate = dict(
             function = 'set_framerate',
-            type = 'slider',
+            widget = 'slider',
+            type = lambda x: float(x),
             variable = 'frame_rate',
             units = 'fps',
             min = 0.001,
@@ -114,11 +117,11 @@ class AVTCam(GenericCam):
                                    shape = (frame.height,
                                             frame.width)).copy()
             self.img[:] = np.reshape(framedata,self.img.shape)[:]
+            display("AVT [{1}] = Got info from camera (name: {0})".format(
+                self.cam.DeviceModelName,self.cam_id))
             self.cam.endCapture()
             self.cam.revokeAllFrames()
             self.cam = None
-            display("AVT [{1}] = Got info from camera (name: {0})".format(
-                cam.DeviceModelName,self.cam_id))
         self.triggered = triggered
         if self.triggered.is_set():
             display('AVT [{0}] - Triggered mode ON.'.format(self.cam_id))
@@ -166,7 +169,7 @@ class AVTCam(GenericCam):
         #display('\n'.join(cameraFeatureNames))
         self.set_framerate(self.frame_rate)
         self.set_gain(self.gain)
-        self.set_exposure(self.exposure)
+        self.set_exposure(self.exposure/1000.)
         
         self.cam.SyncOutSelector = 'SyncOut1'
         self.cam.SyncOutSource = 'FrameReadout'#'Exposing'

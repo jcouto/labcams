@@ -37,6 +37,7 @@ class GenericCam(Process):
         self.camera_ready = Event()
         self.eventsQ = Queue()
         self._init_ctrevents()
+        self.cam_is_running = False
     def _init_ctrevents(self):
         if hasattr(self,'ctrevents'):
             for c in self.ctrevents.keys():
@@ -63,12 +64,14 @@ class GenericCam(Process):
             self._cam_waitsoftwaretrigger()
             if not self.stop_trigger.is_set():
                 self._cam_startacquisition()
+                self.cam_is_running = True
             self.camera_ready.clear()
             self.start_trigger.clear()
             while not self.stop_trigger.is_set():
                 self._cam_loop()
                 self._parse_command_queue()
             self._cam_close()
+            self.cam_is_running = False
             self.saving.clear()
             self.stop_trigger.clear()
 
@@ -79,8 +82,6 @@ class GenericCam(Process):
                 if '=' in cmd:
                     cmd = cmd.split('=')
                     self._call_event(cmd[0],cmd[1])
-                    self.stop_trigger.set()
-                    self.start_trigger.set()
 
 
     def _call_event(self,eventname,eventvalue):
@@ -130,7 +131,7 @@ class OpenCVCam(GenericCam):
     ctrevents = dict(
         framerate=dict(
             function = 'set_framerate',
-            widget = 'slider',
+            widget = 'float',
             variable = 'frame_rate',
             units = 'fps',
             type = lambda x: float(x),
@@ -177,6 +178,11 @@ class OpenCVCam(GenericCam):
                 res = self.cam.set(cv2.CAP_PROP_EXPOSURE,1./self.frame_rate)
             else:
                 res = self.cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+
+            if self.cam_is_running:
+                self.stop_trigger.set()
+                self.start_trigger.set()
+
             display('[OpenCV {0}] Set frame_rate to: {1}.'.format(self.cam_id,
                                                                   self.frame_rate))
             
@@ -187,7 +193,6 @@ class OpenCVCam(GenericCam):
         self.set_framerate(self.frame_rate)        
         self.camera_ready.set()
         self.nframes.value = 0
-
     def _cam_loop(self):
         frameID = self.nframes.value
         ret_val, frame = self.cam.read()

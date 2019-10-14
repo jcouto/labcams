@@ -3,63 +3,35 @@ import cv2
 cv2.setNumThreads(1)
 import time
 
-try:
-    from PyQt5.QtWidgets import (QWidget,
-                                 QApplication,
-                                 QGridLayout,
-                                 QFormLayout,
-                                 QVBoxLayout,
-                                 QTabWidget,
-                                 QCheckBox,
-                                 QTextEdit,
-                                 QLineEdit,
-                                 QComboBox,
-                                 QFileDialog,
-                                 QSlider,
-                                 QPushButton,
-                                 QLabel,
-                                 QAction,
-                                 QWidgetAction,
-                                 QMenuBar,
-                                 QGraphicsView,
-                                 QGraphicsScene,
-                                 QGraphicsItem,
-                                 QGraphicsLineItem,
-                                 QGroupBox,
-                                 QTableWidget,
-                                 QMainWindow,
-                                 QDockWidget,
-                                 QFileDialog)
-    from PyQt5.QtGui import QImage, QPixmap,QBrush,QPen,QColor,QFont
-    from PyQt5.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
-except:
-    from PyQt4.QtGui import (QWidget,
+from PyQt5.QtWidgets import (QWidget,
                              QApplication,
-                             QAction,
-                             QMainWindow,
-                             QDockWidget,
-                             QMenuBar,
                              QGridLayout,
                              QFormLayout,
-                             QLineEdit,
-                             QFileDialog,
                              QVBoxLayout,
+                             QTabWidget,
                              QCheckBox,
                              QTextEdit,
+                             QLineEdit,
                              QComboBox,
+                             QFileDialog,
                              QSlider,
-                             QLabel,
                              QPushButton,
+                             QLabel,
+                             QAction,
+                             QWidgetAction,
+                             QMenuBar,
+                             QDoubleSpinBox,
                              QGraphicsView,
                              QGraphicsScene,
                              QGraphicsItem,
                              QGraphicsLineItem,
                              QGroupBox,
                              QTableWidget,
-                             QFileDialog,
-                             QImage,
-                             QPixmap)
-    from PyQt4.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
+                             QMainWindow,
+                             QDockWidget,
+                             QFileDialog)
+from PyQt5.QtGui import QImage, QPixmap,QBrush,QPen,QColor,QFont
+from PyQt5.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
 
 import pyqtgraph as pg
 pg.setConfigOption('background', [200,200,200])
@@ -102,6 +74,26 @@ class QActionSlider(QWidgetAction):
 
     def link(self,func):
         self.slider.valueChanged.connect(func)
+
+class QActionFloat(QWidgetAction):
+    ''' Float edit for the right mouse button dropdown menu'''
+    def __init__(self,parent,label='',value=0,vmax = None,vmin = None):
+        super(QActionFloat,self).__init__(parent)
+        self.subw = QWidget()
+        self.sublay = QFormLayout()
+        self.spin = QDoubleSpinBox()
+        self.sublab = QLabel(label)
+        self.sublay.addRow(self.sublab,self.spin)
+        self.subw.setLayout(self.sublay)
+        self.setDefaultWidget(self.subw)
+        if not vmax is None:
+            self.spin.setMaximum(vmax)
+        self.spin.setValue(value)
+        if not vmin is None:
+            self.spin.setMinimum(vmin)
+
+    def link(self,func):
+        self.spin.valueChanged.connect(func)
 
 
 class RecordingControlWidget(QWidget):
@@ -234,17 +226,24 @@ class CamWidget(QWidget):
         if hasattr(self.cam,'ctrevents'):
             for k in  self.cam.ctrevents.keys():
                 ev = self.cam.ctrevents[k]
+                val = eval('self.cam.' + ev['variable'])
+                e = None
                 if ev['widget'] == 'slider':
-                    val = eval('self.cam.' + ev['variable'])
                     e = QActionSlider(self,k+' [{0:03d}]:'.format(int(val)),
                                       value = val,
                                       vmin = ev['min'],
                                       vmax = ev['max'],)
+                elif ev['widget'] == 'float':
+                    e = QActionFloat(self,k,
+                                      value = val,
+                                      vmin = ev['min'],
+                                      vmax = ev['max'],)
+                if not e is None:
                     def vchanged(val):
                         self.cam.eventsQ.put(k+'='+str(int(np.floor(val))))
-                        e.sublab.setText(k + ' [{0:03d}]:'.format(int(val))
+                        #e.sublab.setText(k + ' [{0:03d}]:'.format(int(val)))
                     e.link(vchanged) 
-                self.addAction(e)
+                    self.addAction(e)
 
         # Slider
         toggleSubtract = QActionSlider(self,'Nsubtract [{0:03d}]:'.format(int(self.nAcum)),
