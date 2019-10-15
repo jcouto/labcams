@@ -78,6 +78,7 @@ class GenericCam(Process):
     def _parse_command_queue(self):
         if not self.eventsQ.empty():
             cmd = self.eventsQ.get()
+            print(cmd)
             if hasattr(self,'ctrevents'):
                 if '=' in cmd:
                     cmd = cmd.split('=')
@@ -88,6 +89,7 @@ class GenericCam(Process):
         if eventname in self.ctrevents.keys():
             val = self.ctrevents[eventname]['type'](eventvalue)
             self.ctrevents[eventname]['call'](val)
+            print(self.ctrevents[eventname])
         else:
             display('No event found {0} {1}'.format(eventname,eventvalue))
 

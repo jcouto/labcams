@@ -47,7 +47,7 @@ class AVTCam(GenericCam):
             step = 1),
         framerate = dict(
             function = 'set_framerate',
-            widget = 'slider',
+            widget = 'float',
             type = lambda x: float(x),
             variable = 'frame_rate',
             units = 'fps',
@@ -71,7 +71,7 @@ class AVTCam(GenericCam):
         if camId is None:
             display('Need to supply a camera ID.')
         self.cam_id = camId
-        self.exposure = (1000000/int(frameRate)) - 150
+        self.exposure = ((1000000/int(frameRate)) - 150)/1000.
         self.frame_rate = frameRate
         self.gain = gain
         self.frameTimeout = frameTimeout
@@ -94,7 +94,7 @@ class AVTCam(GenericCam):
             names = self.cam.getFeatureNames()
             # get a frame
             self.cam.acquisitionMode = 'SingleFrame'
-            self.set_exposure(self.exposure/1000.)
+            self.set_exposure(self.exposure)
             self.set_framerate(self.frame_rate)
             self.set_gain(self.gain)
             self.tickfreq = float(self.cam.GevTimestampTickFrequency)
@@ -129,22 +129,28 @@ class AVTCam(GenericCam):
 
     def set_exposure(self,exposure = 30):
         '''Set the exposure time is in ms'''
-        self.exposure = int(exposure*1000)
+        self.exposure = exposure
         if not self.cam is None:
-            self.cam.ExposureTimeAbs =  self.exposure
+            self.cam.ExposureTimeAbs =  int(self.exposure*1000)
             display('[AVT {0}] Setting exposure to {1} ms.'.format(
-                self.cam_id, self.exposure/1000.))
+                self.cam_id, self.exposure))
 
     def set_framerate(self,frame_rate = 30):
         '''set the frame rate of the AVT camera.''' 
         self.frame_rate = frame_rate
         if not self.cam is None:
+            if self.cam_is_running:
+                self.cam.endCapture()
+                self.cam.runFeatureCommand('AcquisitionStop')
             self.cam.AcquisitionFrameRateAbs = self.frame_rate
+            if self.cam_is_running:
+                self.cam.startCapture()
+                self.cam.runFeatureCommand('AcquisitionStart')
             display('[AVT {0}] Setting frame rate to {1} .'.format(
                 self.cam_id, self.frame_rate))
     def set_gain(self,gain = 0):
         ''' Set the gain of the AVT camera'''
-        self.gain = gain
+        self.gain = int(gain)
         if not self.cam is None:
             self.cam.GainRaw = self.gain
             display('[AVT {0}] Setting camera gain to {1} .'.format(
@@ -169,7 +175,7 @@ class AVTCam(GenericCam):
         #display('\n'.join(cameraFeatureNames))
         self.set_framerate(self.frame_rate)
         self.set_gain(self.gain)
-        self.set_exposure(self.exposure/1000.)
+        self.set_exposure(self.exposure)
         
         self.cam.SyncOutSelector = 'SyncOut1'
         self.cam.SyncOutSource = 'FrameReadout'#'Exposing'

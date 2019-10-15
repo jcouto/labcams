@@ -226,6 +226,7 @@ class CamWidget(QWidget):
         sep = QAction(self)
         sep.setSeparator(True)
         self.addAction(sep)
+        self.functs = []
         # add camera controls
         if hasattr(self.cam,'ctrevents'):
             for k in  self.cam.ctrevents.keys():
@@ -242,12 +243,14 @@ class CamWidget(QWidget):
                                       value = val,
                                       vmin = ev['min'],
                                       vmax = ev['max'],)
+                    
                 if not e is None:
                     def vchanged():
                         val = e.value()
                         self.cam.eventsQ.put(k+'='+str(int(np.floor(val))))
                         #e.sublab.setText(k + ' [{0:03d}]:'.format(int(val)))
-                    e.link(vchanged) 
+                    self.functs.append(vchanged)
+                    e.link(self.functs[-1]) 
                     self.addAction(e)
             
         sep = QAction(self)
