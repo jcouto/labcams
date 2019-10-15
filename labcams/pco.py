@@ -1,6 +1,16 @@
 from .cams import *
 
 class PCOCam(GenericCam):
+    ctrevents = dict(
+        exposure=dict(
+            function = 'set_exposure_time',
+            widget = 'float',
+            variable = 'exposure',
+            units = 'ms',
+            type = lambda x: float(x),
+            min = 0.001,
+            max = 100000,
+            step = 10))
     time_modes = {0:"ns", 1: "us", 2: "ms"}
     armed = False
     def __init__(self, camId = None, outQ = None,
