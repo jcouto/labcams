@@ -210,6 +210,7 @@ class PCOCam(GenericCam):
         :return: None
         """
         # check for allowed values
+        self.exposure = exp_time
         if not(base_exposure in [1, 2]):
             raise UserWarning("PCO - Not accepted time base mode (has to be 1 or 2).")
 
