@@ -1,18 +1,7 @@
 from .cams import *
 
 class PCOCam(GenericCam):
-    ctrevents = dict(
-        exposure=dict(
-            function = 'set_exposure_time',
-            widget = 'float',
-            variable = 'exposure',
-            units = 'ms',
-            type = lambda x: float(x),
-            min = 0.001,
-            max = 100000,
-            step = 10))
     time_modes = {0:"ns", 1: "us", 2: "ms"}
-    armed = False
     def __init__(self, camId = None, outQ = None,
                  binning = 2,
                  exposure = 100,
@@ -23,6 +12,7 @@ class PCOCam(GenericCam):
                  dllpath = 'C:\\Program Files (x86)\\pco\\pco.sdk\\bin64\\SC2_Cam.dll',
                  **kwargs):
         super(PCOCam,self).__init__()
+        self.armed = False
         self.drivername = 'PCO'
         self._dll = ctypes.WinDLL(dllpath)
         self.dllpath = dllpath
@@ -63,6 +53,18 @@ class PCOCam(GenericCam):
 
         display("Got info from camera (name: {0})".format(
              'PCO'))
+
+    def _init_controls(self):
+        self.ctrevents = dict(
+            exposure=dict(
+                function = 'set_exposure_time',
+                widget = 'float',
+                variable = 'exposure',
+                units = 'ms',
+                type = 'float',
+                min = 0.001,
+                max = 100000,
+                step = 10))
 
     def camopen(self,camid,reset = True):
         '''Open PCO camera'''

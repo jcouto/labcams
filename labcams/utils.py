@@ -1,5 +1,6 @@
 from __future__ import print_function
 import sys
+import os
 if sys.executable.endswith("pythonw.exe"):
     sys.stdout = sys.stdout = None
 from datetime import datetime
@@ -11,6 +12,8 @@ from os.path import join as pjoin
 from scipy.interpolate import interp1d
 from tqdm import tqdm
 import numpy as np
+import cv2
+cv2.setNumThreads(1)
 
 def display(msg):
     try:

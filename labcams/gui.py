@@ -1,10 +1,7 @@
-import sys
-import os
-from .utils import display,getPreferences
+from .utils import *
 from .cams import *
 from .io import *
 from .widgets import *
-from multiprocessing import Queue,Event
 
 class LabCamsGUI(QMainWindow):
     app = None

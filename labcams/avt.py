@@ -25,36 +25,7 @@ def AVT_get_ids():
                                                   cam.DeviceID))
     return camsIds,camsModel
 
-class AVTCam(GenericCam):
-    ctrevents = dict(
-        exposure=dict(
-            function = 'set_exposure',
-            widget = 'float',
-            variable = 'exposure',
-            units = 'ms',
-            type = lambda x: float(x),
-            min = 0.001,
-            max = 100000,
-            step = 10),
-        gain = dict(
-            function = 'set_gain',
-            widget = 'float',
-            variable = 'gain',
-            units = 'ms',
-            type = lambda x: float(x),
-            min = 0,
-            max = 30,
-            step = 1),
-        framerate = dict(
-            function = 'set_framerate',
-            widget = 'float',
-            type = lambda x: float(x),
-            variable = 'frame_rate',
-            units = 'fps',
-            min = 0.001,
-            max = 1000,
-            step = 1))
-    
+class AVTCam(GenericCam):    
     def __init__(self, camId = None, outQ = None,
                  exposure = 29000,
                  frameRate = 30., gain = 10,frameTimeout = 100,
@@ -126,7 +97,36 @@ class AVTCam(GenericCam):
         if self.triggered.is_set():
             display('AVT [{0}] - Triggered mode ON.'.format(self.cam_id))
             self.triggerSource = triggerSource
-
+    def _init_controls(self):
+        self.ctrevents = dict(
+            exposure=dict(
+                function = 'set_exposure',
+                widget = 'float',
+                variable = 'exposure',
+                units = 'ms',
+                type = 'float',
+                min = 0.001,
+                max = 100000,
+                step = 10),
+            gain = dict(
+                function = 'set_gain',
+                widget = 'float',
+                variable = 'gain',
+                units = 'ms',
+                type = 'int',
+                min = 0,
+                max = 30,
+                step = 1),
+            framerate = dict(
+                function = 'set_framerate',
+                widget = 'float',
+                type = 'float',
+                variable = 'frame_rate',
+                units = 'fps',
+                min = 0.001,
+                max = 1000,
+                step = 1))
+        
     def set_exposure(self,exposure = 30):
         '''Set the exposure time is in ms'''
         self.exposure = exposure
@@ -139,13 +139,10 @@ class AVTCam(GenericCam):
         '''set the frame rate of the AVT camera.''' 
         self.frame_rate = frame_rate
         if not self.cam is None:
-            if self.cam_is_running:
-                self.cam.endCapture()
-                self.cam.runFeatureCommand('AcquisitionStop')
             self.cam.AcquisitionFrameRateAbs = self.frame_rate
             if self.cam_is_running:
-                self.cam.startCapture()
-                self.cam.runFeatureCommand('AcquisitionStart')
+                self.start_trigger.set()
+                self.stop_trigger.set()
             display('[AVT {0}] Setting frame rate to {1} .'.format(
                 self.cam_id, self.frame_rate))
     def set_gain(self,gain = 0):
@@ -289,10 +286,6 @@ class AVTCam(GenericCam):
         except:
             display('Failed to revoke frames.')
         self.cam.closeCamera()
-        self.saving.clear()
-        self.start_trigger.clear()
-        self.stop_trigger.clear()
-        time.sleep(0.01)
         display('AVT [{0}] - Close event: {1}'.format(
             self.cam_id,
             self.close_event.is_set()))

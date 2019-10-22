@@ -1,6 +1,3 @@
-import numpy as np
-import cv2
-cv2.setNumThreads(1)
 import time
 
 from PyQt5.QtWidgets import (QWidget,
@@ -38,7 +35,8 @@ pg.setConfigOption('background', [200,200,200])
 pg.setConfigOptions(imageAxisOrder='row-major')
 pg.setConfigOption('crashWarning', True)
 
-from .utils import display
+from .utils import *
+from functools import partial
 
 
 class QActionCheckBox(QWidgetAction):
@@ -229,29 +227,34 @@ class CamWidget(QWidget):
         self.functs = []
         # add camera controls
         if hasattr(self.cam,'ctrevents'):
+            self.ctract = dict()
+            def vchanged(the):
+                val = the['action'].value()
+                print(the['name']+'='+str(val))
+                self.cam.eventsQ.put(the['name']+'='+str(int(np.floor(val))))
+
             for k in  self.cam.ctrevents.keys():
-                ev = self.cam.ctrevents[k]
+                self.ctract[k] = dict(**self.cam.ctrevents[k])
+                ev = self.ctract[k]
                 val = eval('self.cam.' + ev['variable'])
-                e = None
+                ev['name'] = k
+                ev['action'] = None
                 if ev['widget'] == 'slider':
-                    e = QActionSlider(self,k+' [{0:03d}]:'.format(int(val)),
-                                      value = val,
-                                      vmin = ev['min'],
-                                      vmax = ev['max'],)
+                    ev['action'] = QActionSlider(self,k+' [{0:03d}]:'.format(int(val)),
+                                                 value = val,
+                                                 vmin = ev['min'],
+                                                 vmax = ev['max'],)
                 elif ev['widget'] == 'float':
-                    e = QActionFloat(self,k,
-                                      value = val,
-                                      vmin = ev['min'],
-                                      vmax = ev['max'],)
+                    ev['action'] = QActionFloat(self,k,
+                                                value = val,
+                                                vmin = ev['min'],
+                                                vmax = ev['max'],)
                     
-                if not e is None:
-                    def vchanged():
-                        val = e.value()
-                        self.cam.eventsQ.put(k+'='+str(int(np.floor(val))))
+                if not ev['action'] is None:
                         #e.sublab.setText(k + ' [{0:03d}]:'.format(int(val)))
-                    self.functs.append(vchanged)
-                    e.link(self.functs[-1]) 
-                    self.addAction(e)
+                    self.functs.append(partial(vchanged,self.ctract[k]))
+                    ev['action'].link(self.functs[-1]) 
+                    self.addAction(ev['action'])
             
         sep = QAction(self)
         sep.setSeparator(True)

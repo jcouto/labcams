@@ -15,8 +15,8 @@ try:
 except:
     from PIL import Image
 import cv2
-
-# 
+#
+# Generic class for interfacing with the cameras
 # Has last frame on multiprocessing array
 # 
 class GenericCam(Process):
@@ -36,14 +36,15 @@ class GenericCam(Process):
         self.cmd_queue = Queue()
         self.camera_ready = Event()
         self.eventsQ = Queue()
+        self._init_controls()
         self._init_ctrevents()
         self.cam_is_running = False
+    def _init_controls(self):
+        return
     def _init_ctrevents(self):
         if hasattr(self,'ctrevents'):
             for c in self.ctrevents.keys():
-                self.ctrevents[c]['call'] = eval(
-                    'self.' +
-                    self.ctrevents[c]['function'])  
+                self.ctrevents[c]['call'] ='self.'+self.ctrevents[c]['function']
             
     def _init_variables(self,dtype=np.uint8):
         if dtype == np.uint8:
@@ -86,8 +87,8 @@ class GenericCam(Process):
 
     def _call_event(self,eventname,eventvalue):
         if eventname in self.ctrevents.keys():
-            val = self.ctrevents[eventname]['type'](eventvalue)
-            self.ctrevents[eventname]['call'](val)
+            val = eval(self.ctrevents[eventname]['type']+'('+str(eventvalue)+')')
+            eval(self.ctrevents[eventname]['call']+'(val)')
             #print(self.ctrevents[eventname])
         else:
             display('No event found {0} {1}'.format(eventname,eventvalue))
@@ -127,19 +128,8 @@ class GenericCam(Process):
         self.close_event.set()
         self.stop_acquisition()
         
-# OpenCV camera; some functionality limited (like triggers)
-class OpenCVCam(GenericCam):
-    ctrevents = dict(
-        framerate=dict(
-            function = 'set_framerate',
-            widget = 'float',
-            variable = 'frame_rate',
-            units = 'fps',
-            type = lambda x: float(x),
-            min = 0.0,
-            max = 1000,
-            step = 0.1))
-    
+# OpenCV camera; some functionality limited (like hardware triggers)
+class OpenCVCam(GenericCam):    
     def __init__(self, camId = None, outQ = None,
                  frameRate = 30.,
                  triggered = Event(),
@@ -168,6 +158,17 @@ class OpenCVCam(GenericCam):
         if self.triggered.is_set():
             display('[OpenCV {0}] Triggered mode ON.'.format(self.cam_id))
             self.triggerSource = triggerSource
+    def _init_controls(self):
+        self.ctrevents = dict(
+            framerate=dict(
+                function = 'set_framerate',
+                widget = 'float',
+                variable = 'frame_rate',
+                units = 'fps',
+                type = 'float',
+                min = 0.0,
+                max = 1000,
+                step = 0.1))
 
     def set_framerate(self,framerate = 30.):
         '''Set frame rate in seconds'''
