@@ -106,8 +106,7 @@ def cameraTimesFromVStimLog(logdata,plog,camidx = 3,nExcessFrames=10):
     campulses = plog['cam{0}'.format(camidx)]['value'].iloc[-1] 
     if not ((logdata['frame_id'].iloc[-1] > campulses - nExcessFrames) and
             (logdata['frame_id'].iloc[-1] < campulses + nExcessFrames)):
-        print("WARNING!! Recorded camera frames {0} dont fit the log {1}. Check the log/cables.".format(
-            )
+        print("WARNING!! Recorded camera frames {0} dont fit the log {1}. Check the log/cables.".format(logdata['frame_id'].iloc[-1],campulses))
     logdata['duinotime'] = interp1d(
         plog['cam{0}'.format(camidx)]['value'],
         plog['cam{0}'.format(camidx)]['duinotime'],
