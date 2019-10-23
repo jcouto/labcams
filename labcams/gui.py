@@ -105,6 +105,13 @@ class LabCamsGUI(QMainWindow):
                                         exposure = cam['exposure'],
                                         outQ = self.camQueues[-1],
                                         triggered = self.triggered))
+            elif cam['driver'] == 'ximea':
+                from .ximeacam import XimeaCam
+                self.cams.append(XimeaCam(camId=cam['id'],
+                                          binning = cam['binning'],
+                                          exposure = cam['exposure'],
+                                          outQ = self.camQueues[-1],
+                                          triggered = self.triggered))
             else:
                 display('[WARNING] -----> Unknown camera driver' +
                         cam['driver'])
