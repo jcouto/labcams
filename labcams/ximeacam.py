@@ -6,7 +6,7 @@ class XimeaCam(GenericCam):
                  camId = None,
                  outQ = None,
                  binning = 2,
-                 exposure = 100,
+                 exposure = 20000,
                  triggerSource = np.uint16(2),
                  triggered = Event(),
                  **kwargs):
@@ -16,7 +16,8 @@ class XimeaCam(GenericCam):
                 display('[Ximea] - Need to supply a camera ID.')
         self.camId = camId
         self.queue = outQ
-
+        self.binning = binning
+        self.exposure = exposure
         frame = self.get_one()
 
         self.h = frame.shape[0]
@@ -30,7 +31,19 @@ class XimeaCam(GenericCam):
         self.img[:] = np.reshape(frame,self.img.shape)[:]
 
         display("[Ximea {0}] - got info from camera.".format(self.camId))
-        
+
+    def _init_controls(self):
+        self.ctrevents = dict(
+            exposure=dict(
+                function = 'set_exposure',
+                widget = 'float',
+                variable = 'exposure',
+                units = 'ms',
+                type = 'float',
+                min = 0.001,
+                max = 100000,
+                step = 10))
+    
     def get_one(self):
         self._cam_init()
         self.cam.start_acquisition()
@@ -41,11 +54,22 @@ class XimeaCam(GenericCam):
         self.cam = None
         self.cambuf = None
         return frame
+    
+    def set_exposure(self,exposure = 20000):
+        '''Set the exposure time is in us'''
+        self.exposure = exposure
+        if not self.cam is None:
+            self.cam.set_exposure =  int(self.exposure)
+            display('[Ximea {0}] Setting exposure to {1} ms.'.format(
+                self.cam_id, self.exposure/1000.))
+
     def _cam_init(self):
         self.cam = xiapi.Camera()
         #start communication
         self.cam.open_device()
-        self.cam.set_exposure(20000)
+        self.cam.set_exposure(self.exposure)
+        self.cam.set_binning_vertical(self.binning)
+        self.cam.set_binning_horizontal(self.binning)
         self.cambuf = xiapi.Image()
         self.camera_ready.set()
         self.nframes.value = 0
