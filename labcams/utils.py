@@ -1,5 +1,6 @@
 from __future__ import print_function
 import sys
+import os
 if sys.executable.endswith("pythonw.exe"):
     sys.stdout = sys.stdout = None
 from datetime import datetime
@@ -11,6 +12,8 @@ from os.path import join as pjoin
 from scipy.interpolate import interp1d
 from tqdm import tqdm
 import numpy as np
+import cv2
+cv2.setNumThreads(1)
 
 def display(msg):
     try:
@@ -101,8 +104,9 @@ def cameraTimesFromVStimLog(logdata,plog,camidx = 3,nExcessFrames=10):
     Interpolate cameralog frames to those recorded by pyvstim
     '''
     campulses = plog['cam{0}'.format(camidx)]['value'].iloc[-1] 
-    assert ((logdata['frame_id'].iloc[-1] > campulses - nExcessFrames) and
-            (logdata['frame_id'].iloc[-1] < campulses + nExcessFrames)),"Camera pulse dont fit the log. Check the log."
+    if not ((logdata['frame_id'].iloc[-1] > campulses - nExcessFrames) and
+            (logdata['frame_id'].iloc[-1] < campulses + nExcessFrames)):
+        print("WARNING!! Recorded camera frames {0} dont fit the log {1}. Check the log/cables.".format(logdata['frame_id'].iloc[-1],campulses))
     logdata['duinotime'] = interp1d(
         plog['cam{0}'.format(camidx)]['value'],
         plog['cam{0}'.format(camidx)]['duinotime'],

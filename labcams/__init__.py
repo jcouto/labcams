@@ -1,4 +1,4 @@
-from .cams import AVT_get_ids, AVTCam,QImagingCam
+from .cams import GenericCam,OpenCVCam
 from .io import TiffWriter,parseCamLog,TiffStack
 from .utils import (display, getPreferences,
                     cameraTimesFromVStimLog,
