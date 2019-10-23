@@ -183,10 +183,12 @@ class CamWidget(QWidget):
         p1.hideAxis('left')
         p1.hideAxis('bottom')
         p1.addItem(self.view)
-        self.text = pg.TextItem('',color = [200,100,100],anchor = [1,0])
+        self.text = pg.TextItem('',color = [220,80,80],anchor = [0,0])
         p1.addItem(self.text)
         b=QFont()
-        b.setPixelSize(24)
+        b.setPixelSize(18)
+        b.setFamily('Regular')
+        b.setBold(False)
         self.text.setFont(b)
         self.layout.addWidget(win,0,0)
         self.p1 = p1
@@ -230,7 +232,6 @@ class CamWidget(QWidget):
             self.ctract = dict()
             def vchanged(the):
                 val = the['action'].value()
-                print(the['name']+'='+str(val))
                 self.cam.eventsQ.put(the['name']+'='+str(int(np.floor(val))))
 
             for k in  self.cam.ctrevents.keys():
