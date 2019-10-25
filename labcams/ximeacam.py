@@ -12,11 +12,11 @@ class XimeaCam(GenericCam):
                  triggered = Event(),
                  **kwargs):
         super(XimeaCam,self).__init__()
-        self.drivername = 'ximea'
+        self.drivername = 'Ximea'
         if camId is None:
-                display('[Ximea] - Need to supply a camera ID.')
+            display('[Ximea] - Need to supply a camera ID.')
+        self.cam_id = camId
         self.triggered = triggered
-        self.camId = camId
         self.queue = outQ
         self.outputs = outputs
         self.binning = binning
@@ -31,7 +31,7 @@ class XimeaCam(GenericCam):
         self.triggerSource = triggerSource
         self.img[:] = np.reshape(frame,self.img.shape)[:]
 
-        display("[Ximea {0}] - got info from camera.".format(self.camId))
+        display("[Ximea {0}] - got info from camera.".format(self.cam_id))
 
     def _init_controls(self):
         self.ctrevents = dict(
@@ -60,9 +60,9 @@ class XimeaCam(GenericCam):
         '''Set the exposure time is in us'''
         self.exposure = exposure
         if not self.cam is None:
-            self.cam.set_exposure =  int(self.exposure)
-            display('[Ximea {0}] Setting exposure to {1} ms.'.format(
-                self.cam_id, self.exposure/1000.))
+            if self.cam_is_running:
+                self.start_trigger.set()
+                self.stop_trigger.set()
 
     def _cam_init(self,set_gpio=True):
         self.cam = xiapi.Camera()
@@ -83,17 +83,16 @@ class XimeaCam(GenericCam):
             if self.triggered.is_set():
                 self.cam.set_gpi_mode('XI_GPI_TRIGGER')
                 self.cam.set_trigger_source('XI_TRG_EDGE_RISING')
-        print()
         self.cam.set_led_selector('XI_LED_SEL1')
         self.cam.set_led_mode('XI_LED_OFF')
         self.cam.set_led_selector('XI_LED_SEL2')
-        self.cam.set_led_mode('XI_LED_FRAME_ACTIVE')
+        self.cam.set_led_mode('XI_LED_OFF')
         self.cam.set_led_selector('XI_LED_SEL3')
-        self.cam.set_led_mode('XI_LED_EXPOSURE_ACTIVE')
+        self.cam.set_led_mode('XI_LED_OFF')
         self.cambuf = xiapi.Image()
-        self.camera_ready.set()
         self.lastframeid = -1
         self.nframes.value = 0
+        self.camera_ready.set()
 
     def _cam_startacquisition(self):
         self.cam.start_acquisition()
