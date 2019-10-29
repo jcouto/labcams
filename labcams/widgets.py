@@ -306,7 +306,7 @@ class CamWidget(QWidget):
             self.parent.saveflags[self.iCam] = self.parameters['Save']
             ts.checkbox.setChecked(self.parameters['Save'])
             if not self.parameters['Save']:
-                self.string = 'no save -{0}'
+                self.string = 'no save - {0}'
             else:
                 self.string = '{0}'            
         ts.link(toggleSaveCam)
