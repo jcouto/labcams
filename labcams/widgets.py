@@ -201,6 +201,7 @@ class CamWidget(QWidget):
         if not 'TrackEye' in parameters.keys():
             parameters['TrackEye'] = False
         self.parameters = parameters
+        self.parameters['reference_channel'] = None
         self.lastFrame = frame.copy().astype(np.float32)
         if not 'NBackgroundFrames' in parameters.keys() or not parameters['SubtractBackground']:
             self.nAcum = 0
@@ -311,6 +312,21 @@ class CamWidget(QWidget):
                 self.string = '{0}'            
         ts.link(toggleSaveCam)
         self.addAction(ts)
+        tr = QActionCheckBox(self,'reference channel',  False)
+        def toggleReference():
+            if self.parameters['reference_channel'] is None:
+                reffile = str(QFileDialog().getOpenFileName(self,'Load reference image')[0])
+                if not reffile == '':
+                    print('Selected {0}'.format(reffile))
+                    from tifffile import imread
+                    reference = imread(reffile).squeeze()
+                    if len(reference.shape) > 2:
+                        reference = reference.mean(axis = 0)
+                    self.parameters['reference_channel'] = reference
+            else:
+                self.parameters['reference_channel'] = None
+        tr.link(toggleReference)
+        self.addAction(tr)
 
         
     def histogramWin(self):
@@ -470,8 +486,15 @@ class CamWidget(QWidget):
                     frame = self.eyeTracker.img
 
             self.text.setText(self.string.format(nframe))
-            self.view.setImage(frame.squeeze(),
-                               autoHistogramRange=self.autoRange)
+            if self.parameters['reference_channel'] is None:
+                self.view.setImage(frame.squeeze(),
+                                   autoHistogramRange=self.autoRange)
+            else:
+                frame = frame.squeeze()
+                ref = self.parameters['reference_channel']
+                ref /= ref.max()
+                im = np.stack([ref,frame/np.max(frame),np.zeros_like(frame)]).transpose([1,2,0])
+                self.view.setImage(im)
             self.lastnFrame = nframe
 
 
