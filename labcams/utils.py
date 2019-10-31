@@ -106,11 +106,24 @@ def cameraTimesFromVStimLog(logdata,plog,camidx = 3,nExcessFrames=10):
     campulses = plog['cam{0}'.format(camidx)]['value'].iloc[-1] 
     if not ((logdata['frame_id'].iloc[-1] > campulses - nExcessFrames) and
             (logdata['frame_id'].iloc[-1] < campulses + nExcessFrames)):
-        print("WARNING!! Recorded camera frames {0} dont fit the log {1}. Check the log/cables.".format(logdata['frame_id'].iloc[-1],campulses))
-    logdata['duinotime'] = interp1d(
-        plog['cam{0}'.format(camidx)]['value'],
-        plog['cam{0}'.format(camidx)]['duinotime'],
-        fill_value="extrapolate")(logdata['frame_id'])
+        print('''WARNING!!
+
+Recorded camera frames {0} dont fit the log {1}. 
+
+Check the log/cables.
+
+Interpolating on the first and last frames.
+'''.format(logdata['frame_id'].iloc[-1],campulses))
+        logdata['duinotime'] = interp1d(
+            plog['cam{0}'.format(camidx)]['value'].iloc[[0,-1]],
+            plog['cam{0}'.format(camidx)]['duinotime'].iloc[0,-1],
+            fill_value="extrapolate")(logdata['frame_id'])
+
+    else:
+        logdata['duinotime'] = interp1d(
+            plog['cam{0}'.format(camidx)]['value'],
+            plog['cam{0}'.format(camidx)]['duinotime'],
+            fill_value="extrapolate")(logdata['frame_id'])
     return logdata
 
 
