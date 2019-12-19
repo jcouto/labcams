@@ -101,16 +101,25 @@ class RecordingControlWidget(QWidget):
         self.parent = parent
         form = QFormLayout()
 
+        info = '''Set the name of the experiment.
+        Datapath is relative to the folder specified in the preferences.
+        Can be set via UDP (expname=my_experiment/name) or ZMQ (dict(action='expname',value='my_experiment/name'))
+'''
         self.experimentNameEdit = QLineEdit(' ')
-        self.changeNameButton = QPushButton('Set name')
-        form.addRow(self.experimentNameEdit,self.changeNameButton)
-        self.changeNameButton.clicked.connect(self.setExpName)
-
+        self.experimentNameEdit.returnPressed.connect(self.setExpName)
+        label = QLabel('Name:')
+        label.setToolTip(info)
+        self.experimentNameEdit.setToolTip(info)
+        form.addRow(label,self.experimentNameEdit)
         self.camTriggerToggle = QCheckBox()
         self.camTriggerToggle.setChecked(self.parent.triggered.is_set())
         self.camTriggerToggle.stateChanged.connect(self.toggleTriggered)
-        form.addRow(QLabel("Trigger cams: "),self.camTriggerToggle)
-        
+        label = QLabel("Hardware trigger: ")
+        label.setToolTip(info)
+        info = '''Toggle the hardware trigger mode on cameras that support it.
+This will can be differently configured for different cameras.'''
+        self.camTriggerToggle.setToolTip(info)
+        form.addRow(label,self.camTriggerToggle)
         
         self.saveOnStartToggle = QCheckBox()
         self.saveOnStartToggle.setChecked(self.parent.saveOnStart)
@@ -119,7 +128,7 @@ class RecordingControlWidget(QWidget):
         self.setLayout(form)
 
     def toggleTriggered(self,value):
-        display('Toggle trigger mode pressed [{0}]'.format(value))
+        display('Hardware trigger mode pressed [{0}]'.format(value))
         if value:
             self.parent.triggered.set()
         else:

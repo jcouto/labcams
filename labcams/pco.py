@@ -97,7 +97,9 @@ class PCOCam(GenericCam):
         return self._dll.PCO_SetRecordingState(self.hCam, ctypes.c_int16(0))
     
     def get_health_state(self):
-        cameraWarning, cameraError, cameraStatus = (ctypes.c_uint16(), ctypes.c_uint16(),ctypes.c_uint16())
+        cameraWarning, cameraError, cameraStatus = (ctypes.c_uint16(),
+                                                    ctypes.c_uint16(),
+                                                    ctypes.c_uint16())
         iRet = self._dll.PCO_GetCameraHealthStatus(self.hCam,
                                                    ctypes.byref(cameraWarning),
                                                    ctypes.byref(cameraError),
@@ -115,7 +117,8 @@ class PCOCam(GenericCam):
         wBitsPerPixel = ctypes.c_uint16(16)
         dwStatusDll, dwStatusDrv = ctypes.c_uint32(), ctypes.c_uint32()
         bytes_per_pixel = ctypes.c_uint32(2)
-        pixels_per_image = ctypes.c_uint32(self.wXResAct.value * self.wYResAct.value)
+        pixels_per_image = ctypes.c_uint32(self.wXResAct.value *
+                                           self.wYResAct.value)
         added_buffers = []
         for which_buf in range(len(self.buffer_numbers)):
             self._dll.PCO_AddBufferEx(
@@ -132,7 +135,6 @@ class PCOCam(GenericCam):
                           dwStatusDll, dwStatusDrv,
                           bytes_per_pixel, pixels_per_image,
                           added_buffers, ArrayType)
-        return None
     
     def allocate_buffers(self, num_buffers=2):
         """
@@ -148,12 +150,16 @@ class PCOCam(GenericCam):
             self.buffer_numbers.append(ctypes.c_int16(-1))
             self.buffer_pointers.append(ctypes.c_void_p(0))
             self.buffer_events.append(ctypes.c_void_p(0))
-            self._dll.PCO_AllocateBuffer(self.hCam, ctypes.byref(self.buffer_numbers[i]),
-                                         dwSize, ctypes.byref(self.buffer_pointers[i]),
+            self._dll.PCO_AllocateBuffer(self.hCam,
+                                         ctypes.byref(self.buffer_numbers[i]),
+                                         dwSize,
+                                         ctypes.byref(self.buffer_pointers[i]),
                                          ctypes.byref(self.buffer_events[i]))
 
         # Tell camera link what actual resolution to expect
-        self._dll.PCO_CamLinkSetImageParameters(self.hCam, self.wXResAct, self.wYResAct)
+        self._dll.PCO_CamLinkSetImageParameters(self.hCam,
+                                                self.wXResAct,
+                                                self.wYResAct)
     
     #def get_one(self, poll_timeout=5e7):
     #    iRet = PCO_GetImageEx(cam, 1, 0, 0, BufNum, XResAct, YResAct, 16)
@@ -187,8 +193,8 @@ class PCOCam(GenericCam):
         :return: None
         """
         allowed = [1, 2, 4]
-        wBinHorz = ctypes.c_uint16(int(h_bin))
-        wBinVert = ctypes.c_uint16(int(v_bin))
+        wBinHorz = ctypes.c_uint16(np.uint16(h_bin))
+        wBinVert = ctypes.c_uint16(np.uint16(v_bin))
         if (h_bin in allowed) and (v_bin in allowed):
             self._dll.PCO_SetBinning(self.hCam, wBinHorz, wBinVert)
             self._dll.PCO_GetBinning(self.hCam, ctypes.byref(wBinHorz),
@@ -218,9 +224,9 @@ class PCOCam(GenericCam):
 
         # pass values to ctypes variables
         dwDelay = ctypes.c_uint32(0)
-        dwExposure = ctypes.c_uint32(int(exp_time))
+        dwExposure = ctypes.c_uint32(np.uint32(exp_time))
         wTimeBaseDelay = ctypes.c_uint16(0)
-        wTimeBaseExposure = ctypes.c_uint16(int(base_exposure))
+        wTimeBaseExposure = ctypes.c_uint16(np.uint16(base_exposure))
 
         # set exposure time and delay time
         self._dll.PCO_SetDelayExposureTime(self.hCam,
@@ -357,8 +363,12 @@ class PCOCam(GenericCam):
                 num_acquired += 1
             finally:
                 self._dll.PCO_AddBufferEx(  # Put the buffer back in the queue
-                    self.hCam, dw1stImage, dwLastImage,
-                    self.buffer_numbers[which_buf], self.wXResAct, self.wYResAct,
+                    self.hCam,
+                    dw1stImage,
+                    dwLastImage,
+                    self.buffer_numbers[which_buf],
+                    self.wXResAct,
+                    self.wYResAct,
                     wBitsPerPixel)
                 added_buffers.append(which_buf)
         

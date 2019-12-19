@@ -3,6 +3,8 @@ from .cams import *
 from .io import *
 from .widgets import *
 
+N_UDP = 1024
+
 class LabCamsGUI(QMainWindow):
     app = None
     cams = []
@@ -138,14 +140,28 @@ class LabCamsGUI(QMainWindow):
         self.initUI()
         
         if server:
-            import zmq
-            self.zmqContext = zmq.Context()
-            self.zmqSocket = self.zmqContext.socket(zmq.REP)
-            self.zmqSocket.bind('tcp://0.0.0.0:{0}'.format(self.parameters['server_port']))
-            display('Listening to port: {0}'.format(self.parameters['server_port']))
-            self.zmqTimer = QTimer()
-            self.zmqTimer.timeout.connect(self.zmqActions)
-            self.zmqTimer.start(100)
+            self.serverTimer = QTimer()
+            if not 'server' in self.parameters.keys():
+                self.parameters['server'] = 'zmq'
+            if self.parameters['server'] == 'udp':
+                import socket
+                self.udpsocket = socket.socket(socket.AF_INET, 
+                                     socket.SOCK_DGRAM) # UDP
+                self.udpsocket.bind(('0.0.0.0',
+                                     self.parameters['server_port']))
+                display('Listening to UDP port: {0}'.format(
+                    self.parameters['server_port']))
+                self.udpsocket.settimeout(.02)
+            else:
+                import zmq
+                self.zmqContext = zmq.Context()
+                self.zmqSocket = self.zmqContext.socket(zmq.REP)
+                self.zmqSocket.bind('tcp://0.0.0.0:{0}'.format(
+                    self.parameters['server_port']))
+                display('Listening to ZMQ port: {0}'.format(
+                    self.parameters['server_port']))
+            self.serverTimer.timeout.connect(self.serverActions)
+            self.serverTimer.start(100)
 
         self.camerasRunning = False
         for cam,writer in zip(self.cams,self.writers):
@@ -167,16 +183,26 @@ class LabCamsGUI(QMainWindow):
         time.sleep(0.15)
         self.recController.experimentNameEdit.setText(expname)
         
-    def zmqActions(self):
-        import zmq
-        try:
-            message = self.zmqSocket.recv_pyobj(flags=zmq.NOBLOCK)
-        except zmq.error.Again:
-            return
-        self.zmqSocket.send_pyobj(dict(action='handshake'))
-        if message['action'] == 'expName':
+    def serverActions(self):
+        if self.parameters['server'] == 'zmq':
+            try:
+                message = self.zmqSocket.recv_pyobj(flags=zmq.NOBLOCK)
+            except:
+                return
+            self.zmqSocket.send_pyobj(dict(action='handshake'))
+        elif self.parameters['server'] == 'udp':
+            try:
+                msg,address = self.udpsocket.recvfrom(N_UDP)
+            except:
+                return
+            msg = msg.decode().split('=')
+            message = dict(action=msg[0])
+            if len(msg) > 1:
+                message = dict(message,value=msg[1])
+        display('Server received message: {0}'.format(message))
+        if message['action'].lower() == 'expname':
             self.setExperimentName(message['value'])
-        elif message['action'] == 'trigger':
+        elif message['action'].lower() == 'trigger':
             for cam in self.cams:
                 cam.stop_acquisition()
             # make sure all cams closed
@@ -185,8 +211,13 @@ class LabCamsGUI(QMainWindow):
                 if not writer is None:
                     writer.write.clear()
             self.triggerCams(save = True)
-
-    def triggerCams(self,save=False):
+        elif message['action'].lower() == 'settrigger':
+            self.recController.camTriggerToggle.setChecked(
+                int(message['value']))
+        elif message['action'].lower() == 'setmanualsave':
+            self.recController.saveOnStartToggle.setChecked(
+                int(message['value']))
+    def triggerCams(self,soft_trigger = True, save=False):
         # stops previous saves if there were any
         display("Waiting for the cameras to be ready.")
         for c,cam in enumerate(self.cams):
@@ -209,9 +240,10 @@ class LabCamsGUI(QMainWindow):
                     cam.saving.clear()
                     writer.write.clear()
         #time.sleep(2)
-        for c,cam in enumerate(self.cams):
-            cam.start_trigger.set()
-        display('Software triggered cameras.')
+        if soft_trigger:
+            for c,cam in enumerate(self.cams):
+                cam.start_trigger.set()
+            display('Software triggered cameras.')
         
     def experimentMenuTrigger(self,q):
         display(q.text()+ "clicked. ")
@@ -276,8 +308,8 @@ class LabCamsGUI(QMainWindow):
                     exc_tb.tb_frame.f_code.co_filename)[1]
                 print(e, fname, exc_tb.tb_lineno)
     def closeEvent(self,event):
-        if hasattr(self,'zmqTimer'):
-            self.zmqTimer.stop()
+        if hasattr(self,'serverTimer'):
+            self.serverTimer.stop()
         self.timer.stop()
         for cam in self.cams:
             cam.stop_acquisition()
