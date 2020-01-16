@@ -399,11 +399,12 @@ class CamWidget(QWidget):
     def toggleEyeTracker(self):
         if self.parameters['TrackEye']:
             self.eyeTracker = None
-            self.trackerpar.close()
-            self.trackerTab.close()
-            [self.p1.removeItem(c) for c in self.tracker_roi.items()]
-        self.parameters['TrackEye'] = not self.parameters['TrackEye']
-        self.etrackercheck.checkbox.setChecked(self.parameters['TrackEye']) 
+            if hasattr(self,'trackerpar'):
+                self.trackerpar.close()
+                self.trackerTab.close()
+                [self.p1.removeItem(c) for c in self.tracker_roi.items()]
+                self.parameters['TrackEye'] = not self.parameters['TrackEye']
+                self.etrackercheck.checkbox.setChecked(self.parameters['TrackEye']) 
     def saveImageFromCamera(self):
         self.parent.timer.stop()
         frame = self.parent.camframes[self.iCam]
