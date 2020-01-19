@@ -52,18 +52,18 @@ class PointGreyCam(GenericCam):
                 function = 'set_framerate',
                 widget = 'float',
                 variable = 'frame_rate',
-                units = 'ms',
-                type = 'int',
+                units = 'hz',
+                type = 'float',
                 min = 0.1,
-                max = 160,
+                max = 1000,
                 step = 10),
             gain=dict(
                 function = 'set_gain',
                 widget = 'float',
                 variable = 'gain',
                 units = 'db',
-                type = 'int',
-                min = 1,
+                type = 'float',
+                min = 0,
                 max = 18,
                 step = 1))
 
@@ -105,7 +105,7 @@ class PointGreyCam(GenericCam):
             display('No Point Grey Research cameras detected')
             raise
         # Run example on the first camera
-        uid = self.bus.getCameraFromIndex(0)
+        uid = self.bus.getCameraFromIndex(self.cam_id)
         self.cam.connect(uid)
         embedded_info = self.cam.getEmbeddedImageInfo()
         if embedded_info.available.timestamp:
