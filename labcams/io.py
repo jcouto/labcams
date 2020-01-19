@@ -1,6 +1,5 @@
 #! /usr/bin/env python
 # Classes to save files from a multiprocessing queue
-
 import time
 import sys
 from multiprocessing import Process,Queue,Event,Array,Value
@@ -13,20 +12,22 @@ import numpy as np
 import os
 from glob import glob
 from os.path import join as pjoin
+from tifffile import imread, TiffFile
 from tifffile import TiffWriter as twriter
-from tifffile import imread,TiffFile
 import pandas as pd
 
-VERSION = '0.2'
-class TiffWriter(Process):
-    def __init__(self,inQ = None, loggerQ = None,
-                 filename = 'dummy\\run',
+VERSION = '0.3'
+
+class GenericWriter(Process):
+    def __init__(self,
+                 inQ = None,
+                 loggerQ = None,
+                 filename = pjoin('dummy','run'),
                  dataName = 'eyecam',
-                 dataFolder='C:\\data',#pjoin(os.path.expanduser('~'),'data'),
-                 framesPerFile=256,
+                 dataFolder=pjoin(os.path.expanduser('~'),'data'),
+                 framesPerFile=0,
                  sleepTime = 1./30,
-                 incrementRuns=True,
-                 compression=None):
+                 incrementRuns=True):
         Process.__init__(self)
         self.frameCount = Value(c_long,0)
         self.runs = Value('i',0)
@@ -46,14 +47,8 @@ class TiffWriter(Process):
         self.parQ = Queue()
         self.today = datetime.today().strftime('%Y%m%d')
         self.logfile = None
-        self.tracker = None
-        self.trackerfile = None
-        self.trackerFlag = Event()
-        self.trackerpar = None
-        self.compression = None
-        if not compression is None:
-            if compression > 0:
-                self.compression = compression
+        self.extension = 'nan'
+        
     def setFilename(self,filename):
         self.write.clear()
         for i in range(len(self.filename)):
@@ -69,24 +64,20 @@ class TiffWriter(Process):
         self.write.clear()
         self.close.set()
         self.join()
-
-    def closeFile(self):
-        if not self.fd is None:
-            self.fd.close()
-        self.fd = None
-    
+        
     def openFile(self,nfiles = None):
         nfiles = self.nFiles
         folder = pjoin(self.dataFolder,self.dataName,self.getFilename())
         if not os.path.exists(folder):
             os.makedirs(folder)
-        filename = pjoin(folder,'{0}_run{1:03d}_{2:08d}.tif'.format(
+        filename = pjoin(folder,'{0}_run{1:03d}_{2:08d}.{3}'.format(
             self.today,
             self.runs.value,
-            nfiles))
+            nfiles,
+            self.extension))
         if not self.fd is None:
             self.closeFile()
-        self.fd = twriter(filename)
+        self._open_file(filename)
         # Create a log file
         if self.logfile is None:
             self.logfile = open(pjoin(folder,'{0}_run{1:03d}.camlog'.format(
@@ -102,6 +93,77 @@ class TiffWriter(Process):
         self.nFiles += 1
         display('Opened: '+ filename)        
         self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - ' + filename + '\n')
+
+    def _open_file(self,filename):
+        pass
+
+    def _write(self,frame,frameid,timestamp):
+        self.fd.save(frame,
+                     compress=self.compression,
+                     description='id:{0};timestamp:{1}'.format(frameid,
+                                                               timestamp))
+
+    
+    def getFromQueueAndSave(self):
+        buff = self.inQ.get()
+        if buff[0] is None:
+            # Then parameters were passed to the queue
+            display('[Writer] - Received None...')
+            return None,None
+        frame,(frameid,timestamp,) = buff
+        if not self.framesPerFile == 0 or np.mod(self.frameCount.value,self.framesPerFile)==0:
+            self.openFile()
+            display('Queue size: {0}'.format(self.inQ.qsize()))
+            self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - '
+                               + 'Queue: {0}'.format(self.inQ.qsize())
+                               + '\n')
+        self._write(frame,frameid,timestamp)
+        self.logfile.write('{0},{1}\n'.format(frameid,
+                                              timestamp))
+        self.frameCount.value += 1
+        return frameid,frame
+
+    def run(self):
+        while not self.close.is_set():
+            self.frameCount.value = 0
+            self.nFiles = 0
+            if not self.parQ.empty():
+                self.getFromParQueue()
+            while self.write.is_set():
+                if not self.inQ.empty():
+                    frameid,frame = self.getFromQueueAndSave()
+            # If queue is not empty, empty if to files.
+            while not self.inQ.empty():
+                frameid,frame = self.getFromQueueAndSave()
+            #display('Queue is empty.')
+            self.closeRun()
+            # self.closeFile()
+            # spare the processor just in case...
+            time.sleep(self.sleepTime)
+    
+    def closeRun(self):
+        if not self.logfile is None:
+            self.closeFile()
+            self.logfile.write('# [' +
+                               datetime.today().strftime(
+                                   '%y-%m-%d %H:%M:%S')+'] - ' +
+                               "Wrote {0} frames on {1} ({2} files).".format(
+                                   self.frameCount.value,
+                                   self.dataName,
+                                   self.nFiles) + '\n')
+            self.logfile.close()
+            self.logfile = None
+            self.runs.value += 1
+        if not self.frameCount.value == 0:
+            display("Wrote {0} frames on {1} ({2} files).".format(
+                self.frameCount.value,
+                self.dataName,
+                self.nFiles))
+    
+    def closeFile(self):
+        pass
+
+'''
         if self.trackerFlag.is_set():
             # MPTRACKER hack
             display('Running eye tracker.')
@@ -123,7 +185,18 @@ class TiffWriter(Process):
         else:
             self.tracker = None
             self._close_trackerfile()
-            
+
+  RUN:
+                    if not frameid is None and not self.tracker is None:
+                        try:
+                            res = self.tracker.apply(frame)
+                        except Exception as e:
+                            print(e)
+                            res = ((0,0),(np.nan,np.nan),
+                                   (np.nan,np.nan),
+                                   (np.nan,np.nan,np.nan))
+                        self._storeTrackerResults(res)
+
     def _close_trackerfile(self):
         if not self.trackerfile is None:
             from mptracker.io import exportResultsToHDF5
@@ -167,52 +240,6 @@ class TiffWriter(Process):
             self.trackerpar = buff[1]
             self._updateTrackerPar()
         
-    def getFromQueueAndSave(self):
-        buff = self.inQ.get()
-        if buff[0] is None:
-            # Then parameters were passed to the queue
-            display('[TiffWriter] - Received None...')
-            return None,None
-        frame,(frameid,timestamp,) = buff
-        if np.mod(self.frameCount.value,self.framesPerFile)==0:
-            self.openFile()
-            display('Queue size: {0}'.format(self.inQ.qsize()))
-            self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - '
-                               + 'Queue: {0}'.format(self.inQ.qsize())
-                               + '\n')
-        self.fd.save(frame,
-                     compress=self.compression,
-                     description='id:{0};timestamp:{1}'.format(frameid,
-                                                               timestamp))
-        self.logfile.write('{0},{1}\n'.format(frameid,
-                                              timestamp))
-        self.frameCount.value += 1
-        return frameid,frame
-    
-    def closeRun(self):
-        if not self.logfile is None:
-            self.closeFile()
-            self.logfile.write('# [' +
-                               datetime.today().strftime(
-                                   '%y-%m-%d %H:%M:%S')+'] - ' +
-                               "Wrote {0} frames on {1} ({2} files).".format(
-                                   self.frameCount.value,
-                                   self.dataName,
-                                   self.nFiles) + '\n')
-            self.logfile.close()
-            self.logfile = None
-            self.runs.value += 1
-        if not self.frameCount.value == 0:
-            display("Wrote {0} frames on {1} ({2} files).".format(
-                self.frameCount.value,
-                self.dataName,
-                self.nFiles))
-        if not self.trackerfile is None:
-            try:
-                self._close_trackerfile()
-            except Exception as err:
-                display("There was an error when trying to save the tracker results.")
-                print(err)
     def _storeTrackerResults(self,res):
         cr_pos,pupil_pos,pupil_radius,pupil_ellipse_par = res
         self._trackerres['ellipsePix'].append(
@@ -220,43 +247,64 @@ class TiffWriter(Process):
         self._trackerres['pupilPix'].append(pupil_pos)
         self._trackerres['crPix'].append(cr_pos)
 
-    def run(self):
-        while not self.close.is_set():
-            self.frameCount.value = 0
-            self.nFiles = 0
-            if not self.parQ.empty():
-                self.getFromParQueue()
-            while self.write.is_set():
-                if not self.inQ.empty():
-                    frameid,frame = self.getFromQueueAndSave()
-                    if not frameid is None and not self.tracker is None:
-                        try:
-                            res = self.tracker.apply(frame)
-                        except Exception as e:
-                            print(e)
-                            res = ((0,0),(np.nan,np.nan),
-                                   (np.nan,np.nan),
-                                   (np.nan,np.nan,np.nan))
-                        self._storeTrackerResults(res)
+        if not self.trackerfile is None:
+            try:
+                self._close_trackerfile()
+            except Exception as err:
+                display("There was an error when trying to save the tracker results.")
+                print(err)
 
-            # If queue is not empty, empty if to files.
-            while not self.inQ.empty():
-                frameid,frame = self.getFromQueueAndSave()
-                if not frame is None and not self.tracker is None:
-                    try:
-                        res = self.tracker.apply(frame)
-                    except Exception as e:
-                        print(e)
-                        res = ((0,0),(np.nan,np.nan),
-                               (np.nan,np.nan),
-                               (np.nan,np.nan,np.nan))
-                    self._storeTrackerResults(res)
-            #display('Queue is empty.')
-            self.closeRun()
-            # self.closeFile()
-            # spare the processor just in case...
-            time.sleep(self.sleepTime)
-            
+
+'''
+
+        
+class TiffWriter(GenericWriter):
+    def __init__(self,
+                 inQ = None,
+                 loggerQ = None,
+                 filename = pjoin('dummy','run'),
+                 dataName = 'eyecam',
+                 dataFolder=pjoin(os.path.expanduser('~'),'data'),
+                 framesPerFile=256,
+                 sleepTime = 1./30,
+                 incrementRuns=True,
+                 compression=None):
+        super(TiffWriter,self).__init__(inQ = inQ,
+                                        loggerQ=loggerQ,
+                                        filename=filename,
+                                        dataName=dataName,
+                                        framesPerFile=framesPerFile,
+                                        sleepTime=sleepTime,
+                                        incrementRuns=incrementRuns)
+        self.compression = None
+        if not compression is None:
+            if compression > 0:
+                self.compression = compression
+        self.extension = 'tif'
+
+        self.tracker = None
+        self.trackerfile = None
+        self.trackerFlag = Event()
+        self.trackerpar = None
+
+    def closeFile(self):
+        if not self.fd is None:
+            self.fd.close()
+        self.fd = None
+
+    def _open_file(self,filename):
+        self.fd = twriter(filename)
+
+    def _write(self,frame,frameid,timestamp):
+        self.fd.save(frame,
+                     compress=self.compression,
+                     description='id:{0};timestamp:{1}'.format(frameid,
+                                                               timestamp))
+
+################################################################################
+################################################################################
+################################################################################
+
 def parseCamLog(fname,convertToSeconds = True):
     logheaderkey = '# Log header:'
     comments = []
