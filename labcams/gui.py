@@ -116,12 +116,15 @@ class LabCamsGUI(QMainWindow):
                                           triggered = self.triggered))
             elif cam['driver'] == 'PointGrey':
                 from .pointgreycam import PointGreyCam
+                if not 'roi' in cam.keys():
+                    cam['roi'] = []
                 self.cams.append(PointGreyCam(camId=cam['id'],
-                                          gain = cam['gain'],
-                                          frameRate = cam['frameRate'],
-                                          outQ = self.camQueues[-1],
-                                          triggered = self.triggered))
-            else:
+                                              gain = cam['gain'],
+                                              roi = cam['roi'],
+                                              frameRate = cam['frameRate'],
+                                              outQ = self.camQueues[-1],
+                                              triggered = self.triggered))
+            else: 
                 display('[WARNING] -----> Unknown camera driver' +
                         cam['driver'])
                 self.camQueues.pop()

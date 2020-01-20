@@ -111,7 +111,7 @@ class GenericWriter(Process):
             display('[Writer] - Received None...')
             return None,None
         frame,(frameid,timestamp,) = buff
-        if not self.framesPerFile == 0 or np.mod(self.frameCount.value,self.framesPerFile)==0:
+        if self.framesPerFile == 0 or np.mod(self.frameCount.value,self.framesPerFile)==0:
             self.openFile()
             display('Queue size: {0}'.format(self.inQ.qsize()))
             self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - '
@@ -135,7 +135,7 @@ class GenericWriter(Process):
             # If queue is not empty, empty if to files.
             while not self.inQ.empty():
                 frameid,frame = self.getFromQueueAndSave()
-            #display('Queue is empty.')
+                #display('Queue is empty.')
             self.closeRun()
             # self.closeFile()
             # spare the processor just in case...

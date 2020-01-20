@@ -8,6 +8,7 @@ class PointGreyCam(GenericCam):
                  binning = 1,
                  frameRate = 120,
                  gain = 10,
+                 roi = [],
                  triggerSource = np.uint16(0),
                  outputs = ['XI_GPO_EXPOSURE_ACTIVE'],
                  triggered = Event(),
@@ -23,8 +24,8 @@ class PointGreyCam(GenericCam):
         self.binning = binning
         self.frame_rate = frameRate
         self.gain = gain
+        self.roi = roi
         frame = self.get_one()
-
         self.h = frame.shape[0]
         self.w = frame.shape[1]
         self.nchannels = 1
@@ -71,7 +72,6 @@ class PointGreyCam(GenericCam):
         self._cam_init()
         self.cam.startCapture()
         img = self.cam.retrieveBuffer()
-        print(dir(img))
         frame = img.getData().reshape([img.getRows(),img.getCols()])
         self.cam.stopCapture()
         self.cam.disconnect()
@@ -115,30 +115,35 @@ class PointGreyCam(GenericCam):
             display('[PointGrey] - timestamp is enabled.')
         else:
             display('[PointGrey] - timeStamp is disabled.') 
-        '''
         fmt7_info, supported = self.cam.getFormat7Info(0)
         if supported:
             display('[PointGrey] - Max image pixels: ({}, {})'.format(
                 fmt7_info.maxWidth, fmt7_info.maxHeight))
+            if not len(self.roi):
+                self.roi = [0,0,fmt7_info.maxWidth,fmt7_info.maxHeight]
             display('[PointGrey] - Image unit size: ({}, {})'.format(
                 fmt7_info.imageHStepSize, fmt7_info.imageVStepSize))
             display('[PointGrey] - Offset unit size: ({}, {})'.format(
                 fmt7_info.offsetHStepSize, fmt7_info.offsetVStepSize))
-            display('[PointGrey] - Pixel format bitfield: 0x{}'.format(
-                fmt7_info.pixelFormatBitField))
-            if pc2.PIXEL_FORMAT.MONO8 & fmt7_info.pixelFormatBitField == 0:
-                display('[PointGrey] - setting MONO8')
-                fmt7_img_set = PyCapture2.Format7ImageSettings(0, 0, 0, fmt7_info.maxWidth, fmt7_info.maxHeight, PyCapture2.PIXEL_FORMAT.MONO8)
-                fmt7_pkt_inf, isValid = self.cam.validateFormat7Settings(fmt7_img_set)
-                if not isValid:
-                    print('[PointGrey] - Format7 settings are not valid!')
-                self.cam.setFormat7ConfigurationPacket(fmt7_pkt_inf.recommendedBytesPerPacket, fmt7_img_set)
-        '''
+            #display('[PointGrey] - Pixel format bitfield: 0x{}'.format(
+            #    fmt7_info.pixelFormatBitField))
+            #if pc2.PIXEL_FORMAT.MONO8 & fmt7_info.pixelFormatBitField == 0:
+            #    display('[PointGrey] - setting MONO8')
+            x,y,w,h = self.roi
+            fmt7_img_set = pc2.Format7ImageSettings(0,x, y,w,h,
+                                                    pc2.PIXEL_FORMAT.MONO8)
+            fmt7_pkt_inf, isValid = self.cam.validateFormat7Settings(fmt7_img_set)
+            if not isValid:
+                print('[PointGrey] - Format7 settings are not valid!')
+            self.cam.setFormat7ConfigurationPacket(fmt7_pkt_inf.recommendedBytesPerPacket, fmt7_img_set)
         tmp = self.cam.getProperty(pc2.PROPERTY_TYPE.FRAME_RATE)
         tmp.absValue = self.frame_rate
         tmp.onOff = True
         self.cam.setProperty(tmp)
-
+        tmp = self.cam.getProperty(pc2.PROPERTY_TYPE.FRAME_RATE)
+        self.frame_rate = tmp.absValue
+        display('[PointGrey] - Frame rate is:{0}'.format(self.frame_rate))
+        # Set gain
         tmp = self.cam.getProperty(pc2.PROPERTY_TYPE.GAIN)
         tmp.absValue = self.gain
         tmp.onOff = True
@@ -183,7 +188,10 @@ class PointGreyCam(GenericCam):
         self.lastframeid = frameID
         
     def _cam_close(self):
-        self.cam.stopCapture()
+        try:
+            self.cam.stopCapture()
+        except:
+            display('[PointGrey] - Stop capture error... check this at some point.')
         self.cam.disconnect()
         del self.bus
         self.cam = None        
