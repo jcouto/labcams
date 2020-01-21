@@ -65,7 +65,7 @@ class GenericWriter(Process):
         self.close.set()
         self.join()
         
-    def openFile(self,nfiles = None):
+    def openFile(self,nfiles = None,frame = None):
         nfiles = self.nFiles
         folder = pjoin(self.dataFolder,self.dataName,self.getFilename())
         if not os.path.exists(folder):
@@ -77,7 +77,7 @@ class GenericWriter(Process):
             self.extension))
         if not self.fd is None:
             self.closeFile()
-        self._open_file(filename)
+        self._open_file(filename,frame)
         # Create a log file
         if self.logfile is None:
             self.logfile = open(pjoin(folder,'{0}_run{1:03d}.camlog'.format(
@@ -94,7 +94,7 @@ class GenericWriter(Process):
         display('Opened: '+ filename)        
         self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - ' + filename + '\n')
 
-    def _open_file(self,filename):
+    def _open_file(self,filename,frame):
         pass
 
     def _write(self,frame,frameid,timestamp):
@@ -111,8 +111,10 @@ class GenericWriter(Process):
             display('[Writer] - Received None...')
             return None,None
         frame,(frameid,timestamp,) = buff
-        if self.framesPerFile == 0 or np.mod(self.frameCount.value,self.framesPerFile)==0:
-            self.openFile()
+        if ((self.framesPerFile == 0 and self.fd is None) or
+            (self.framesPerFile > 0 and np.mod(self.frameCount.value,
+                                               self.framesPerFile)==0)):
+            self.openFile(frame = frame)
             display('Queue size: {0}'.format(self.inQ.qsize()))
             self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - '
                                + 'Queue: {0}'.format(self.inQ.qsize())
@@ -292,7 +294,7 @@ class TiffWriter(GenericWriter):
             self.fd.close()
         self.fd = None
 
-    def _open_file(self,filename):
+    def _open_file(self,filename,frame = None):
         self.fd = twriter(filename)
 
     def _write(self,frame,frameid,timestamp):
@@ -300,6 +302,65 @@ class TiffWriter(GenericWriter):
                      compress=self.compression,
                      description='id:{0};timestamp:{1}'.format(frameid,
                                                                timestamp))
+
+################################################################################
+################################################################################
+################################################################################
+import ffmpeg
+class FFMPEGWriter(GenericWriter):
+    def __init__(self,
+                 inQ = None,
+                 loggerQ = None,
+                 filename = pjoin('dummy','run'),
+                 dataName = 'eyecam',
+                 dataFolder=pjoin(os.path.expanduser('~'),'data'),
+                 framesPerFile=0,
+                 sleepTime = 1./30,
+                 incrementRuns=True,
+                 compression=None):
+        super(FFMPEGWriter,self).__init__(inQ = inQ,
+                                          loggerQ=loggerQ,
+                                          filename=filename,
+                                          dataName=dataName,
+                                          framesPerFile=framesPerFile,
+                                          sleepTime=sleepTime,
+                                          incrementRuns=incrementRuns)
+        self.compression = 17
+        if not compression is None:
+            if compression > 0:
+                self.compression = compression
+        self.extension = 'avi'
+        self.dinputs = dict(format='rawvideo',
+                            pix_fmt='gray',
+                            s='{}x{}')
+        self.w = None
+        self.h = None
+        self.doutputs = dict(format='h264',
+                             pix_fmt='gray',
+                             crf=self.compression)
+        
+    def closeFile(self):
+        if not self.fd is None:
+            self.fd.stdin.close()
+        self.fd = None
+
+    def _open_file(self,filename,frame = None):
+        self.w = frame.shape[1]
+        self.h = frame.shape[0]
+        indict = dict(**self.dinputs)
+        if len(frame.shape)> 2:
+            indict['pix_fmt'] = 'bgr24'
+        indict['s'] = indict['s'].format(self.w,self.h)
+        print(indict)
+        print(self.doutputs)
+        self.fd = (ffmpeg
+                   .input('pipe:',**indict)
+                   .output(filename,**self.doutputs)
+                   .overwrite_output()
+                   .run_async(pipe_stdin=True))
+
+    def _write(self,frame,frameid,timestamp):
+        self.fd.stdin.write(frame.tobytes())
 
 ################################################################################
 ################################################################################

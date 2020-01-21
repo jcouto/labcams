@@ -131,13 +131,25 @@ class LabCamsGUI(QMainWindow):
                 self.saveflags.pop()
             if not 'compress' in self.parameters:
                 self.parameters['compress'] = 0
-            self.writers.append(TiffWriter(inQ = self.camQueues[-1],
-                                           dataFolder=self.parameters['recorder_path'],
-                                           framesPerFile=self.parameters['recorder_frames_per_file'],
-                                           sleepTime = self.parameters['recorder_sleep_time'],
-                                           compression = self.parameters['compress'],
-                                           filename = expName,
-                                           dataName = cam['description']))
+            if not 'saveMethod' in cam.keys():
+                cam['saveMethod'] = 'tiff'
+            if  cam['saveMethod'] == 'tiff':
+                self.writers.append(TiffWriter(
+                    inQ = self.camQueues[-1],
+                    dataFolder=self.parameters['recorder_path'],
+                    framesPerFile=self.parameters['recorder_frames_per_file'],
+                    sleepTime = self.parameters['recorder_sleep_time'],
+                    compression = self.parameters['compress'],
+                    filename = expName,
+                    dataName = cam['description']))
+            else:
+                self.writers.append(FFMPEGWriter(
+                    inQ = self.camQueues[-1],
+                    dataFolder=self.parameters['recorder_path'],
+                    sleepTime = self.parameters['recorder_sleep_time'],
+                    compression = 17,
+                    filename = expName,
+                    dataName = cam['description']))
             # Print parameters
             display('\t Camera: {0}'.format(cam['name']))
             for k in np.sort(list(cam.keys())):
