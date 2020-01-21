@@ -137,11 +137,11 @@ class GenericWriter(Process):
             # If queue is not empty, empty if to files.
             while not self.inQ.empty():
                 frameid,frame = self.getFromQueueAndSave()
-                #display('Queue is empty.')
+                display('Queue is empty. Proceding with close.')
+            time.sleep(self.sleepTime)
             self.closeRun()
             # self.closeFile()
             # spare the processor just in case...
-            time.sleep(self.sleepTime)
     
     def closeRun(self):
         if not self.logfile is None:

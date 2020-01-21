@@ -169,6 +169,7 @@ class PointGreyCam(GenericCam):
         self.nframes.value = 0
         self.camera_ready.set()
         self.prev_ts = 0
+        self.lasttime = time.time()
     def _cam_startacquisition(self):
         self.cam.startCapture()
 
@@ -178,6 +179,9 @@ class PointGreyCam(GenericCam):
         frameID = self.lastframeid+1
         ts = img.getTimeStamp()
         timestamp = 0
+        ntime = time.time()
+        #display('loop rate : {0}'.format(1./(ntime - self.lasttime)))
+        self.lasttime = ntime
         if self.saving.is_set():
             if not frameID == self.lastframeid :
                 self.queue.put((frame.copy(),
