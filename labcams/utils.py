@@ -13,7 +13,7 @@ from scipy.interpolate import interp1d
 from tqdm import tqdm
 import numpy as np
 import cv2
-cv2.setNumThreads(1)
+#cv2.setNumThreads(1)
 
 def display(msg):
     try:

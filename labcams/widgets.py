@@ -37,7 +37,8 @@ pg.setConfigOption('crashWarning', True)
 
 from .utils import *
 from functools import partial
-
+import cv2
+cv2.setNumThreads(1)
 
 class QActionCheckBox(QWidgetAction):
     ''' Check box for the right mouse button dropdown menu'''

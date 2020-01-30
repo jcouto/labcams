@@ -142,8 +142,16 @@ class LabCamsGUI(QMainWindow):
                     compression = self.parameters['compress'],
                     filename = expName,
                     dataName = cam['description']))
-            else:
+            elif cam['saveMethod'] == 'ffmpeg':
                 self.writers.append(FFMPEGWriter(
+                    inQ = self.camQueues[-1],
+                    dataFolder=self.parameters['recorder_path'],
+                    sleepTime = self.parameters['recorder_sleep_time'],
+                    compression = 17,
+                    filename = expName,
+                    dataName = cam['description']))
+            else:
+                self.writers.append(OpenCVWriter(
                     inQ = self.camQueues[-1],
                     dataFolder=self.parameters['recorder_path'],
                     sleepTime = self.parameters['recorder_sleep_time'],

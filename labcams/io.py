@@ -337,6 +337,8 @@ class FFMPEGWriter(GenericWriter):
         self.h = None
         self.doutputs = dict(format='h264',
                              pix_fmt='gray',
+                             vcodec='libx264',
+                             preset='ultrafast',
                              crf=self.compression)
         
     def closeFile(self):
@@ -361,6 +363,60 @@ class FFMPEGWriter(GenericWriter):
 
     def _write(self,frame,frameid,timestamp):
         self.fd.stdin.write(frame.tobytes())
+
+################################################################################
+################################################################################
+################################################################################
+import cv2
+
+class OpenCVWriter(GenericWriter):
+    def __init__(self,
+                 inQ = None,
+                 loggerQ = None,
+                 filename = pjoin('dummy','run'),
+                 dataName = 'eyecam',
+                 dataFolder=pjoin(os.path.expanduser('~'),'data'),
+                 framesPerFile=0,
+                 sleepTime = 1./30,
+                 incrementRuns=True,
+                 compression=None,
+                 fourcc = 'X264'):
+        super(OpenCVWriter,self).__init__(inQ = inQ,
+                                          loggerQ=loggerQ,
+                                          filename=filename,
+                                          dataName=dataName,
+                                          framesPerFile=framesPerFile,
+                                          sleepTime=sleepTime,
+                                          incrementRuns=incrementRuns)
+        cv2.setNumThreads(6)
+        self.compression = 17
+        if not compression is None:
+            if compression > 0:
+                self.compression = compression
+        self.extension = 'avi'
+        self.fourcc = cv2.VideoWriter_fourcc(*fourcc)
+        self.w = None
+        self.h = None
+        
+    def closeFile(self):
+        if not self.fd is None:
+            self.fd.release()
+        self.fd = None
+
+    def _open_file(self,filename,frame = None):
+        self.w = frame.shape[1]
+        self.h = frame.shape[0]
+        self.isColor = False
+        if len(frame.shape) < 2:
+            self.isColor = True
+        self.fd = cv2.VideoWriter(filename,
+                                  cv2.CAP_FFMPEG,#cv2.CAP_DSHOW,#cv2.CAP_INTEL_MFX,
+                                  self.fourcc,120,(self.w,self.h),self.isColor)
+
+    def _write(self,frame,frameid,timestamp):
+        if len(frame.shape) < 2:
+            frame = cv2.cvtColor(frame,cv2.COLOR_GRAY2RGB)
+        self.fd.write(frame)
 
 ################################################################################
 ################################################################################
