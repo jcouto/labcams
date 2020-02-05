@@ -244,6 +244,9 @@ class AVTCam(GenericCam):
                     if self.saving.is_set():
                         if not frameID in self.lastframeid :
                             self.queue.put((frame.copy(),(frameID,timestamp)))
+                    elif self.was_saving:
+                        self.was_saving = False
+                        self.queue.put(['STOP'])
                     self.lastframeid[ibuf] = frameID
                     self.buf[:] = np.reshape(frame,self.buf.shape)[:]
             elif avterr == -12:
@@ -265,9 +268,14 @@ class AVTCam(GenericCam):
                                    shape = (f.height,
                                             f.width)).copy()
                 if self.saving.is_set():
+                    self.was_saving = True
                     if not frameID in self.lastframeid :
                         self.queue.put((frame.copy(),(frameID,timestamp)))
-                        self.lastframeid[ibuf] = frameID
+                elif self.was_saving:
+                    self.was_saving = False
+                    self.queue.put(['STOP'])
+
+                self.lastframeid[ibuf] = frameID
                 self.nframes.value += 1
                 self.frame = frame
             except VimbaException as err:

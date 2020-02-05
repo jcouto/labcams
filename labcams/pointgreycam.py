@@ -130,7 +130,7 @@ class PointGreyCam(GenericCam):
             #if pc2.PIXEL_FORMAT.MONO8 & fmt7_info.pixelFormatBitField == 0:
             #    display('[PointGrey] - setting MONO8')
             x,y,w,h = self.roi
-            fmt7_img_set = pc2.Format7ImageSettings(0,x, y,w,h,
+            fmt7_img_set = pc2.Format7ImageSettings(0,int(x),int(y),int(w),int(h),
                                                     pc2.PIXEL_FORMAT.MONO8)
             fmt7_pkt_inf, isValid = self.cam.validateFormat7Settings(fmt7_img_set)
             if not isValid:
@@ -183,9 +183,13 @@ class PointGreyCam(GenericCam):
         #display('loop rate : {0}'.format(1./(ntime - self.lasttime)))
         self.lasttime = ntime
         if self.saving.is_set():
+            self.was_saving = True
             if not frameID == self.lastframeid :
                 self.queue.put((frame.copy(),
                                 (frameID,timestamp)))
+        elif self.was_saving:
+            self.was_saving = False
+            self.queue.put(['STOP'])
         if not frameID == self.lastframeid:
             self.buf[:] = np.reshape(frame.copy(),self.buf.shape)[:]
             self.nframes.value += 1

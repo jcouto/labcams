@@ -106,9 +106,13 @@ class XimeaCam(GenericCam):
         frameID = self.cambuf.nframe
         timestamp = self.cambuf.tsUSec
         if self.saving.is_set():
+            self.was_saving = True
             if not frameID == self.lastframeid :
                 self.queue.put((frame.copy(),
                                 (frameID,timestamp)))
+        elif self.was_saving:
+            self.was_saving = False
+            self.queue.put(['STOP'])
         if not frameID == self.lastframeid:
             self.buf[:] = np.reshape(frame.copy(),self.buf.shape)[:]
             self.cam.set_gpo_mode('XI_GPO_OFF'); #XI_GPO_EXPOSURE_PULSE

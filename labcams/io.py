@@ -110,19 +110,27 @@ class GenericWriter(Process):
             # Then parameters were passed to the queue
             display('[Writer] - Received None...')
             return None,None
-        frame,(frameid,timestamp,) = buff
-        if ((self.framesPerFile == 0 and self.fd is None) or
-            (self.framesPerFile > 0 and np.mod(self.frameCount.value,
-                                               self.framesPerFile)==0)):
-            self.openFile(frame = frame)
-            display('Queue size: {0}'.format(self.inQ.qsize()))
-            self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - '
-                               + 'Queue: {0}'.format(self.inQ.qsize())
-                               + '\n')
-        self._write(frame,frameid,timestamp)
-        self.logfile.write('{0},{1}\n'.format(frameid,
-                                              timestamp))
-        self.frameCount.value += 1
+        if len(buff) == 1:
+           # check message:
+            msg = buff[0]
+            if msg in ['STOP']:
+                display('Stopping writer (end of queue).')
+                self.write.clear()
+            return None,msg
+        else:
+            frame,(frameid,timestamp,) = buff
+            if ((self.framesPerFile == 0 and self.fd is None) or
+                (self.framesPerFile > 0 and np.mod(self.frameCount.value,
+                                                   self.framesPerFile)==0)):
+                self.openFile(frame = frame)
+                display('Queue size: {0}'.format(self.inQ.qsize()))
+                self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - '
+                                   + 'Queue: {0}'.format(self.inQ.qsize())
+                                   + '\n')
+            self._write(frame,frameid,timestamp)
+            self.logfile.write('{0},{1}\n'.format(frameid,
+                                                  timestamp))
+            self.frameCount.value += 1
         return frameid,frame
 
     def run(self):
@@ -316,6 +324,7 @@ class FFMPEGWriter(GenericWriter):
                  dataFolder=pjoin(os.path.expanduser('~'),'data'),
                  framesPerFile=0,
                  sleepTime = 1./30,
+                 frameRate = 100.,
                  incrementRuns=True,
                  compression=None):
         super(FFMPEGWriter,self).__init__(inQ = inQ,
@@ -330,15 +339,17 @@ class FFMPEGWriter(GenericWriter):
             if compression > 0:
                 self.compression = compression
         self.extension = 'avi'
+        self.frame_rate = frameRate
         self.dinputs = dict(format='rawvideo',
                             pix_fmt='gray',
                             s='{}x{}')
         self.w = None
         self.h = None
         self.doutputs = dict(format='h264',
-                             pix_fmt='gray',
-                             vcodec='libx264',
-                             preset='ultrafast',
+                             pix_fmt='yuv420p',#'gray',
+                             vcodec='h264_qsv',#'libx264',
+                             preset='veryfast',#'ultrafast',
+                             r = self.frame_rate,
                              crf=self.compression)
         
     def closeFile(self):
@@ -380,6 +391,7 @@ class OpenCVWriter(GenericWriter):
                  sleepTime = 1./30,
                  incrementRuns=True,
                  compression=None,
+                 frameRate = 100.,
                  fourcc = 'X264'):
         super(OpenCVWriter,self).__init__(inQ = inQ,
                                           loggerQ=loggerQ,

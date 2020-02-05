@@ -120,8 +120,12 @@ class QImagingCam(GenericCam):
                 timestamp = f.timeStamp
                 frameID = f.frameNumber
                 if self.saving.is_set():
+                    self.was_saving = True
                     self.queue.put((frame.reshape([self.h,self.w]),
                                     (frameID,timestamp)))
+                elif self.was_saving:
+                    self.was_saving = False
+                    self.queue.put(['STOP'])
                 buf[:] = np.reshape(frame,buf.shape)[:]
 
                 queue.put(f)
