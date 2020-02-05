@@ -71,6 +71,7 @@ class GenericCam(Process):
             while not self.stop_trigger.is_set():
                 self._cam_loop()
                 self._parse_command_queue()
+            display('Stop trigger set.')
             self._cam_close()
             self.cam_is_running = False
             self.saving.clear()
