@@ -165,8 +165,8 @@ This will can be differently configured for different cameras.'''
                     cam.saving.set()
                     writer.write.set()
                 else:
-                    cam.saving.clear()
-                    writer.write.clear()
+                    cam.stop_saving()
+                    #writer.write.clear()
         display('Toggled ManualSave [{0}]'.format(state))
         
 class CamWidget(QWidget):

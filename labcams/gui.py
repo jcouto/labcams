@@ -151,6 +151,7 @@ class LabCamsGUI(QMainWindow):
                     dataFolder=self.parameters['recorder_path'],
                     sleepTime = self.parameters['recorder_sleep_time'],
                     compression = 17,
+                    frameRate = cam['frameRate'],
                     filename = expName,
                     dataName = cam['description']))
             else:
@@ -159,6 +160,7 @@ class LabCamsGUI(QMainWindow):
                     dataFolder=self.parameters['recorder_path'],
                     sleepTime = self.parameters['recorder_sleep_time'],
                     compression = 17,
+                    frameRate = cam['frameRate'],
                     filename = expName,
                     dataName = cam['description']))
             # Print parameters
@@ -240,9 +242,9 @@ class LabCamsGUI(QMainWindow):
                 cam.stop_acquisition()
             # make sure all cams closed
             for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
-                cam.saving.clear()
-                if not writer is None:
-                    writer.write.clear()
+                cam.stop_saving()
+                #if not writer is None: # Logic moved to inside camera.
+                #    writer.write.clear()
             self.triggerCams(save = True)
         elif message['action'].lower() == 'settrigger':
             self.recController.camTriggerToggle.setChecked(
@@ -270,8 +272,8 @@ class LabCamsGUI(QMainWindow):
                                                     self.saveflags,
                                                     self.writers)):
                 if flg:
-                    cam.saving.clear()
-                    writer.write.clear()
+                    cam.stop_saving()
+                    #writer.write.clear() # cam stops writer
         #time.sleep(2)
         if soft_trigger:
             for c,cam in enumerate(self.cams):
@@ -351,8 +353,8 @@ class LabCamsGUI(QMainWindow):
                                             self.saveflags,
                                             self.writers)):
             if flg:
-                cam.saving.clear()
-                writer.write.clear()
+                cam.stop_saving()
+                #writer.write.clear() # logic moved inside writer
                 writer.stop()
             cam.close()
         for c in self.cams:

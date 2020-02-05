@@ -454,9 +454,13 @@ class PCOCam(GenericCam):
                 frame = self.out.copy()
                 self.nframes.value += 1
                 if self.saving.is_set():
+                    self.was_saving = True
                     if not frameID == self.lastframeid :
                         self.queue.put((frame.copy(),
                                         (frameID,timestamp)))
+                elif self.was_saving:
+                    self.was_saving = False
+                    self.queue.put(['STOP'])
                 self.lastframeid = frameID
                 self.buf[:,:] = np.reshape(frame[:,:],self.buf.shape)[:]
 
@@ -474,6 +478,9 @@ class PCOCam(GenericCam):
         ret = self.camclose()
         display('PCO - returned {0} on close'.format(ret))
         self.saving.clear()
+        if self.was_saving:
+            self.was_saving = False
+            self.queue.put(['STOP'])
         self.start_trigger.clear()
         self.stop_trigger.clear()
         display('PCO {0} - Close event: {1}'.format(self.camId,

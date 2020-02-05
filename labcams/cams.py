@@ -39,6 +39,13 @@ class GenericCam(Process):
         self._init_controls()
         self._init_ctrevents()
         self.cam_is_running = False
+        self.was_saving=False
+
+    def stop_saving(self):
+        # This will send a stop to stop saving and close the writer.
+        if self.saving.is_set():
+            self.saving.clear()
+
     def _init_controls(self):
         return
     def _init_ctrevents(self):
@@ -74,7 +81,9 @@ class GenericCam(Process):
             display('Stop trigger set.')
             self._cam_close()
             self.cam_is_running = False
-            self.saving.clear()
+            if self.was_saving:
+                self.was_saving = False
+                self.queue.put(['STOP'])
             self.stop_trigger.clear()
 
     def _parse_command_queue(self):
@@ -205,8 +214,12 @@ class OpenCVCam(GenericCam):
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         self.nframes.value += 1
         if self.saving.is_set():
+            self.was_saving = True
             if not frameID == self.lastframeid :
                 self.queue.put((frame.copy(),(frameID,timestamp)))
+        elif self.was_saving:
+            self.was_saving = False
+            self.queue.put(['STOP'])
         self.lastframeid = frameID
         self.buf[:] = frame[:]
         # This artificially limits the frame rate. 

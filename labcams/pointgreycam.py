@@ -272,12 +272,11 @@ class PointGreyCam(GenericCam):
 
         if False:
             display('[PointGrey] - timestamp is enabled.')
+
         x,y,w,h = self.roi
         pg_image_settings(self.nodemap,X=x,Y=y,W=w,H=h,pxformat=self.pxformat)
-
-        display('[PointGrey] - Frame rate is:{0}'.format(self.frame_rate))
-
         self.set_framerate(self.frame_rate)
+        display('[PointGrey] - Frame rate is:{0}'.format(self.frame_rate))
         self.lastframeid = -1
         self.nframes.value = 0
         self.camera_ready.set()
