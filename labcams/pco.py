@@ -10,8 +10,8 @@ class PCOCam(GenericCam):
                  triggerSource = np.uint16(2),
                  triggered = Event(),
                  dllpath = 'C:\\Program Files (x86)\\pco\\pco.sdk\\bin64\\SC2_Cam.dll',
-                 **kwargs):
-        super(PCOCam,self).__init__()
+                 recorderpar = None,**kwargs):
+        super(PCOCam,self).__init__(outQ = outQ, recorderpar=recorderpar)
         self.armed = False
         self.drivername = 'PCO'
         self._dll = ctypes.WinDLL(dllpath)
@@ -451,26 +451,15 @@ class PCOCam(GenericCam):
                 buffer_ptr = ctypes.cast(self.buffer_pointers[which_buf], ctypes.POINTER(self.ArrayType))
                 self.out[:, :] = np.frombuffer(buffer_ptr.contents, dtype=np.uint16).reshape(self.out.shape)
                 num_acquired += 1
-                frame = self.out.copy()
-                self.nframes.value += 1
-                if self.saving.is_set():
-                    self.was_saving = True
-                    if not frameID == self.lastframeid :
-                        self.queue.put((frame.copy(),
-                                        (frameID,timestamp)))
-                elif self.was_saving:
-                    self.was_saving = False
-                    self.queue.put(['STOP'])
-                self.lastframeid = frameID
-                self.buf[:,:] = np.reshape(frame[:,:],self.buf.shape)[:]
-
             finally:
                 self._dll.PCO_AddBufferEx(  # Put the buffer back in the queue
                     self.hCam, self.dw1stImage, self.dwLastImage,
                     self.buffer_numbers[which_buf], self.wXResAct, self.wYResAct,
                     self.wBitsPerPixel)
                 self.added_buffers.append(which_buf)
-                
+            return frame,(frameID,timestamp)
+        return None,(None,None)
+            
     def _cam_close(self):
         display('PCO [{0}] - Stopping acquisition.'.format(self.camId))
         self.acquisitionstop()

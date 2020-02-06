@@ -20,7 +20,7 @@ import cv2
 # Has last frame on multiprocessing array
 # 
 class GenericCam(Process):
-    def __init__(self, outQ = None,lock = None):
+    def __init__(self, outQ = None, recorderpar = None, refreshperiod = 0.033):
         Process.__init__(self)
         self.name = ''
         self.cam_id = None
@@ -40,6 +40,10 @@ class GenericCam(Process):
         self._init_ctrevents()
         self.cam_is_running = False
         self.was_saving=False
+        self.recorderpar = None
+        self.refresh_period = refreshperiod
+        self._tupdate = time.time()
+        self.daemon = True
 
     def stop_saving(self):
         # This will send a stop to stop saving and close the writer.
@@ -48,6 +52,7 @@ class GenericCam(Process):
 
     def _init_controls(self):
         return
+
     def _init_ctrevents(self):
         if hasattr(self,'ctrevents'):
             for c in self.ctrevents.keys():
@@ -62,6 +67,7 @@ class GenericCam(Process):
         self.img = np.frombuffer(
             self.frame.get_obj(),
             dtype = cdtype).reshape([self.h,self.w,self.nchan])
+
     def run(self):
         self._init_ctrevents()
         self.buf = np.frombuffer(self.frame.get_obj(),
@@ -76,7 +82,9 @@ class GenericCam(Process):
             self.camera_ready.clear()
             self.start_trigger.clear()
             while not self.stop_trigger.is_set():
-                self._cam_loop()
+                frame,metadata = self._cam_loop()
+                if not frame is None:
+                    self._handle_frame(frame,metadata)
                 self._parse_command_queue()
             display('Stop trigger set.')
             self._cam_close()
@@ -85,6 +93,27 @@ class GenericCam(Process):
                 self.was_saving = False
                 self.queue.put(['STOP'])
             self.stop_trigger.clear()
+
+    def _handle_frame(self,frame,metadata):
+        #display('loop rate : {0}'.format(1./(timestamp - self.lasttime)))
+        frameID,timestamp = metadata
+
+        self.lasttime = timestamp
+        if self.saving.is_set():
+            self.was_saving = True
+            if not frameID == self.lastframeid :
+                self.queue.put((frame.copy(),(frameID,timestamp)))
+        elif self.was_saving:
+            self.was_saving = False
+            self.queue.put(['STOP'])
+        
+        if not frameID == self.lastframeid:
+            t = time.time()
+            if (t - self._tupdate) > self.refresh_period:
+                self.buf[:] = np.reshape(frame,self.buf.shape)[:]
+                self._tupdate = t
+            self.nframes.value += 1
+        self.lastframeid = frameID
 
     def _parse_command_queue(self):
         if not self.eventsQ.empty():
@@ -116,7 +145,7 @@ class GenericCam(Process):
         pass
 
     def _cam_loop(self):
-        '''get a frame and move on'''
+        '''get a frame and move on, returns frame,(frameID,timestamp)'''
         pass
     
     def _cam_waitsoftwaretrigger(self):
@@ -140,11 +169,14 @@ class GenericCam(Process):
         
 # OpenCV camera; some functionality limited (like hardware triggers)
 class OpenCVCam(GenericCam):    
-    def __init__(self, camId = None, outQ = None,
+    def __init__(self,
+                 camId = None,
+                 outQ = None,
                  frameRate = 30.,
                  triggered = Event(),
+                 recorderpar = None,
                  **kwargs):
-        super(OpenCVCam,self).__init__(outQ = outQ)
+        super(OpenCVCam,self).__init__(outQ = outQ, recorderpar = recorderpar)
         self.drivername = 'openCV'
         if camId is None:
             display('Need to supply a camera ID.')
@@ -185,9 +217,9 @@ class OpenCVCam(GenericCam):
         self.frame_rate = float(framerate)
         if not self.cam is None:
             if not self.frame_rate == float(0):
-                res = self.cam.set(cv2.CAP_PROP_FPS,self.frame_rate)
                 res = self.cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
                 res = self.cam.set(cv2.CAP_PROP_EXPOSURE,1./self.frame_rate)
+                res = self.cam.set(cv2.CAP_PROP_FPS,self.frame_rate)
             else:
                 res = self.cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
 
@@ -212,17 +244,8 @@ class OpenCVCam(GenericCam):
             return
         timestamp = time.time()
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        self.nframes.value += 1
-        if self.saving.is_set():
-            self.was_saving = True
-            if not frameID == self.lastframeid :
-                self.queue.put((frame.copy(),(frameID,timestamp)))
-        elif self.was_saving:
-            self.was_saving = False
-            self.queue.put(['STOP'])
-        self.lastframeid = frameID
-        self.buf[:] = frame[:]
-        # This artificially limits the frame rate. 
+        return frame,(frameID,timestamp)
+
     def _cam_close(self):
         self.cam.release()
         display('[OpenCV {0}] - Stopped acquisition.'.format(self.cam_id))

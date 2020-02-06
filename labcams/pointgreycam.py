@@ -1,6 +1,5 @@
 import PySpin
 from .cams import *
-from ctypes import c_uint64
 # Adapted from point grey spinnaker examples
 class TriggerType:
     SOFTWARE = 1
@@ -134,8 +133,9 @@ class PointGreyCam(GenericCam):
                  triggerSource = np.uint16(0),
                  outputs = ['XI_GPO_EXPOSURE_ACTIVE'],
                  triggered = Event(),
+                 recorderpar=None
                  **kwargs):
-        super(PointGreyCam,self).__init__()
+        super(PointGreyCam,self).__init__(outQ = outQ, recorderpar=recorderpar)
         self.drivername = 'PointGrey'
         if camId is None:
             display('[PointGrey] - Need to supply a camera ID.')
@@ -166,7 +166,6 @@ class PointGreyCam(GenericCam):
             roi = [None,None,None,None]
         self.pxformat = pxformat
         self.triggered = triggered
-        self.queue = outQ
         self.outputs = outputs
         self.binning = binning
         self.frame_rate = frameRate
@@ -254,6 +253,7 @@ class PointGreyCam(GenericCam):
         self.frame_rate = float(framerate)
         if not self.cam is None:
             try:
+                self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off) # Need to have the trigger off to set the rate.
                 self.cam.AcquisitionFrameRateEnable.SetValue(True)
             except:
                 pass
@@ -346,20 +346,12 @@ class PointGreyCam(GenericCam):
             else:
                 frame = img.GetNDArray()
             img.Release()
-
             frameID = img.GetFrameID()
             timestamp = img.GetTimeStamp()*1e-9
-            #display('loop rate : {0}'.format(1./(timestamp - self.lasttime)))
-            self.lasttime = timestamp
-            if self.saving.is_set():
-                if not frameID == self.lastframeid :
-                    self.queue.put((frame.copy(),
-                                    (frameID,timestamp)))
-            if not frameID == self.lastframeid:
-                self.buf[:] = np.reshape(frame.copy(),self.buf.shape)[:]
-                self.nframes.value += 1
-            self.lastframeid = frameID
-        
+            return frame,(frameID,timestamp)
+        else:
+            return None,(None,None)
+
     def _cam_close(self):
         if not self.cam is None:
             try:

@@ -10,7 +10,8 @@ class QImagingCam(GenericCam):
                  nFrameBuffers = 1,
                  binning = 2,
                  triggerType = 0,
-                 triggered = Event()):
+                 triggered = Event(),
+                 recorderpar = None):
         '''
         Qimaging camera (tested with the Emc2 only!)
             triggerType (0=freerun,1=hardware,5=software)
