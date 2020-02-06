@@ -20,7 +20,7 @@ import cv2
 # Has last frame on multiprocessing array
 # 
 class GenericCam(Process):
-    def __init__(self, outQ = None, recorderpar = None, refreshperiod = 0.033):
+    def __init__(self, outQ = None, recorderpar = None, refreshperiod = 1/20.):
         Process.__init__(self)
         self.name = ''
         self.cam_id = None
@@ -40,11 +40,10 @@ class GenericCam(Process):
         self._init_ctrevents()
         self.cam_is_running = False
         self.was_saving=False
-        self.recorderpar = None
+        self.recorderpar = recorderpar
         self.refresh_period = refreshperiod
         self._tupdate = time.time()
         self.daemon = True
-
     def stop_saving(self):
         # This will send a stop to stop saving and close the writer.
         if self.saving.is_set():
@@ -56,8 +55,7 @@ class GenericCam(Process):
     def _init_ctrevents(self):
         if hasattr(self,'ctrevents'):
             for c in self.ctrevents.keys():
-                self.ctrevents[c]['call'] ='self.'+self.ctrevents[c]['function']
-            
+                self.ctrevents[c]['call'] ='self.'+self.ctrevents[c]['function']    
     def _init_variables(self,dtype=np.uint8):
         if dtype == np.uint8:
             cdtype = ctypes.c_ubyte
@@ -68,11 +66,23 @@ class GenericCam(Process):
             self.frame.get_obj(),
             dtype = cdtype).reshape([self.h,self.w,self.nchan])
 
+    def _start_recorder(self):
+        if self.queue is None:
+            from .io import FFMPEGCamWriter
+            self.recorder = FFMPEGCamWriter(self,
+                                            filename = self.recorderpar['filename'],
+                                            dataname = self.recorderpar['dataname'],
+                                            datafolder = self.recorderpar['datafolder'],
+                                            framesperfile = 0,
+                                            incrementruns = True,
+                                            crf = self.recorderpar['crf'])
+
     def run(self):
         self._init_ctrevents()
         self.buf = np.frombuffer(self.frame.get_obj(),
                             dtype = self.dtype).reshape([self.h,self.w,self.nchan])
         self.close_event.clear()
+        self._start_recorder()
         while not self.close_event.is_set():
             self._cam_init()
             self._cam_waitsoftwaretrigger()
@@ -91,22 +101,27 @@ class GenericCam(Process):
             self.cam_is_running = False
             if self.was_saving:
                 self.was_saving = False
-                self.queue.put(['STOP'])
+                if not self.queue is None:
+                    self.queue.put(['STOP'])
             self.stop_trigger.clear()
 
     def _handle_frame(self,frame,metadata):
         #display('loop rate : {0}'.format(1./(timestamp - self.lasttime)))
         frameID,timestamp = metadata
-
         self.lasttime = timestamp
         if self.saving.is_set():
             self.was_saving = True
             if not frameID == self.lastframeid :
-                self.queue.put((frame.copy(),(frameID,timestamp)))
+                if self.queue is None:
+                    self.recorder.save(frame,metadata)
+                else:
+                    self.queue.put((frame.copy(),(frameID,timestamp)))
         elif self.was_saving:
             self.was_saving = False
-            self.queue.put(['STOP'])
-        
+            if not self.queue is None:
+                self.queue.put(['STOP'])
+            else:
+                self.recorder.close_run()
         if not frameID == self.lastframeid:
             t = time.time()
             if (t - self._tupdate) > self.refresh_period:
@@ -118,11 +133,16 @@ class GenericCam(Process):
     def _parse_command_queue(self):
         if not self.eventsQ.empty():
             cmd = self.eventsQ.get()
-            if hasattr(self,'ctrevents'):
-                if '=' in cmd:
-                    cmd = cmd.split('=')
+            print(cmd)
+            if '=' in cmd:
+                cmd = cmd.split('=')
+                if hasattr(self,'ctrevents'):
                     self._call_event(cmd[0],cmd[1])
-
+                if cmd[0] == 'filename':
+                    if self.queue is None:
+                        if hasattr(self,'recorder'):
+                            self.recorder.set_filename(cmd[1])
+                    self.recorderpar['filename'] = cmd[1]
 
     def _call_event(self,eventname,eventvalue):
         if eventname in self.ctrevents.keys():

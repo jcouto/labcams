@@ -104,7 +104,6 @@ class GenericWriter(Process):
                      compress=self.compression,
                      description='id:{0};timestamp:{1}'.format(frameid,
                                                                timestamp))
-
     
     def getFromQueueAndSave(self):
         buff = self.inQ.get()
@@ -121,7 +120,7 @@ class GenericWriter(Process):
             return None,msg
         else:
             frame,(frameid,timestamp,) = buff
-            if ((self.framesPerFile == 0 and self.fd is None) or
+            if (self.fd is None or
                 (self.framesPerFile > 0 and np.mod(self.frameCount.value,
                                                    self.framesPerFile)==0)):
                 self.openFile(frame = frame)
@@ -350,7 +349,7 @@ class FFMPEGWriter(GenericWriter):
         self.doutputs = dict(format='h264',
                              pix_fmt='yuv420p',#'gray',
                              vcodec='h264_qsv',#'libx264',
-                             preset='veryfast',#'ultrafast',
+                             #preset='veryfast',#'ultrafast',
                              threads = 1,
                              r = self.frame_rate,
                              crf=self.compression)
@@ -367,8 +366,6 @@ class FFMPEGWriter(GenericWriter):
         if len(frame.shape)> 2:
             indict['pix_fmt'] = 'bgr24'
         indict['s'] = indict['s'].format(self.w,self.h)
-        print(indict)
-        print(self.doutputs)
         self.fd = (ffmpeg
                    .input('pipe:',**indict)
                    .output(filename,**self.doutputs)
@@ -446,27 +443,30 @@ class CamWriter():
                  datafolder=pjoin(os.path.expanduser('~'),'data'),
                  framesperfile=0,
                  incrementruns=True):
+        self.cam = cam
         self.runs = 0
         self.iswriting = False
-        self.framesPerFile = framesPerFile
+        self.framesperfile = framesperfile
         self.filename = filename
         self.datafolder = datafolder
         self.dataname = dataname
         self.foldername = None
         self.filename = None
+        self.nfiles = 0
         self.incrementruns = incrementruns
         self.runs = 0
         self.fd = None
         self.today = datetime.today().strftime('%Y%m%d')
         self.logfile = None
         self.extension = 'nan'
+        self.framecount=0
         
     def set_filename(self,filename):
         if self.iswriting:
             display('Filename changed while writing!!')
             # close file first
         self.filename = filename
-        display('Filename updated: ' + self.getFilename())
+        display('Filename updated: ' + self.get_filename())
     
     def get_filename(self):
         return self.filename
@@ -479,6 +479,7 @@ class CamWriter():
         nfiles = self.nfiles
         folder = pjoin(self.datafolder,self.dataname,self.get_filename())
         if not os.path.exists(folder):
+            display(' ---> Creating folder: {0}'.format(folder))
             os.makedirs(folder)
         filename = pjoin(folder,'{0}_run{1:03d}_{2:08d}.{3}'.format(
             self.today,
@@ -494,7 +495,7 @@ class CamWriter():
                 self.today,
                 self.runs)),'w')
             self.logfile.write('# Camera: {0} log file'.format(
-                self.dataName) + '\n')
+                self.dataname) + '\n')
             self.logfile.write('# Date: {0}'.format(
                 datetime.today().strftime('%d-%m-%Y')) + '\n')
             self.logfile.write('# labcams version: {0}'.format(
@@ -512,17 +513,15 @@ class CamWriter():
                      compress=self.compression,
                      description='id:{0};timestamp:{1}'.format(frameid,
                                                                timestamp))    
-    def _save(self,frame,metadata):
+    def save(self,frame,metadata):
         if frame[0] is None:
             return None,None
-        frameid,timestamp = frame
-        if ((self.framesperfile == 0 and self.fd is None) or
+        frameid,timestamp = metadata
+        if (self.fd is None or
             (self.framesperfile > 0 and np.mod(self.framecount,
                                                self.framesperfile)==0)):
             self.open_file(frame = frame)
-            display('Queue size: {0}'.format(self.inQ.qsize()))
-            self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - '
-                               + 'Queue: {0}'.format(self.inQ.qsize())
+            self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+']'
                                + '\n')
         self._write(frame,frameid,timestamp)
         self.logfile.write('{0},{1}\n'.format(frameid,
@@ -537,18 +536,19 @@ class CamWriter():
                                datetime.today().strftime(
                                    '%y-%m-%d %H:%M:%S')+'] - ' +
                                "Wrote {0} frames on {1} ({2} files).".format(
-                                   self.framecount.value,
+                                   self.framecount,
                                    self.dataname,
                                    self.nfiles) + '\n')
             self.logfile.close()
             self.logfile = None
-            self.runs.value += 1
+            self.runs += 1
         if not self.framecount == 0:
             display("Wrote {0} frames on {1} ({2} files).".format(
                 self.framecount,
                 self.dataname,
                 self.nfiles))
-    
+        self.framecount = 0
+
     def close_file(self):
         pass
 
@@ -565,7 +565,6 @@ class FFMPEGCamWriter(CamWriter):
                                              filename=filename,
                                              dataname=dataname,
                                              framesperfile=framesperfile,
-                                             sleeptime=sleeptime,
                                              incrementruns=incrementruns)
         self.crf = 17
         if not crf is None:
@@ -577,25 +576,25 @@ class FFMPEGCamWriter(CamWriter):
                             s='{}x{}')
         self.w = None
         self.h = None
-        self.doutputs = dict(format='h264',
-                             pix_fmt='yuv420p',#'gray',
-                             vcodec='h264_qsv',#'libx264',
-                             preset='veryfast',#'ultrafast',
-                             threads = 1,
-                             r = self.cam.frame_rate,
-                             crf=self.compression)
         
     def close_file(self):
         if not self.fd is None:
             self.fd.stdin.close()
         self.fd = None
 
-    def _open_file(self,filename):
+    def _open_file(self,filename,frame):
+        self.doutputs = dict(format='h264',
+                             pix_fmt='yuv420p',#'gray',
+                             vcodec='h264_qsv',#'libx264',
+                             #preset='veryfast',#'ultrafast',
+                             threads = 10,
+                             r = self.cam.frame_rate,
+                             crf=self.crf)
         self.w = self.cam.w
         self.h = self.cam.h
         self.nchan = self.cam.nchan
         indict = dict(**self.dinputs)
-        if len(self.nchan)> 2:
+        if self.nchan> 2:
             indict['pix_fmt'] = 'bgr24'
         indict['s'] = indict['s'].format(self.w,self.h)
         self.fd = (ffmpeg

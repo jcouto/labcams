@@ -246,10 +246,13 @@ class LabCamsGUI(QMainWindow):
         # Makes sure that the experiment name has the right slashes.
         if os.path.sep == '/':
             expname = expname.replace('\\',os.path.sep)
-        for flg,writer in zip(self.saveflags,self.writers):
+        for flg,writer,cam in zip(self.saveflags,self.writers,self.cams):
             if flg:
                 if not writer is None:
                     writer.setFilename(expname)
+                else:
+                    display('Setting serial recorder filename.')
+                    cam.eventsQ.put('filename='+expname)
         time.sleep(0.15)
         self.recController.experimentNameEdit.setText(expname)
         

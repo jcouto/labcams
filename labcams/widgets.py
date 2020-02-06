@@ -163,7 +163,8 @@ This will can be differently configured for different cameras.'''
             if flg:
                 if state:
                     cam.saving.set()
-                    writer.write.set()
+                    if not writer is None:
+                        writer.write.set()
                 else:
                     cam.stop_saving()
                     #writer.write.clear()
@@ -443,7 +444,8 @@ class CamWidget(QWidget):
         self.trackerpar = MptrackerParameters(self.eyeTracker,image,eyewidget=self.tracker_roi)
         if self.parent.saveflags[self.iCam]:
             self.trackerToggle = QCheckBox()
-            self.trackerToggle.setChecked(self.parent.writers[self.iCam].trackerFlag.is_set())
+            if not self.parents.writers[self.iCam] is None:
+                self.trackerToggle.setChecked(self.parent.writers[self.iCam].trackerFlag.is_set())
             self.trackerToggle.stateChanged.connect(self.trackerSaveToggle)
             self.trackerpar.pGridSave.addRow(
                 QLabel("Save cameras: "),self.trackerToggle)
@@ -461,12 +463,13 @@ class CamWidget(QWidget):
                                   QDockWidget.DockWidgetClosable)
     def trackerSaveToggle(self,value):
         writer = self.parent.writers[self.iCam]
-        if self.parent.saveflags[self.iCam]:
-            if value:
-                writer.trackerFlag.set()
-                writer.parQ.put((None,self.eyeTracker.parameters))
-            else:
-                writer.trackerFlag.clear()
+        if not writer is None:
+            if self.parent.saveflags[self.iCam]:
+                if value:
+                    writer.trackerFlag.set()
+                    writer.parQ.put((None,self.eyeTracker.parameters))
+                else:
+                    writer.trackerFlag.clear()
 
     def image(self,image,nframe):
         if self.lastnFrame != nframe:
