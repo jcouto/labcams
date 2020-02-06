@@ -349,6 +349,7 @@ class FFMPEGWriter(GenericWriter):
                              pix_fmt='yuv420p',#'gray',
                              vcodec='h264_qsv',#'libx264',
                              preset='veryfast',#'ultrafast',
+                             threads = 1,
                              r = self.frame_rate,
                              crf=self.compression)
         

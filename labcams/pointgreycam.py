@@ -124,6 +124,7 @@ def pg_image_settings(nodemap,X=None,Y=None,W=None,H=None,pxformat='Mono8'):
 class PointGreyCam(GenericCam):
     def __init__(self,
                  camId = None,
+                 serial = None,
                  outQ = None,
                  binning = 1,
                  frameRate = 120,
@@ -138,6 +139,27 @@ class PointGreyCam(GenericCam):
         self.drivername = 'PointGrey'
         if camId is None:
             display('[PointGrey] - Need to supply a camera ID.')
+        self.serial = serial
+        if not serial is None:
+            self.serial = int(serial)
+            drv = PySpin.System.GetInstance()
+            cam_list = drv.GetCameras()
+            serials = []
+            for i,c in enumerate(cam_list):
+                c.Init()
+                nodemap_tldevice = c.GetTLDeviceNodeMap()
+                serial = PySpin.CStringPtr(
+                    nodemap_tldevice.GetNode('DeviceSerialNumber'))
+                serials.append(int(serial.ToString()))
+                del nodemap_tldevice
+            for c in cam_list:
+                c.DeInit()
+                del c
+            cam_list.Clear()
+            drv.ReleaseInstance()
+            print(serials)
+            camId = int(np.where(np.array(serials)==self.serial)[0][0])
+            print(camId)    
         self.drv = None
         self.cam_id = camId
         if not len(roi):
@@ -231,7 +253,10 @@ class PointGreyCam(GenericCam):
         '''Set the exposure time is in us'''
         self.frame_rate = float(framerate)
         if not self.cam is None:
-            self.cam.AcquisitionFrameRateEnable.SetValue(True)
+            try:
+                self.cam.AcquisitionFrameRateEnable.SetValue(True)
+            except:
+                pass
             self.frame_rate = min(self.cam.AcquisitionFrameRate.GetMax(),self.frame_rate)
             self.cam.AcquisitionFrameRate.SetValue(self.frame_rate)
 

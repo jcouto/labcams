@@ -120,7 +120,10 @@ class LabCamsGUI(QMainWindow):
                     cam['roi'] = []
                 if not 'pxformat' in cam.keys():
                     cam['pxformat'] = 'Mono8' #'BayerRG8'
+                if not 'serial' in cam.keys():
+                    cam['serial'] = None #'BayerRG8'
                 self.cams.append(PointGreyCam(camId=cam['id'],
+                                              serial = cam['serial'],
                                               gain = cam['gain'],
                                               roi = cam['roi'],
                                               frameRate = cam['frameRate'],
