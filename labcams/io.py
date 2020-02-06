@@ -349,6 +349,8 @@ class FFMPEGWriter(GenericWriter):
         self.doutputs = dict(format='h264',
                              pix_fmt='yuv420p',#'gray',
                              vcodec='h264_qsv',#'libx264',
+                             global_quality=17, # specific to the qsv
+                             look_ahead=1, 
                              #preset='veryfast',#'ultrafast',
                              threads = 1,
                              r = self.frame_rate,
@@ -586,8 +588,10 @@ class FFMPEGCamWriter(CamWriter):
         self.doutputs = dict(format='h264',
                              pix_fmt='yuv420p',#'gray',
                              vcodec='h264_qsv',#'libx264',
+                             global_quality=17,
+                             look_ahead=1, 
                              #preset='veryfast',#'ultrafast',
-                             threads = 10,
+                             threads = 1,
                              r = self.cam.frame_rate,
                              crf=self.crf)
         self.w = self.cam.w
