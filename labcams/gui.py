@@ -245,7 +245,7 @@ class LabCamsGUI(QMainWindow):
     def setExperimentName(self,expname):
         # Makes sure that the experiment name has the right slashes.
         if os.path.sep == '/':
-            expname = expname.replace('\\',os.path.sep)
+            expname = expname.replace('\\',os.path.sep).strip(' ')
         for flg,writer,cam in zip(self.saveflags,self.writers,self.cams):
             if flg:
                 if not writer is None:

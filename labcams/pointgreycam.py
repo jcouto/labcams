@@ -133,7 +133,7 @@ class PointGreyCam(GenericCam):
                  triggerSource = np.uint16(0),
                  outputs = ['XI_GPO_EXPOSURE_ACTIVE'],
                  triggered = Event(),
-                 recorderpar=None
+                 recorderpar=None,
                  **kwargs):
         super(PointGreyCam,self).__init__(outQ = outQ, recorderpar=recorderpar)
         self.drivername = 'PointGrey'

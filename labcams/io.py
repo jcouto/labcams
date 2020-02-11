@@ -582,11 +582,13 @@ class FFMPEGCamWriter(CamWriter):
     def close_file(self):
         if not self.fd is None:
             self.fd.stdin.close()
+            self.fd.wait()
+            print("------->>> Closed file.")
         self.fd = None
 
     def _open_file(self,filename,frame):
         self.doutputs = dict(format='h264',
-                             pix_fmt='yuv420p',#'gray',
+                             pix_fmt='nv12',#'yuv420p',#'gray',
                              vcodec='h264_qsv',#'libx264',
                              global_quality=17,
                              look_ahead=1, 

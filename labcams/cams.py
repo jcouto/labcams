@@ -106,8 +106,8 @@ class GenericCam(Process):
             self.stop_trigger.clear()
 
     def _handle_frame(self,frame,metadata):
-        #display('loop rate : {0}'.format(1./(timestamp - self.lasttime)))
         frameID,timestamp = metadata
+        #display('loop rate : {0}'.format(1./(timestamp - self.lasttime)))
         self.lasttime = timestamp
         if self.saving.is_set():
             self.was_saving = True
