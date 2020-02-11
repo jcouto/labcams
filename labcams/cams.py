@@ -67,7 +67,7 @@ class GenericCam(Process):
             dtype = cdtype).reshape([self.h,self.w,self.nchan])
 
     def _start_recorder(self):
-        if self.queue is None:
+        if self.queue is None and not self.recorderpar is None:
             from .io import FFMPEGCamWriter
             self.recorder = FFMPEGCamWriter(self,
                                             filename = self.recorderpar['filename'],
