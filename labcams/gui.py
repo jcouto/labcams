@@ -186,6 +186,8 @@ class LabCamsGUI(QMainWindow):
                         filename = expName,
                         dataname = cam['description']))
                 elif cam['saveMethod'] == 'ffmpeg':
+                    if not 'hwaccel' in cam.keys():
+                        cam['hwaccel'] = None                        
                     self.writers.append(FFMPEGWriter(
                         inQ = self.camQueues[-1],
                         datafolder=self.parameters['recorder_path'],
@@ -193,6 +195,7 @@ class LabCamsGUI(QMainWindow):
                         compression = 17,
                         frame_rate = cam['frameRate'],
                         filename = expName,
+                        hwaccel = cam['hwaccel'],
                         dataname = cam['description']))
                 else:
                     self.writers.append(OpenCVWriter(

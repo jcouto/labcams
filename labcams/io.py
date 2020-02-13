@@ -342,6 +342,7 @@ class FFMPEGWriter(GenericWriter):
                  sleeptime = 1./30,
                  frame_rate = 30.,
                  incrementruns=True,
+                 hwaccel = None,
                  compression=None):
         self.extension = 'avi'
         super(FFMPEGWriter,self).__init__(inQ = inQ,
@@ -364,16 +365,29 @@ class FFMPEGWriter(GenericWriter):
                             s='{}x{}')
         self.w = None
         self.h = None
-        self.doutputs = {'-format':'h264',
-                         '-pix_fmt':'yuv420p',#'gray',
-                         '-vcodec':'h264_qsv',#'libx264',
-                         '-global_quality':str(17), # specific to the qsv
-                         '-look_ahead':str(1), 
-                             #preset='veryfast',#'ultrafast',
-                         '-threads':str(1),
-                         '-r':str(self.frame_rate),
-                         '-crf':str(self.compression)}
-        
+        if hwaccel is None:
+            self.doutputs = {'-format':'h264',
+                             '-pix_fmt':'gray',
+                             '-vcodec':'libx264',
+                             '-threads':str(10),
+                             '-crf':str(self.compression)}
+        else:            
+            if hwaccel == 'intel':
+                self.doutputs = {'-format':'h264',
+                                 '-pix_fmt':'yuv420p',#'gray',
+                                 '-vcodec':'h264_qsv',#'libx264',
+                                 '-global_quality':str(25), # specific to the qsv
+                                 '-look_ahead':str(1), 
+                                 #preset='veryfast',#'ultrafast',
+                                 '-threads':str(1),
+                                 '-crf':str(self.compression)}
+            elif hwaccel == 'nvidia':
+                self.doutputs = {'-pix_fmt':'nv12',
+                                 '-level': '40',
+                                 '-gpu':'-1',
+                                 '-vcodec':'h264_nvenc'}
+        self.doutputs['-r'] =str(self.frame_rate)
+
     def closeFile(self):
         if not self.fd is None:
             self.fd.close()
