@@ -149,13 +149,12 @@ class LabCamsGUI(QMainWindow):
                 if not 'pxformat' in cam.keys():
                     cam['pxformat'] = 'Mono8' #'BayerRG8'
                 if not 'serial' in cam.keys():
-                    cam['serial'] = None #'BayerRG8'
+                    # camera serial number
+                    cam['serial'] = None 
                 if not 'binning' in cam.keys():
                     cam['binning'] = None
                 if not 'exposure' in cam.keys():
                     cam['exposure'] = None
-                
-
                 self.cams.append(PointGreyCam(camId=cam['id'],
                                               serial = cam['serial'],
                                               gain = cam['gain'],
@@ -180,30 +179,30 @@ class LabCamsGUI(QMainWindow):
                 if  cam['saveMethod'] == 'tiff':
                     self.writers.append(TiffWriter(
                         inQ = self.camQueues[-1],
-                        dataFolder=self.parameters['recorder_path'],
-                        framesPerFile=self.parameters['recorder_frames_per_file'],
-                        sleepTime = self.parameters['recorder_sleep_time'],
+                        datafolder=self.parameters['recorder_path'],
+                        framesperfile=self.parameters['recorder_frames_per_file'],
+                        sleeptime = self.parameters['recorder_sleep_time'],
                         compression = self.parameters['compress'],
                         filename = expName,
-                        dataName = cam['description']))
+                        dataname = cam['description']))
                 elif cam['saveMethod'] == 'ffmpeg':
                     self.writers.append(FFMPEGWriter(
                         inQ = self.camQueues[-1],
-                        dataFolder=self.parameters['recorder_path'],
-                        sleepTime = self.parameters['recorder_sleep_time'],
+                        datafolder=self.parameters['recorder_path'],
+                        sleeptime = self.parameters['recorder_sleep_time'],
                         compression = 17,
-                        frameRate = cam['frameRate'],
+                        frame_rate = cam['frameRate'],
                         filename = expName,
-                        dataName = cam['description']))
+                        dataname = cam['description']))
                 else:
                     self.writers.append(OpenCVWriter(
                         inQ = self.camQueues[-1],
-                        dataFolder=self.parameters['recorder_path'],
-                        sleepTime = self.parameters['recorder_sleep_time'],
+                        datafolder=self.parameters['recorder_path'],
+                        sleeptime = self.parameters['recorder_sleep_time'],
                         compression = 17,
-                        frameRate = cam['frameRate'],
+                        frame_rate = cam['frameRate'],
                         filename = expName,
-                        dataName = cam['description']))
+                        dataname = cam['description']))
             else:
                 self.writers.append(None)
             # Print parameters
@@ -216,7 +215,8 @@ class LabCamsGUI(QMainWindow):
         self.initUI()
         
         if server:
-            self.serverTimer = QTimer()
+            if not 'server_refresh_time' in self.parameters.keys():
+                self.parameters['server_refresh_time'] = 30
             if not 'server' in self.parameters.keys():
                 self.parameters['server'] = 'zmq'
             if self.parameters['server'] == 'udp':
@@ -236,8 +236,9 @@ class LabCamsGUI(QMainWindow):
                     self.parameters['server_port']))
                 display('Listening to ZMQ port: {0}'.format(
                     self.parameters['server_port']))
+            self.serverTimer = QTimer()
             self.serverTimer.timeout.connect(self.serverActions)
-            self.serverTimer.start(100)
+            self.serverTimer.start(self.parameters['server_refresh_time'])
 
         self.camerasRunning = False
         for cam,writer in zip(self.cams,self.writers):
@@ -298,6 +299,12 @@ class LabCamsGUI(QMainWindow):
         elif message['action'].lower() == 'setmanualsave':
             self.recController.saveOnStartToggle.setChecked(
                 int(message['value']))
+        elif message['action'].lower() == 'log':
+            for cam in self.cam:
+                cam.eventsQ.put('log={0}'.format(message['value']))
+        elif message['action'].lower() == 'ping':
+            display('Server got PING.')
+            
     def triggerCams(self,soft_trigger = True, save=False):
         # stops previous saves if there were any
         display("Waiting for the cameras to be ready.")
@@ -329,7 +336,14 @@ class LabCamsGUI(QMainWindow):
             display('Software triggered cameras.')
         
     def experimentMenuTrigger(self,q):
-        display(q.text()+ "clicked. ")
+        if q.text() == 'Set refresh time':
+            self.timer.stop()
+            res = QInputDialog().getDouble(self,"What refresh period do you want?","GUI refresh period",
+                                           self.updateFrequency)
+            if res[1]:
+                self.updateFrequency = res[0]
+            self.timer.start(self.updateFrequency)
+            #display(q.text()+ "clicked. ")
         
     def initUI(self):
         # Menu
@@ -338,8 +352,8 @@ class LabCamsGUI(QMainWindow):
 )
         from .widgets import CamWidget,RecordingControlWidget
         bar = self.menuBar()
-        editmenu = bar.addMenu("Experiment")
-        editmenu.addAction("New")
+        editmenu = bar.addMenu("Options")
+        editmenu.addAction("Set refresh time")
         editmenu.triggered[QAction].connect(self.experimentMenuTrigger)
         self.setWindowTitle("labcams")
         self.tabs = []

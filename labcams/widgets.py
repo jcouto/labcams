@@ -26,7 +26,8 @@ from PyQt5.QtWidgets import (QWidget,
                              QTableWidget,
                              QMainWindow,
                              QDockWidget,
-                             QFileDialog)
+                             QFileDialog,
+                             QInputDialog)
 from PyQt5.QtGui import QImage, QPixmap,QBrush,QPen,QColor,QFont
 from PyQt5.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
 

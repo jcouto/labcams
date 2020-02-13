@@ -33,7 +33,6 @@ class GenericCam(Process):
         self.saving = Event()
         self.nframes = Value('i',0)
         self.queue = outQ
-        self.cmd_queue = Queue()
         self.camera_ready = Event()
         self.eventsQ = Queue()
         self._init_controls()
@@ -143,14 +142,16 @@ class GenericCam(Process):
                         if hasattr(self,'recorder'):
                             self.recorder.set_filename(cmd[1])
                     self.recorderpar['filename'] = cmd[1]
-
+                elif cmd[0] == 'log':
+                    display('Need to log: {0}'.format(cmd[1]))
+                    
     def _call_event(self,eventname,eventvalue):
         if eventname in self.ctrevents.keys():
             val = eval(self.ctrevents[eventname]['type']+'('+str(eventvalue)+')')
             eval(self.ctrevents[eventname]['call']+'(val)')
             #print(self.ctrevents[eventname])
-        else:
-            display('No event found {0} {1}'.format(eventname,eventvalue))
+#        else:
+#            display('No event found {0} {1}'.format(eventname,eventvalue))
 
     def _cam_init(self):
         '''initialize the camera'''

@@ -16,40 +16,49 @@ from tifffile import imread, TiffFile
 from tifffile import TiffWriter as twriter
 import pandas as pd
 
-VERSION = '0.3'
-
+VERSION = '0.4'
 class GenericWriter(Process):
     def __init__(self,
                  inQ = None,
                  loggerQ = None,
                  filename = pjoin('dummy','run'),
-                 dataName = 'eyecam',
-                 dataFolder=pjoin(os.path.expanduser('~'),'data'),
-                 framesPerFile=0,
-                 sleepTime = 1./30,
-                 incrementRuns=True):
+                 dataname = 'eyecam',
+                 pathformat = pjoin('{datafolder}','{dataname}','{filename}',
+                                    '{today}_{run}_{nfiles}'),
+                 datafolder=pjoin(os.path.expanduser('~'),'data'),
+                 framesperfile=0,
+                 sleeptime = 1./30,
+                 incrementruns=True):
         Process.__init__(self)
+        if not hasattr(self,'extension'):
+            self.extension = 'nan'
         self.frameCount = Value(c_long,0)
         self.runs = Value('i',0)
         self.write = Event()
         self.close = Event()
-        self.sleepTime = sleepTime # seconds
-        self.framesPerFile = framesPerFile
+        self.sleeptime = sleeptime # seconds
+        self.framesperfile = framesperfile
         self.filename = Array('u',' ' * 1024)
-        self.dataFolder = dataFolder
-        self.dataName = dataName
-        self.folderName = None
-        self.fileName = None
-        self.incrementRuns = incrementRuns
+        self.datafolder = datafolder
+        self.dataname = dataname
+        self.foldername = None
+        self.incrementruns = incrementruns
         self.runs.value = 0
         self.fd = None
         self.inQ = inQ
         self.parQ = Queue()
         self.today = datetime.today().strftime('%Y%m%d')
         self.logfile = None
-        self.extension = 'nan'
         self.daemon = True
-
+        runname = 'run{0:03d}'.format(self.runs.value)
+        self.path_format = pathformat
+        self.path_keys =  dict(datafolder=self.datafolder,
+                               dataname=self.dataname,
+                               filename=self.filename,
+                               today = self.today,
+                               run = runname,
+                               nfiles = '{0:08d}'.format(0),
+                               extension = self.extension)
         
     def setFilename(self,filename):
         self.write.clear()
@@ -68,15 +77,16 @@ class GenericWriter(Process):
         self.join()
         
     def openFile(self,nfiles = None,frame = None):
+        self.path_keys['run'] = 'run{0:03d}'.format(self.runs.value)
         nfiles = self.nFiles
-        folder = pjoin(self.dataFolder,self.dataName,self.getFilename())
+        self.path_keys['nfiles'] = '{0:08d}'.format(nfiles)
+        self.path_keys['filename'] = self.getFilename()
+
+        filename = (self.path_format+'.{extension}').format(**self.path_keys)
+        folder = os.path.dirname(filename)
+        
         if not os.path.exists(folder):
             os.makedirs(folder)
-        filename = pjoin(folder,'{0}_run{1:03d}_{2:08d}.{3}'.format(
-            self.today,
-            self.runs.value,
-            nfiles,
-            self.extension))
         if not self.fd is None:
             self.closeFile()
         self._open_file(filename,frame)
@@ -86,7 +96,7 @@ class GenericWriter(Process):
                 self.today,
                 self.runs.value)),'w')
             self.logfile.write('# Camera: {0} log file'.format(
-                self.dataName) + '\n')
+                self.dataname) + '\n')
             self.logfile.write('# Date: {0}'.format(
                 datetime.today().strftime('%d-%m-%Y')) + '\n')
             self.logfile.write('# labcams version: {0}'.format(
@@ -121,14 +131,18 @@ class GenericWriter(Process):
         else:
             frame,(frameid,timestamp,) = buff
             if (self.fd is None or
-                (self.framesPerFile > 0 and np.mod(self.frameCount.value,
-                                                   self.framesPerFile)==0)):
+                (self.framesperfile > 0 and np.mod(self.frameCount.value,
+                                                   self.framesperfile)==0)):
                 self.openFile(frame = frame)
                 display('Queue size: {0}'.format(self.inQ.qsize()))
+
                 self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - '
                                    + 'Queue: {0}'.format(self.inQ.qsize())
                                    + '\n')
             self._write(frame,frameid,timestamp)
+            if np.mod(frameid,1000) == 0:
+                display('[{0} - frame:{1}] Queue size: {2}'.format(
+                    self.dataname,frameid,self.inQ.qsize()))
             self.logfile.write('{0},{1}\n'.format(frameid,
                                                   timestamp))
             self.frameCount.value += 1
@@ -147,7 +161,7 @@ class GenericWriter(Process):
             while not self.inQ.empty():
                 frameid,frame = self.getFromQueueAndSave()
                 display('Queue is empty. Proceding with close.')
-            time.sleep(self.sleepTime)
+            time.sleep(self.sleeptime)
             self.closeRun()
             # self.closeFile()
             # spare the processor just in case...
@@ -160,7 +174,7 @@ class GenericWriter(Process):
                                    '%y-%m-%d %H:%M:%S')+'] - ' +
                                "Wrote {0} frames on {1} ({2} files).".format(
                                    self.frameCount.value,
-                                   self.dataName,
+                                   self.dataname,
                                    self.nFiles) + '\n')
             self.logfile.close()
             self.logfile = None
@@ -168,7 +182,7 @@ class GenericWriter(Process):
         if not self.frameCount.value == 0:
             display("Wrote {0} frames on {1} ({2} files).".format(
                 self.frameCount.value,
-                self.dataName,
+                self.dataname,
                 self.nFiles))
     
     def closeFile(self):
@@ -274,24 +288,24 @@ class TiffWriter(GenericWriter):
                  inQ = None,
                  loggerQ = None,
                  filename = pjoin('dummy','run'),
-                 dataName = 'eyecam',
-                 dataFolder=pjoin(os.path.expanduser('~'),'data'),
-                 framesPerFile=256,
-                 sleepTime = 1./30,
-                 incrementRuns=True,
+                 dataname = 'eyecam',
+                 datafolder=pjoin(os.path.expanduser('~'),'data'),
+                 framesperfile=256,
+                 sleeptime = 1./30,
+                 incrementruns=True,
                  compression=None):
+        self.extension = 'tif'
         super(TiffWriter,self).__init__(inQ = inQ,
                                         loggerQ=loggerQ,
                                         filename=filename,
-                                        dataName=dataName,
-                                        framesPerFile=framesPerFile,
-                                        sleepTime=sleepTime,
-                                        incrementRuns=incrementRuns)
+                                        dataname=dataname,
+                                        framesperfile=framesperfile,
+                                        sleeptime=sleeptime,
+                                        incrementruns=incrementruns)
         self.compression = None
         if not compression is None:
             if compression > 0:
                 self.compression = compression
-        self.extension = 'tif'
 
         self.tracker = None
         self.trackerfile = None
@@ -315,32 +329,96 @@ class TiffWriter(GenericWriter):
 ################################################################################
 ################################################################################
 ################################################################################
-import ffmpeg
+from skvideo.io import FFmpegWriter
+
 class FFMPEGWriter(GenericWriter):
     def __init__(self,
                  inQ = None,
                  loggerQ = None,
                  filename = pjoin('dummy','run'),
-                 dataName = 'eyecam',
-                 dataFolder=pjoin(os.path.expanduser('~'),'data'),
-                 framesPerFile=0,
-                 sleepTime = 1./30,
-                 frameRate = 100.,
-                 incrementRuns=True,
+                 dataname = 'eyecam',
+                 datafolder=pjoin(os.path.expanduser('~'),'data'),
+                 framesperfile=0,
+                 sleeptime = 1./30,
+                 frame_rate = 30.,
+                 incrementruns=True,
                  compression=None):
+        self.extension = 'avi'
         super(FFMPEGWriter,self).__init__(inQ = inQ,
                                           loggerQ=loggerQ,
                                           filename=filename,
-                                          dataName=dataName,
-                                          framesPerFile=framesPerFile,
-                                          sleepTime=sleepTime,
-                                          incrementRuns=incrementRuns)
+                                          dataname=dataname,
+                                          framesperfile=framesperfile,
+                                          sleeptime=sleeptime,
+                                          incrementruns=incrementruns)
         self.compression = 17
         if not compression is None:
             if compression > 0:
                 self.compression = compression
+        if frame_rate <= 0:
+            frame_rate = 30.
+            display('Using frame rate 30 (this value can be set with the frame_rate argument).')
+        self.frame_rate = frame_rate
+        self.dinputs = dict(format='rawvideo',
+                            pix_fmt='gray',
+                            s='{}x{}')
+        self.w = None
+        self.h = None
+        self.doutputs = {'-format':'h264',
+                         '-pix_fmt':'yuv420p',#'gray',
+                         '-vcodec':'h264_qsv',#'libx264',
+                         '-global_quality':str(17), # specific to the qsv
+                         '-look_ahead':str(1), 
+                             #preset='veryfast',#'ultrafast',
+                         '-threads':str(1),
+                         '-r':str(self.frame_rate),
+                         '-crf':str(self.compression)}
+        
+    def closeFile(self):
+        if not self.fd is None:
+            self.fd.close()
+        self.fd = None
+
+    def _open_file(self,filename,frame = None):
+        self.w = frame.shape[1]
+        self.h = frame.shape[0]
+        self.fd = FFmpegWriter(filename,outputdict=self.doutputs)
+
+    def _write(self,frame,frameid,timestamp):
+        self.fd.writeFrame(frame)
+
+################################################################################
+################################################################################
+import ffmpeg
+class FFMPEGWriter_legacy(GenericWriter):
+    def __init__(self,
+                 inQ = None,
+                 loggerQ = None,
+                 filename = pjoin('dummy','run'),
+                 dataname = 'eyecam',
+                 datafolder=pjoin(os.path.expanduser('~'),'data'),
+                 framesperfile=0,
+                 sleeptime = 1./30,
+                 frame_rate = 30.,
+                 incrementruns=True,
+                 compression=None):
+        '''This version wasnt closing files.'''
         self.extension = 'avi'
-        self.frame_rate = frameRate
+        super(FFMPEGWriter,self).__init__(inQ = inQ,
+                                          loggerQ=loggerQ,
+                                          filename=filename,
+                                          dataname=dataname,
+                                          framesperfile=framesperfile,
+                                          sleeptime=sleeptime,
+                                          incrementruns=incrementruns)
+        self.compression = 17
+        if not compression is None:
+            if compression > 0:
+                self.compression = compression
+        if frame_rate <= 0:
+            frame_rate = 30.
+            display('Using frame rate 30 (this value can be set with the frame_rate argument).')
+        self.frame_rate = frame_rate
         self.dinputs = dict(format='rawvideo',
                             pix_fmt='gray',
                             s='{}x{}')
@@ -387,27 +465,27 @@ class OpenCVWriter(GenericWriter):
                  inQ = None,
                  loggerQ = None,
                  filename = pjoin('dummy','run'),
-                 dataName = 'eyecam',
-                 dataFolder=pjoin(os.path.expanduser('~'),'data'),
-                 framesPerFile=0,
-                 sleepTime = 1./30,
-                 incrementRuns=True,
+                 dataname = 'eyecam',
+                 datafolder=pjoin(os.path.expanduser('~'),'data'),
+                 framesperfile=0,
+                 sleeptime = 1./30,
+                 incrementruns=True,
                  compression=None,
-                 frameRate = 100.,
+                 frame_rate = 30.,
                  fourcc = 'X264'):
+        self.extension = 'avi'
         super(OpenCVWriter,self).__init__(inQ = inQ,
                                           loggerQ=loggerQ,
                                           filename=filename,
-                                          dataName=dataName,
-                                          framesPerFile=framesPerFile,
-                                          sleepTime=sleepTime,
-                                          incrementRuns=incrementRuns)
+                                          dataname=dataname,
+                                          framesperfile=framesperfile,
+                                          sleeptime=sleeptime,
+                                          incrementruns=incrementruns)
         cv2.setNumThreads(6)
         self.compression = 17
         if not compression is None:
             if compression > 0:
                 self.compression = compression
-        self.extension = 'avi'
         self.fourcc = cv2.VideoWriter_fourcc(*fourcc)
         self.w = None
         self.h = None
@@ -445,6 +523,9 @@ class CamWriter():
                  datafolder=pjoin(os.path.expanduser('~'),'data'),
                  framesperfile=0,
                  incrementruns=True):
+        if not hasattr(self,'extension'):
+            self.extension = 'nan'
+
         self.cam = cam
         self.runs = 0
         self.iswriting = False
@@ -453,14 +534,12 @@ class CamWriter():
         self.datafolder = datafolder
         self.dataname = dataname
         self.foldername = None
-        self.filename = None
         self.nfiles = 0
         self.incrementruns = incrementruns
         self.runs = 0
         self.fd = None
         self.today = datetime.today().strftime('%Y%m%d')
         self.logfile = None
-        self.extension = 'nan'
         self.framecount=0
         
     def set_filename(self,filename):
@@ -563,6 +642,7 @@ class FFMPEGCamWriter(CamWriter):
                  framesperfile=0,
                  incrementruns=True,
                  crf=None):
+        self.extension = 'avi'
         super(FFMPEGCamWriter,self).__init__(cam=cam,
                                              filename=filename,
                                              dataname=dataname,
@@ -572,7 +652,6 @@ class FFMPEGCamWriter(CamWriter):
         if not crf is None:
             if crf > 0:
                 self.crf = crf
-        self.extension = 'avi'
         self.dinputs = dict(format='rawvideo',
                             pix_fmt='gray',
                             s='{}x{}')
