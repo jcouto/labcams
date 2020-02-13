@@ -125,9 +125,10 @@ class PointGreyCam(GenericCam):
                  camId = None,
                  serial = None,
                  outQ = None,
-                 binning = 1,
-                 frameRate = 120,
-                 gain = 10,
+                 binning = None,
+                 frameRate = None,
+                 exposure = None,
+                 gain = None,
                  roi = [],
                  pxformat = 'Mono8',
                  triggerSource = np.uint16(0),
@@ -157,9 +158,7 @@ class PointGreyCam(GenericCam):
                 del c
             cam_list.Clear()
             drv.ReleaseInstance()
-            print(serials)
             camId = int(np.where(np.array(serials)==self.serial)[0][0])
-            print(camId)    
         self.drv = None
         self.cam_id = camId
         if not len(roi):
@@ -168,6 +167,7 @@ class PointGreyCam(GenericCam):
         self.triggered = triggered
         self.outputs = outputs
         self.binning = binning
+        self.exposure = exposure
         self.frame_rate = frameRate
         self.gain = gain
         self.roi = roi
@@ -212,8 +212,17 @@ class PointGreyCam(GenericCam):
                 units = 'db',
                 type = 'float',
                 min = 0,
-                max = 18,
-                step = 1))
+                max = 20,
+                step = 1),
+            exposure=dict(
+                function = 'set_exposure',
+                widget = 'float',
+                variable = 'exposure',
+                units = 'us',
+                type = 'float',
+                min = 10,
+                max = 20000000000000,
+                step = 100))
 
     def get_one(self):
         self._cam_init()
@@ -250,24 +259,59 @@ class PointGreyCam(GenericCam):
     
     def set_framerate(self,framerate = 120):
         '''Set the exposure time is in us'''
+        if self.triggered.is_set():
+            display('Camera in trigger mode, skipping frame rate setting.')
+            return
+        if framerate is None:
+           return 
         self.frame_rate = float(framerate)
         if not self.cam is None:
+            self.frame_rate = min(self.cam.AcquisitionFrameRate.GetMax(),self.frame_rate)
+            self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off) # Need to have the trigger off to set the rate.
             try:
-                self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off) # Need to have the trigger off to set the rate.
                 self.cam.AcquisitionFrameRateEnable.SetValue(True)
+                self.cam.AcquisitionFrameRate.SetValue(self.frame_rate)
+
             except:
                 pass
-            self.frame_rate = min(self.cam.AcquisitionFrameRate.GetMax(),self.frame_rate)
-            self.cam.AcquisitionFrameRate.SetValue(self.frame_rate)
 
+    def set_binning(self,binning = 1):
+        if binning is None:
+           return 
+        self.binning = int(binning)
+        if not self.cam is None:
+            self.cam.BinningVertical.SetValue(binning)
+            if self.cam.BinningHorizontal.GetAccessMode() == PySpin.RW:
+                self.cam.BinningHorizontal.SetValue(binning)
 
-    def set_gain(self,gain = 10):
+    def set_exposure(self,exposure=None):
+        '''Set the exposure time is in us'''        
+        if exposure is None:
+            if not self.cam is None:
+                self.exposure = self.cam.ExposureTime.GetValue()
+            return
+        self.exposure = exposure
+        if not self.cam is None:
+            if self.cam.ExposureAuto.GetAccessMode() != PySpin.RW:
+                display('[PointGrey] - Cannot disable automatic exposure.')
+                return
+            self.cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
+            if self.cam.ExposureTime.GetAccessMode() != PySpin.RW:
+                display('[PointGrey] - Cannot write to exposure control.')      
+                return
+            exposure_time_to_set = min(self.cam.ExposureTime.GetMax(),
+                                       exposure)
+            self.cam.ExposureTime.SetValue(exposure_time_to_set)
+            
+    def set_gain(self,gain = 1):
         '''Set the gain is in dB'''
+        if gain is None:
+            return
         self.gain = gain
         if not self.cam is None:
             self.cam.GainAuto.SetValue(PySpin.GainAuto_Off)
             self.cam.Gain.SetValue(self.gain)
-
+            
     def _cam_init(self,set_gpio=True):
         self.drv = PySpin.System.GetInstance()
         version = self.drv.GetLibraryVersion()
@@ -299,8 +343,10 @@ class PointGreyCam(GenericCam):
             display('[PointGrey] - timestamp is enabled.')
 
         x,y,w,h = self.roi
+        self.set_binning(self.binning)
         pg_image_settings(self.nodemap,X=x,Y=y,W=w,H=h,pxformat=self.pxformat)
         self.set_framerate(self.frame_rate)
+        self.set_gain(self.gain)
         display('[PointGrey] - Frame rate is:{0}'.format(self.frame_rate))
         self.lastframeid = -1
         self.nframes.value = 0

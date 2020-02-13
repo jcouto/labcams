@@ -88,7 +88,8 @@ class QActionFloat(QWidgetAction):
         self.setDefaultWidget(self.subw)
         if not vmax is None:
             self.spin.setMaximum(vmax)
-        self.spin.setValue(value)
+        if not value is None:
+            self.spin.setValue(value)
         if not vmin is None:
             self.spin.setMinimum(vmin)
         self.value = self.spin.value

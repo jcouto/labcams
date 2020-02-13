@@ -150,12 +150,20 @@ class LabCamsGUI(QMainWindow):
                     cam['pxformat'] = 'Mono8' #'BayerRG8'
                 if not 'serial' in cam.keys():
                     cam['serial'] = None #'BayerRG8'
+                if not 'binning' in cam.keys():
+                    cam['binning'] = None
+                if not 'exposure' in cam.keys():
+                    cam['exposure'] = None
+                
+
                 self.cams.append(PointGreyCam(camId=cam['id'],
                                               serial = cam['serial'],
                                               gain = cam['gain'],
                                               roi = cam['roi'],
                                               frameRate = cam['frameRate'],
                                               pxformat = cam['pxformat'],
+                                              exposure = cam['exposure'],
+                                              binning = cam['binning'],
                                               outQ = self.camQueues[-1],
                                               triggered = self.triggered,
                                               recorderpar = recorderpar))
