@@ -155,6 +155,8 @@ class LabCamsGUI(QMainWindow):
                     cam['binning'] = None
                 if not 'exposure' in cam.keys():
                     cam['exposure'] = None
+                if not 'gamma' in cam.keys():
+                    cam['gamma'] = None
                 self.cams.append(PointGreyCam(camId=cam['id'],
                                               serial = cam['serial'],
                                               gain = cam['gain'],
@@ -163,6 +165,7 @@ class LabCamsGUI(QMainWindow):
                                               pxformat = cam['pxformat'],
                                               exposure = cam['exposure'],
                                               binning = cam['binning'],
+                                              gamma = cam['gamma'],
                                               outQ = self.camQueues[-1],
                                               triggered = self.triggered,
                                               recorderpar = recorderpar))

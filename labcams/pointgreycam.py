@@ -78,6 +78,23 @@ def pg_image_settings(nodemap,X=None,Y=None,W=None,H=None,pxformat='Mono8'):
                 pixel_format_mono8 = node_pixel_format_mono8.GetValue()
                 # Set integer as new value for enumeration node
                 node_pixel_format.SetIntValue(pixel_format_mono8)
+                # Set width
+        node_width = PySpin.CIntegerPtr(nodemap.GetNode('Width'))
+        if PySpin.IsAvailable(node_width) and PySpin.IsWritable(node_width):
+            if W is None:
+                W = node_width.GetMax()
+            node_width.SetValue(W)
+        else:
+            display('[PointGrey] -  Width not available...')
+
+        # Set height
+        node_height = PySpin.CIntegerPtr(nodemap.GetNode('Height'))
+        if PySpin.IsAvailable(node_height) and PySpin.IsWritable(node_height):
+            if H is None:
+                H = node_height.GetMax()
+            node_height.SetValue(H)
+        else:
+            display('[PointGrey] - Height not available...')
         # Apply offset X
         node_offset_x = PySpin.CIntegerPtr(nodemap.GetNode('OffsetX'))
         if PySpin.IsAvailable(node_offset_x) and PySpin.IsWritable(node_offset_x):
@@ -96,24 +113,6 @@ def pg_image_settings(nodemap,X=None,Y=None,W=None,H=None,pxformat='Mono8'):
         else:
             display('[PointGrey] - Offset Y not available...')
 
-        # Set width
-        node_width = PySpin.CIntegerPtr(nodemap.GetNode('Width'))
-        if PySpin.IsAvailable(node_width) and PySpin.IsWritable(node_width):
-            if W is None:
-                W = node_width.GetMax()
-            node_width.SetValue(W)
-        else:
-            display('[PointGrey] -  Width not available...')
-
-        # Set height
-        node_height = PySpin.CIntegerPtr(nodemap.GetNode('Height'))
-        if PySpin.IsAvailable(node_height) and PySpin.IsWritable(node_height):
-            if H is None:
-                H = node_height.GetMax()
-            node_height.SetValue(H)
-        else:
-            display('[PointGrey] - Height not available...')
-
     except PySpin.SpinnakerException as ex:
         display('[PointGrey] Error: %s' % ex)
         return False
@@ -129,6 +128,7 @@ class PointGreyCam(GenericCam):
                  frameRate = None,
                  exposure = None,
                  gain = None,
+                 gamma = None,
                  roi = [],
                  pxformat = 'Mono8',
                  triggerSource = np.uint16(0),
@@ -164,6 +164,7 @@ class PointGreyCam(GenericCam):
         if not len(roi):
             roi = [None,None,None,None]
         self.pxformat = pxformat
+        self.gamma = gamma
         self.triggered = triggered
         self.outputs = outputs
         self.binning = binning
@@ -222,7 +223,16 @@ class PointGreyCam(GenericCam):
                 type = 'float',
                 min = 10,
                 max = 20000000000000,
-                step = 100))
+                step = 100),
+            gamma=dict(
+                function = 'set_gamma',
+                widget = 'float',
+                variable = 'gamma',
+                units = 'NA',
+                type = 'float',
+                min = 0,
+                max = 3.9,
+                step = 0.01))
 
     def get_one(self):
         self._cam_init()
@@ -270,10 +280,12 @@ class PointGreyCam(GenericCam):
             self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off) # Need to have the trigger off to set the rate.
             try:
                 self.cam.AcquisitionFrameRateEnable.SetValue(True)
-                self.cam.AcquisitionFrameRate.SetValue(self.frame_rate)
-
             except:
+                display('[PointGrey] - Could not set frame rate enable.')
                 pass
+            self.cam.AcquisitionFrameRate.SetValue(self.frame_rate)
+            display('[PointGrey] - Frame rate: {0}'.format(
+            self.cam.AcquisitionFrameRate.GetValue()))
 
     def set_binning(self,binning = 1):
         if binning is None:
@@ -302,6 +314,22 @@ class PointGreyCam(GenericCam):
             exposure_time_to_set = min(self.cam.ExposureTime.GetMax(),
                                        exposure)
             self.cam.ExposureTime.SetValue(exposure_time_to_set)
+
+    def set_gamma(self,gamma=None):
+        '''Set gamma'''
+        if gamma is None:
+            return
+        self.gamma = gamma
+        if not self.cam is None:
+            
+            genable = PySpin.CBooleanPtr(self.nodemap.GetNode("GammaEnabled"))
+            if not PySpin.IsWritable(genable):
+                display('[PointGrey] - Cannot control gamma (check LUT?).')
+                genable.SetValue(True)
+            if self.cam.Gamma.GetAccessMode() != PySpin.RW:
+                display('[PointGrey] - Cannot set gamma.')
+                return
+            self.cam.Gamma.SetValue(gamma)
             
     def set_gain(self,gain = 1):
         '''Set the gain is in dB'''
@@ -345,9 +373,10 @@ class PointGreyCam(GenericCam):
         x,y,w,h = self.roi
         self.set_binning(self.binning)
         pg_image_settings(self.nodemap,X=x,Y=y,W=w,H=h,pxformat=self.pxformat)
-        self.set_framerate(self.frame_rate)
         self.set_gain(self.gain)
-        display('[PointGrey] - Frame rate is:{0}'.format(self.frame_rate))
+        self.set_exposure(self.exposure)
+        self.set_gamma(self.gamma)
+        self.set_framerate(self.frame_rate)
         self.lastframeid = -1
         self.nframes.value = 0
         self.camera_ready.set()
