@@ -88,14 +88,20 @@ class GenericCam(Process):
             if not self.stop_trigger.is_set():
                 self._cam_startacquisition()
                 self.cam_is_running = True
-            self.camera_ready.clear()
-            self.start_trigger.clear()
             while not self.stop_trigger.is_set():
                 frame,metadata = self._cam_loop()
                 if not frame is None:
                     self._handle_frame(frame,metadata)
                 self._parse_command_queue()
+                # to be able to pause acquisition on software trigger
+                if not self.start_trigger.is_set():
+                    self._cam_stopacquisition()
+                    self._cam_waitsoftwaretrigger()
+                    if not self.stop_trigger.is_set():
+                        self._cam_startacquisition()
+                        self.cam_is_running = True
             display('Stop trigger set.')
+            self.start_trigger.clear()
             self._cam_close()
             self.cam_is_running = False
             if self.was_saving:
@@ -107,7 +113,6 @@ class GenericCam(Process):
     def _handle_frame(self,frame,metadata):
         frameID,timestamp = metadata
         #display('loop rate : {0}'.format(1./(timestamp - self.lasttime)))
-        self.lasttime = timestamp
         if self.saving.is_set():
             self.was_saving = True
             if not frameID == self.lastframeid :
@@ -128,6 +133,7 @@ class GenericCam(Process):
                 self._tupdate = t
             self.nframes.value += 1
         self.lastframeid = frameID
+        self.lasttime = timestamp
 
     def _parse_command_queue(self):
         if not self.eventsQ.empty():
@@ -143,8 +149,11 @@ class GenericCam(Process):
                             self.recorder.set_filename(cmd[1])
                     self.recorderpar['filename'] = cmd[1]
                 elif cmd[0] == 'log':
-                    display('Need to log: {0}'.format(cmd[1]))
-                    
+                    if not self.queue is None:
+                        self.queue.put(['# {0},{1} - {2}'.format(self.lastframeid,self.lasttime,cmd[1])])
+                    else:
+                        display('Need to implement log: {0}'.format(cmd[1]))
+
     def _call_event(self,eventname,eventvalue):
         if eventname in self.ctrevents.keys():
             val = eval(self.ctrevents[eventname]['type']+'('+str(eventvalue)+')')
@@ -159,6 +168,10 @@ class GenericCam(Process):
 
     def _cam_startacquisition(self):
         '''start camera acq'''
+        pass
+
+    def _cam_stopacquisition(self):
+        '''stop camera acq'''
         pass
     
     def _cam_close(self):

@@ -405,6 +405,9 @@ class PointGreyCam(GenericCam):
             
         self.cam.BeginAcquisition()
         display('PointGrey [{0}] - Started acquitition.'.format(self.cam_id))            
+    def _cam_stopacquisition(self):
+        '''stop camera acq'''
+        self.cam.EndAcquisition()
 
 
     def _cam_loop(self):

@@ -128,8 +128,24 @@ This will can be differently configured for different cameras.'''
         self.saveOnStartToggle.setChecked(self.parent.saveOnStart)
         self.saveOnStartToggle.stateChanged.connect(self.toggleSaveOnStart)
         form.addRow(QLabel("Manual save: "),self.saveOnStartToggle)
+        self.softTriggerToggle = QCheckBox()
+        self.softTriggerToggle.setChecked(self.parent.software_trigger)
+        self.softTriggerToggle.stateChanged.connect(
+            self.toggleSoftwareTriggered)
+        label = QLabel("Software trigger: ")
+        label.setToolTip(info)
+        info = '''Toggle the software trigger to start or stop acquisition via software.'''
+        self.softTriggerToggle.setToolTip(info)
+        form.addRow(label,self.softTriggerToggle)
         self.setLayout(form)
-
+    def toggleSoftwareTriggered(self,value):
+        display('Software trigger pressed [{0}]'.format(value))
+        if value:
+            for cam in self.parent.cams:
+                cam.start_trigger.set()
+        else:
+            for cam in self.parent.cams:
+                cam.start_trigger.clear()
     def toggleTriggered(self,value):
         display('Hardware trigger mode pressed [{0}]'.format(value))
         if value:

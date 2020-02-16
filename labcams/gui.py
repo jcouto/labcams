@@ -18,8 +18,6 @@ class LabCamsGUI(QMainWindow):
                  updateFrequency = 33):
         '''
         Graphical interface for controling labcams.
-        General parameters:
-            - 
         '''
         super(LabCamsGUI,self).__init__()
         display('Starting labcams interface.')
@@ -208,10 +206,13 @@ class LabCamsGUI(QMainWindow):
                     self.parameters['compress'] = 0
                 if not 'saveMethod' in cam.keys():
                     cam['saveMethod'] = 'tiff'
+                if not 'recorder_path_format' in self.parameters.keys():
+                    self.parameters['recorder_path_format'] = pjoin('{datafolder}','{dataname}','{filename}','{today}_{run}_{nfiles}')
                 if  cam['saveMethod'] == 'tiff':
                     self.writers.append(TiffWriter(
                         inQ = self.camQueues[-1],
                         datafolder=self.parameters['recorder_path'],
+                        pathformat = self.parameters['recorder_path_format'],
                         framesperfile=self.parameters['recorder_frames_per_file'],
                         sleeptime = self.parameters['recorder_sleep_time'],
                         compression = self.parameters['compress'],
@@ -224,6 +225,7 @@ class LabCamsGUI(QMainWindow):
                         inQ = self.camQueues[-1],
                         datafolder=self.parameters['recorder_path'],
                         sleeptime = self.parameters['recorder_sleep_time'],
+                        pathformat = self.parameters['recorder_path_format'],
                         compression = 17,
                         frame_rate = cam['frameRate'],
                         filename = expName,
@@ -233,6 +235,7 @@ class LabCamsGUI(QMainWindow):
                     self.writers.append(OpenCVWriter(
                         inQ = self.camQueues[-1],
                         datafolder=self.parameters['recorder_path'],
+                        pathformat = self.parameters['recorder_path_format'],
                         sleeptime = self.parameters['recorder_sleep_time'],
                         compression = 17,
                         frame_rate = cam['frameRate'],
@@ -295,8 +298,8 @@ class LabCamsGUI(QMainWindow):
             self.setExperimentName(message['value'])
             self.udpsocket.sendto(b'ok=expname',address)
         elif message['action'].lower() == 'softtrigger':
-            for cam in self.cams:
-                cam.start_trigger.set()
+            self.recController.softTriggerToggle.setChecked(
+                int(message['value']))
             self.udpsocket.sendto(b'ok=software_trigger',address)
         elif message['action'].lower() == 'trigger':
             for cam in self.cams:
@@ -312,12 +315,12 @@ class LabCamsGUI(QMainWindow):
             self.recController.camTriggerToggle.setChecked(
                 int(message['value']))
             self.udpsocket.sendto(b'ok=hardware_trigger',address)
-        elif message['action'].lower() == 'setmanualsave':
+        elif message['action'].lower() in ['setmanualsave','manualsave']:
             self.recController.saveOnStartToggle.setChecked(
                 int(message['value']))
             self.udpsocket.sendto(b'ok=save',address)
         elif message['action'].lower() == 'log':
-            for cam in self.cam:
+            for cam in self.cams:
                 cam.eventsQ.put('log={0}'.format(message['value']))
             self.udpsocket.sendto(b'ok=log',address)
         elif message['action'].lower() == 'ping':

@@ -92,9 +92,9 @@ class GenericWriter(Process):
         self._open_file(filename,frame)
         # Create a log file
         if self.logfile is None:
-            self.logfile = open(pjoin(folder,'{0}_run{1:03d}.camlog'.format(
-                self.today,
-                self.runs.value)),'w')
+            logfname = filename.replace('.{extension}'.format(
+                **self.path_keys),'.camlog')
+            self.logfile = open(logfname,'w')
             self.logfile.write('# Camera: {0} log file'.format(
                 self.dataname) + '\n')
             self.logfile.write('# Date: {0}'.format(
@@ -127,6 +127,8 @@ class GenericWriter(Process):
             if msg in ['STOP']:
                 display('Stopping writer (end of queue).')
                 self.write.clear()
+            elif msg.startswith('#'):
+                self.logfile.write(msg + '\n')
             return None,msg
         else:
             frame,(frameid,timestamp,) = buff
@@ -140,7 +142,7 @@ class GenericWriter(Process):
                                    + 'Queue: {0}'.format(self.inQ.qsize())
                                    + '\n')
             self._write(frame,frameid,timestamp)
-            if np.mod(frameid,1000) == 0:
+            if np.mod(frameid,7000) == 0:
                 display('[{0} - frame:{1}] Queue size: {2}'.format(
                     self.dataname,frameid,self.inQ.qsize()))
             self.logfile.write('{0},{1}\n'.format(frameid,
@@ -289,6 +291,8 @@ class TiffWriter(GenericWriter):
                  loggerQ = None,
                  filename = pjoin('dummy','run'),
                  dataname = 'eyecam',
+                 pathformat = pjoin('{datafolder}','{dataname}','{filename}',
+                                    '{today}_{run}_{nfiles}'),
                  datafolder=pjoin(os.path.expanduser('~'),'data'),
                  framesperfile=256,
                  sleeptime = 1./30,
@@ -299,6 +303,7 @@ class TiffWriter(GenericWriter):
                                         loggerQ=loggerQ,
                                         filename=filename,
                                         dataname=dataname,
+                                        pathformat=pathformat,
                                         framesperfile=framesperfile,
                                         sleeptime=sleeptime,
                                         incrementruns=incrementruns)
@@ -338,6 +343,8 @@ class FFMPEGWriter(GenericWriter):
                  filename = pjoin('dummy','run'),
                  dataname = 'eyecam',
                  datafolder=pjoin(os.path.expanduser('~'),'data'),
+                 pathformat = pjoin('{datafolder}','{dataname}','{filename}',
+                                    '{today}_{run}_{nfiles}'),
                  framesperfile=0,
                  sleeptime = 1./30,
                  frame_rate = 30.,
@@ -349,6 +356,7 @@ class FFMPEGWriter(GenericWriter):
                                           loggerQ=loggerQ,
                                           filename=filename,
                                           dataname=dataname,
+                                          pathformat = pathformat,
                                           framesperfile=framesperfile,
                                           sleeptime=sleeptime,
                                           incrementruns=incrementruns)
@@ -411,6 +419,8 @@ class FFMPEGWriter_legacy(GenericWriter):
                  filename = pjoin('dummy','run'),
                  dataname = 'eyecam',
                  datafolder=pjoin(os.path.expanduser('~'),'data'),
+                 pathformat = pjoin('{datafolder}','{dataname}','{filename}',
+                                    '{today}_{run}_{nfiles}'),
                  framesperfile=0,
                  sleeptime = 1./30,
                  frame_rate = 30.,
@@ -422,6 +432,7 @@ class FFMPEGWriter_legacy(GenericWriter):
                                           loggerQ=loggerQ,
                                           filename=filename,
                                           dataname=dataname,
+                                          pathformat=pathformat,
                                           framesperfile=framesperfile,
                                           sleeptime=sleeptime,
                                           incrementruns=incrementruns)
@@ -480,6 +491,8 @@ class OpenCVWriter(GenericWriter):
                  loggerQ = None,
                  filename = pjoin('dummy','run'),
                  dataname = 'eyecam',
+                 pathformat = pjoin('{datafolder}','{dataname}','{filename}',
+                                    '{today}_{run}_{nfiles}'),
                  datafolder=pjoin(os.path.expanduser('~'),'data'),
                  framesperfile=0,
                  sleeptime = 1./30,
@@ -491,6 +504,7 @@ class OpenCVWriter(GenericWriter):
         super(OpenCVWriter,self).__init__(inQ = inQ,
                                           loggerQ=loggerQ,
                                           filename=filename,
+                                          pathformat = pathformat,
                                           dataname=dataname,
                                           framesperfile=framesperfile,
                                           sleeptime=sleeptime,
@@ -535,6 +549,8 @@ class CamWriter():
                  filename = pjoin('dummy','run'),
                  dataname = 'eyecam',
                  datafolder=pjoin(os.path.expanduser('~'),'data'),
+                 pathformat = pjoin('{datafolder}','{dataname}','{filename}',
+                                    '{today}_{run}_{nfiles}'),
                  framesperfile=0,
                  incrementruns=True):
         if not hasattr(self,'extension'):
@@ -653,6 +669,8 @@ class FFMPEGCamWriter(CamWriter):
                  filename = pjoin('dummy','run'),
                  dataname = 'eyecam',
                  datafolder=pjoin(os.path.expanduser('~'),'data'),
+                 pathformat = pjoin('{datafolder}','{dataname}','{filename}',
+                                    '{today}_{run}_{nfiles}'),
                  framesperfile=0,
                  incrementruns=True,
                  crf=None):
@@ -660,6 +678,7 @@ class FFMPEGCamWriter(CamWriter):
         super(FFMPEGCamWriter,self).__init__(cam=cam,
                                              filename=filename,
                                              dataname=dataname,
+                                             pathformat = pathformat,
                                              framesperfile=framesperfile,
                                              incrementruns=incrementruns)
         self.crf = 17
