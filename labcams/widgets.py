@@ -407,8 +407,8 @@ class CamWidget(QWidget):
                 self.trackerpar.close()
                 self.trackerTab.close()
                 [self.p1.removeItem(c) for c in self.tracker_roi.items()]
-        self.etrackercheck.checkbox.setChecked(self.parameters['TrackEye'])
         self.parameters['TrackEye'] = not self.parameters['TrackEye']
+        self.etrackercheck.checkbox.setChecked(self.parameters['TrackEye'])
 
     def saveImageFromCamera(self):
         self.parent.timer.stop()

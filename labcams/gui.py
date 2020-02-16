@@ -14,6 +14,7 @@ class LabCamsGUI(QMainWindow):
                  server = True,
                  saveOnStart = False,
                  triggered = False,
+                 software_trigger = True,
                  updateFrequency = 33):
         '''
         Graphical interface for controling labcams.
@@ -27,11 +28,39 @@ class LabCamsGUI(QMainWindow):
         self.updateFrequency=updateFrequency
         self.saveOnStart = saveOnStart
         self.cam_descriptions = camDescriptions
+        self.software_trigger = software_trigger
         self.triggered = Event()
         if triggered:
             self.triggered.set()
         else:
             self.triggered.clear()
+        if server:
+            if not 'server_refresh_time' in self.parameters.keys():
+                self.parameters['server_refresh_time'] = 30
+            if not 'server' in self.parameters.keys():
+                self.parameters['server'] = 'zmq'
+            if self.parameters['server'] == 'udp':
+                import socket
+                self.udpsocket = socket.socket(socket.AF_INET, 
+                                     socket.SOCK_DGRAM) # UDP
+                self.udpsocket.bind(('0.0.0.0',
+                                     self.parameters['server_port']))
+                display('Listening to UDP port: {0}'.format(
+                    self.parameters['server_port']))
+                self.udpsocket.settimeout(.02)
+            else:
+                import zmq
+                self.zmqContext = zmq.Context()
+                self.zmqSocket = self.zmqContext.socket(zmq.REP)
+                self.zmqSocket.bind('tcp://0.0.0.0:{0}'.format(
+                    self.parameters['server_port']))
+                display('Listening to ZMQ port: {0}'.format(
+                    self.parameters['server_port']))
+            self.serverTimer = QTimer()
+            self.serverTimer.timeout.connect(self.serverActions)
+            self.serverTimer.start(self.parameters['server_refresh_time'])
+
+
         # Init cameras
         camdrivers = [cam['driver'] for cam in camDescriptions]
         if 'AVT' in camdrivers:
@@ -220,32 +249,6 @@ class LabCamsGUI(QMainWindow):
 
         self.initUI()
         
-        if server:
-            if not 'server_refresh_time' in self.parameters.keys():
-                self.parameters['server_refresh_time'] = 30
-            if not 'server' in self.parameters.keys():
-                self.parameters['server'] = 'zmq'
-            if self.parameters['server'] == 'udp':
-                import socket
-                self.udpsocket = socket.socket(socket.AF_INET, 
-                                     socket.SOCK_DGRAM) # UDP
-                self.udpsocket.bind(('0.0.0.0',
-                                     self.parameters['server_port']))
-                display('Listening to UDP port: {0}'.format(
-                    self.parameters['server_port']))
-                self.udpsocket.settimeout(.02)
-            else:
-                import zmq
-                self.zmqContext = zmq.Context()
-                self.zmqSocket = self.zmqContext.socket(zmq.REP)
-                self.zmqSocket.bind('tcp://0.0.0.0:{0}'.format(
-                    self.parameters['server_port']))
-                display('Listening to ZMQ port: {0}'.format(
-                    self.parameters['server_port']))
-            self.serverTimer = QTimer()
-            self.serverTimer.timeout.connect(self.serverActions)
-            self.serverTimer.start(self.parameters['server_refresh_time'])
-
         self.camerasRunning = False
         for cam,writer in zip(self.cams,self.writers):
             cam.start()
@@ -255,7 +258,7 @@ class LabCamsGUI(QMainWindow):
         while camready != len(self.cams):
             camready = np.sum([cam.camera_ready.is_set() for cam in self.cams])
         display('Initialized cameras.')
-        self.triggerCams(save=self.saveOnStart)
+        self.triggerCams(soft_trigger = self.software_trigger,save=self.saveOnStart)
 
     def setExperimentName(self,expname):
         # Makes sure that the experiment name has the right slashes.
@@ -290,6 +293,11 @@ class LabCamsGUI(QMainWindow):
         display('Server received message: {0}'.format(message))
         if message['action'].lower() == 'expname':
             self.setExperimentName(message['value'])
+            self.udpsocket.sendto(b'ok=expname',address)
+        elif message['action'].lower() == 'softtrigger':
+            for cam in self.cams:
+                cam.start_trigger.set()
+            self.udpsocket.sendto(b'ok=software_trigger',address)
         elif message['action'].lower() == 'trigger':
             for cam in self.cams:
                 cam.stop_acquisition()
@@ -298,19 +306,26 @@ class LabCamsGUI(QMainWindow):
                 cam.stop_saving()
                 #if not writer is None: # Logic moved to inside camera.
                 #    writer.write.clear()
-            self.triggerCams(save = True)
+            self.triggerCams(soft_trigger = self.software_trigger,save = True)
+            self.udpsocket.sendto(b'ok=save_hardwaretrigger',address)
         elif message['action'].lower() == 'settrigger':
             self.recController.camTriggerToggle.setChecked(
                 int(message['value']))
+            self.udpsocket.sendto(b'ok=hardware_trigger',address)
         elif message['action'].lower() == 'setmanualsave':
             self.recController.saveOnStartToggle.setChecked(
                 int(message['value']))
+            self.udpsocket.sendto(b'ok=save',address)
         elif message['action'].lower() == 'log':
             for cam in self.cam:
                 cam.eventsQ.put('log={0}'.format(message['value']))
+            self.udpsocket.sendto(b'ok=log',address)
         elif message['action'].lower() == 'ping':
             display('Server got PING.')
-            
+            self.udpsocket.sendto(b'pong',address)
+        elif message['action'].lower() == 'quit':
+            self.udpsocket.sendto(b'ok=bye',address)
+            self.close()
     def triggerCams(self,soft_trigger = True, save=False):
         # stops previous saves if there were any
         display("Waiting for the cameras to be ready.")
@@ -458,7 +473,10 @@ def main():
                         type=str,
                         default = None,
                         action='store')
-    parser.add_argument('--triggered',
+    parser.add_argument('-w','--wait',
+                        default = False,
+                        action='store_true')
+    parser.add_argument('-t','--triggered',
                         default=False,
                         action='store_true')
     parser.add_argument('-c','--cam-select',
@@ -484,8 +502,9 @@ def main():
                    camDescriptions = cams,
                    parameters = parameters,
                    server = not opts.no_server,
+                   software_trigger = not opts.wait,
                    triggered = opts.triggered)
     sys.exit(app.exec_())
-
+    
 if __name__ == '__main__':
     main()
