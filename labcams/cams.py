@@ -138,7 +138,6 @@ class GenericCam(Process):
     def _parse_command_queue(self):
         if not self.eventsQ.empty():
             cmd = self.eventsQ.get()
-            print(cmd)
             if '=' in cmd:
                 cmd = cmd.split('=')
                 if hasattr(self,'ctrevents'):

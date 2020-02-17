@@ -137,6 +137,15 @@ This will can be differently configured for different cameras.'''
         info = '''Toggle the software trigger to start or stop acquisition via software.'''
         self.softTriggerToggle.setToolTip(info)
         form.addRow(label,self.softTriggerToggle)
+        self.udpmessages = QLabel('')
+        b1=QFont()
+        b1.setPixelSize(16)
+        b1.setFamily('Regular')
+        b1.setBold(True)
+        self.udpmessages.setFont(b1)
+        self.udpmessages.setStyleSheet("color: rgb(255,165,0)")
+        form.addRow(self.udpmessages)
+        
         self.setLayout(form)
     def toggleSoftwareTriggered(self,value):
         display('Software trigger pressed [{0}]'.format(value))
@@ -215,10 +224,19 @@ class CamWidget(QWidget):
         self.text = pg.TextItem('',color = [220,80,80],anchor = [0,0])
         p1.addItem(self.text)
         b=QFont()
-        b.setPixelSize(18)
+        b.setPixelSize(14)
         b.setFamily('Regular')
         b.setBold(False)
         self.text.setFont(b)
+        # remotemsg
+        #self.text_remote = pg.TextItem('',color = [220,100,200],anchor = [0,0.1])
+        #p1.addItem(self.text_remote)
+        #b1=QFont()
+        #b1.setPixelSize(14)
+        #b1.setFamily('Regular')
+        #b1.setBold(False)
+        #self.text_remote.setFont(b1)
+        
         self.layout.addWidget(win,0,0)
         self.p1 = p1
         self.autoRange = True

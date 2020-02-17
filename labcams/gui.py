@@ -293,7 +293,7 @@ class LabCamsGUI(QMainWindow):
             message = dict(action=msg[0])
             if len(msg) > 1:
                 message = dict(message,value=msg[1])
-        display('Server received message: {0}'.format(message))
+        #display('Server received message: {0}'.format(message))
         if message['action'].lower() == 'expname':
             self.setExperimentName(message['value'])
             self.udpsocket.sendto(b'ok=expname',address)
@@ -322,7 +322,10 @@ class LabCamsGUI(QMainWindow):
         elif message['action'].lower() == 'log':
             for cam in self.cams:
                 cam.eventsQ.put('log={0}'.format(message['value']))
+            # write on display
+            #self.camwidgets[0].text_remote.setText(message['value'])
             self.udpsocket.sendto(b'ok=log',address)
+            self.recController.udpmessages.setText(message['value'])
         elif message['action'].lower() == 'ping':
             display('Server got PING.')
             self.udpsocket.sendto(b'pong',address)
