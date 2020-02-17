@@ -270,7 +270,7 @@ class LabCamsGUI(QMainWindow):
         for flg,writer,cam in zip(self.saveflags,self.writers,self.cams):
             if flg:
                 if not writer is None:
-                    writer.setFilename(expname)
+                    writer.set_filename(expname)
                 else:
                     display('Setting serial recorder filename.')
                     cam.eventsQ.put('filename='+expname)
@@ -451,10 +451,6 @@ class LabCamsGUI(QMainWindow):
                                                 self.writers)):
             if flg:
                 if not writer is None:
-                    display('   ' + self.cam_descriptions[c]['name']+
-                            ' [ Acquired:'+
-                            str(cam.nframes.value) + ' - Saved: ' + 
-                            str(writer.frameCount.value) +']')
                     writer.join()
         from .widgets import pg
         pg.setConfigOption('crashWarning', False)
