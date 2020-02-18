@@ -3,6 +3,32 @@ from .cams import *
 from .io import *
 from .widgets import *
 
+LOGO = '''
+                                             MMM
+                                           MMMMMM
+    MMM:               .MMMM             MMMM MMMMMMMM
+    MMM:               .MMMM            MMMMM MMMMMMMM      
+    MMM:               .MMMM             MMMM  MMMMMM        MM 
+    MMM:  :MMMMMMMMM.  .MMMMOMMMMMM       MN     MMM      MMMMM 
+    MMM:  :M     MMMM  .MMMMM?+MMMMM    MMMMMMMMMMMMMMM7MMMMMMM  
+    MMM:         OMMM  .MMMM    MMMM    MMMMMMMMMMMMMMMMMMMMMMM 
+    MMM:  .MMMMMMMMMM  .MMMM    ?MMM    MMMMMMMMMMMMMMMMMMMMMMM 
+    MMM:  MMMM  .8MMM  .MMMM    ZMMM    MMMMMMMMMMMMMMMMMMMMMMM 
+    MMM:  MMM=...8MMM  .MMMM    MMMM    MMMMMMMMMMMMMMM.MMMMMMM  
+    MMM:  MMMMMMMMMMM  .MMMMMMMMMMM                        MMMM 
+    MMM:   MMMMM 8MMM  .MMMM:MMMMZ                            M 
+
+         MMMMMMN  =MMMMMMMM     MMMM.MMMM$ .+MMMM      MMMMMMM: 
+       MMMMMMMMM  +MMMMMMMMM$   MMMMMMMMMMMMMMMMMM   MMMMMMMMM8 
+      MMMM               MMMM   MMMM   MMMM    MMM+  MMM8       
+      MMMZ          OMMMMMMMM   MMMM   NMMM    MMM?  MMMMMMM$   
+      MMMI        MMMMM  MMMM   MMMM   NMMM    MMM?   ZMMMMMMMM 
+      MMMM       7MMM    MMMM   MMMM   NMMM    MMM?        MMMM 
+       MMMMD+7MM  MMMN   MMMM   MMMM   NMMM    MMM?  MM$:.7MMMM   
+        MMMMMMMM  ZMMMMMOMMMM   MMMM   NMMM    MMM?  MMMMMMMM+                                                              
+                          https://bitbucket.org/jpcouto/labcams
+'''
+
 N_UDP = 1024
 
 class LabCamsGUI(QMainWindow):
@@ -20,7 +46,6 @@ class LabCamsGUI(QMainWindow):
         Graphical interface for controling labcams.
         '''
         super(LabCamsGUI,self).__init__()
-        display('Starting labcams interface.')
         self.parameters = parameters
         self.app = app
         self.updateFrequency=updateFrequency
@@ -401,13 +426,13 @@ class LabCamsGUI(QMainWindow):
             self.tabs[-1].setWidget(self.camwidgets[-1])
             self.tabs[-1].setFloating(False)
             self.tabs[-1].setAllowedAreas(Qt.LeftDockWidgetArea |
-                                          Qt.LeftDockWidgetArea |
+                                          Qt.RightDockWidgetArea |
                                           Qt.BottomDockWidgetArea |
                                           Qt.TopDockWidgetArea)
             self.tabs[-1].setFeatures(QDockWidget.DockWidgetMovable |
                                       QDockWidget.DockWidgetFloatable)
             self.addDockWidget(
-                Qt.LeftDockWidgetArea,
+                Qt.BottomDockWidgetArea,
                 self.tabs[-1])
             self.tabs[-1].setMinimumHeight(200)
             display('Init view: ' + str(c))
@@ -461,11 +486,10 @@ class LabCamsGUI(QMainWindow):
 
 
 def main():
-    from argparse import ArgumentParser
+    from argparse import ArgumentParser, RawDescriptionHelpFormatter
     import os
     import json
-    
-    parser = ArgumentParser(description='Script to control and record from cameras.')
+    parser = ArgumentParser(description=LOGO + '\n\n  Multiple camera control and recording.',formatter_class=RawDescriptionHelpFormatter)
     parser.add_argument('preffile',
                         metavar='configfile',
                         type=str,

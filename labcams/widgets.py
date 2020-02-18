@@ -393,8 +393,10 @@ class CamWidget(QWidget):
         hist.setImageItem(self.view)
         layout.addWidget(win,0,0)
         histTab.setWidget(widget)
-        histTab.setAllowedAreas(Qt.BottomDockWidgetArea |
-                                Qt.TopDockWidgetArea )
+        histTab.setAllowedAreas(Qt.LeftDockWidgetArea |
+                                Qt.RightDockWidgetArea |
+                                Qt.BottomDockWidgetArea |
+                                Qt.TopDockWidgetArea)
         histTab.setFeatures(QDockWidget.DockWidgetMovable |
                            QDockWidget.DockWidgetFloatable |
                            QDockWidget.DockWidgetClosable)
@@ -409,8 +411,10 @@ class CamWidget(QWidget):
         if self.roiwidget is None:
             self.roiwidget = ROIPlotWidget(roi_target = self.p1, view = self.view)
             roiTab.setWidget(self.roiwidget)
-            roiTab.setAllowedAreas(Qt.BottomDockWidgetArea |
-                                   Qt.TopDockWidgetArea )
+            roiTab.setAllowedAreas(Qt.LeftDockWidgetArea |
+                                   Qt.RightDockWidgetArea |
+                                   Qt.BottomDockWidgetArea |
+                                   Qt.TopDockWidgetArea)
             roiTab.setFeatures(QDockWidget.DockWidgetMovable |
                                QDockWidget.DockWidgetFloatable |
                                QDockWidget.DockWidgetClosable)
@@ -489,8 +493,6 @@ class CamWidget(QWidget):
         self.trackerTab.setWidget(self.trackerpar)
         self.trackerTab.setFloating(True)
         self.trackerpar.resize(400,250)
-        self.parent.addDockWidget(Qt.LeftDockWidgetArea
-                                  ,self.trackerTab)
         self.trackerTab.setAllowedAreas(Qt.LeftDockWidgetArea |
                                         Qt.LeftDockWidgetArea |
                                         Qt.BottomDockWidgetArea |
@@ -498,6 +500,8 @@ class CamWidget(QWidget):
         self.trackerTab.setFeatures(QDockWidget.DockWidgetMovable |
                                   QDockWidget.DockWidgetFloatable |
                                   QDockWidget.DockWidgetClosable)
+        self.parent.addDockWidget(Qt.LeftDockWidgetArea
+                                  ,self.trackerTab)
     def trackerSaveToggle(self,value):
         writer = self.parent.writers[self.iCam]
         if not writer is None:
