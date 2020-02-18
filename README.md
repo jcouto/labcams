@@ -1,21 +1,25 @@
 labcams
-+++++++
+=======
 
 Multicamera control and acquisition. Uses separate processes to record from multiple cameras at high speed.
 
 Supported cameras:
 ------------------
-	- Allied Vision Technologies (via pymba)
-	- PointGrey cameras (via PySpin)
-	- QImaging cameras via the legacy driver (only windows)
-	- PCO cameras (only windows)
-	- Ximea cameras
+
+ * Allied Vision Technologies (via pymba)
+ * PointGrey cameras (via PySpin)
+ * QImaging cameras via the legacy driver (only windows)
+ * PCO cameras (only windows)
+ * Ximea cameras
+
 Features:
 ---------
-	- Separates viewer, camera control/acquisition and file writer in different processes.
-	- Data from camera acquisition process placed on a cue.
-	- Display options: background subtraction; histogram equalization; pupil tracking via the [ mptracker ](https://bitbucket.org/jpcouto/mptracker).	
-	- Multiple buffers on Allied vision technologies cameras allows high speed data acquisition.
+
+ *  Separates viewer, camera control/acquisition and file writer in different processes.
+ *  Data from camera acquisition process placed on a cue.
+ *  Display options: background subtraction; histogram equalization; pupil tracking via the [ mptracker ](https://bitbucket.org/jpcouto/mptracker).	
+ *  Multiple buffers on Allied vision technologies cameras allows high speed data acquisition.
+ * Online compression using ffmpeg (supporting hardware acceleration)
 
 
 Instalation:
