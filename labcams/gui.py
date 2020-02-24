@@ -363,7 +363,7 @@ class LabCamsGUI(QMainWindow):
         for c,cam in enumerate(self.cams):
             while not cam.camera_ready.is_set():
                 time.sleep(0.001)
-            display('Camera {{0}} ready.'.format(c))
+            display('Camera [{0}] ready.'.format(c))
         display('Doing save ({0}) and trigger'.format(save))
         if save:
             for c,(cam,flg,writer) in enumerate(zip(self.cams,

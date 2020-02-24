@@ -71,7 +71,7 @@ DEFAULTS = dict(cams = [{'description':'facecam',
 defaultPreferences = DEFAULTS
 
 
-def getPreferences(preffile = None,create = False):
+def getPreferences(preffile = None,create = True):
     ''' Reads the parameters from the home directory.
 
     pref = getPreferences(expname)
@@ -79,22 +79,26 @@ def getPreferences(preffile = None,create = False):
     User parameters like folder location, file preferences, paths...
     Joao Couto - May 2018
     '''
+    prefpath = preferencepath
     if preffile is None:
+        
         preffile = pjoin(preferencepath,'default.json')
-
+    else:
+        prefpath = os.path.dirname(preffile)
     if not os.path.isfile(preffile) and create:
         display('Creating preference file from defaults.')
-        if not os.path.isdir(preferencepath):
-            os.makedirs(preferencepath)
+        if not os.path.isdir(prefpath):
+            os.makedirs(prefpath)
         with open(preffile, 'w') as outfile:
             json.dump(defaultPreferences, outfile, sort_keys = True, indent = 4)
             display('Saving default preferences to: ' + preffile)
+            print('\t\t\t\t Edit the file before launching.')
+            sys.exit(0)
+
     if os.path.isfile(preffile):
-        if not os.path.isdir(preferencepath):
-            os.makedirs(preferencepath)
-            print('Creating preferences folder ['+preferencepath+']')
-    with open(preffile, 'r') as infile:
-        pref = json.load(infile)
+        with open(preffile, 'r') as infile:
+            pref = json.load(infile)
+        
     return pref
 
 
