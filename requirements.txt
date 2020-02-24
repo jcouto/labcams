@@ -1,0 +1,12 @@
+numpy
+scipy
+pandas
+tqdm
+pyzmq
+opencv-python
+ffmpeg-python
+tifffile
+pyqt5
+pyqtgraph
+pillow
+scikit-video

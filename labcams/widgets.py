@@ -1,71 +1,102 @@
-import numpy as np
-import cv2
-cv2.setNumThreads(1)
 import time
 
-try:
-    from PyQt5.QtWidgets import (QWidget,
-                                 QApplication,
-                                 QGridLayout,
-                                 QFormLayout,
-                                 QVBoxLayout,
-                                 QTabWidget,
-                                 QCheckBox,
-                                 QTextEdit,
-                                 QLineEdit,
-                                 QComboBox,
-                                 QFileDialog,
-                                 QSlider,
-                                 QPushButton,
-                                 QLabel,
-                                 QAction,
-                                 QWidgetAction,
-                                 QMenuBar,
-                                 QGraphicsView,
-                                 QGraphicsScene,
-                                 QGraphicsItem,
-                                 QGraphicsLineItem,
-                                 QGroupBox,
-                                 QTableWidget,
-                                 QMainWindow,
-                                 QDockWidget,
-                                 QFileDialog)
-    from PyQt5.QtGui import QImage, QPixmap,QBrush,QPen,QColor,QFont
-    from PyQt5.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
-except:
-    from PyQt4.QtGui import (QWidget,
+from PyQt5.QtWidgets import (QWidget,
                              QApplication,
-                             QAction,
-                             QMainWindow,
-                             QDockWidget,
-                             QMenuBar,
                              QGridLayout,
                              QFormLayout,
-                             QLineEdit,
-                             QFileDialog,
                              QVBoxLayout,
+                             QTabWidget,
                              QCheckBox,
                              QTextEdit,
+                             QLineEdit,
                              QComboBox,
+                             QFileDialog,
                              QSlider,
-                             QLabel,
                              QPushButton,
+                             QLabel,
+                             QAction,
+                             QWidgetAction,
+                             QMenuBar,
+                             QDoubleSpinBox,
                              QGraphicsView,
                              QGraphicsScene,
                              QGraphicsItem,
                              QGraphicsLineItem,
                              QGroupBox,
                              QTableWidget,
+                             QMainWindow,
+                             QDockWidget,
                              QFileDialog,
-                             QImage,
-                             QPixmap)
-    from PyQt4.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
+                             QInputDialog)
+from PyQt5.QtGui import QImage, QPixmap,QBrush,QPen,QColor,QFont
+from PyQt5.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
 
 import pyqtgraph as pg
 pg.setConfigOption('background', [200,200,200])
 pg.setConfigOptions(imageAxisOrder='row-major')
+pg.setConfigOption('crashWarning', True)
 
-from .utils import display
+from .utils import *
+from functools import partial
+import cv2
+cv2.setNumThreads(1)
+
+class QActionCheckBox(QWidgetAction):
+    ''' Check box for the right mouse button dropdown menu'''
+    def __init__(self,parent,label='',value=True):
+        super(QActionCheckBox,self).__init__(parent)
+        self.subw = QWidget()
+        self.sublay = QFormLayout()
+        self.checkbox = QCheckBox()
+        self.sublab = QLabel(label)
+        self.sublay.addRow(self.checkbox,self.sublab)
+        self.subw.setLayout(self.sublay)
+        self.setDefaultWidget(self.subw)
+        self.checkbox.setChecked(value)
+        self.value = self.checkbox.isChecked
+    def link(self,func):
+        self.checkbox.stateChanged.connect(func)
+
+class QActionSlider(QWidgetAction):
+    ''' Slider for the right mouse button dropdown menu'''
+    def __init__(self,parent,label='',value=0,vmin = 0,vmax = 1000):
+        super(QActionSlider,self).__init__(parent)
+        self.subw = QWidget()
+        self.sublay = QFormLayout()
+        self.slider = QSlider()
+        self.sublab = QLabel(label)
+        self.sublay.addRow(self.sublab,self.slider)
+        self.slider.setOrientation(Qt.Horizontal)
+        self.subw.setLayout(self.sublay)
+        self.setDefaultWidget(self.subw)
+        self.slider.setMaximum(vmax)
+        self.slider.setValue(value)
+        self.slider.setMinimum(vmin)
+        self.value = self.slider.value
+    def link(self,func):
+        self.slider.valueChanged.connect(func)
+
+class QActionFloat(QWidgetAction):
+    ''' Float edit for the right mouse button dropdown menu'''
+    def __init__(self,parent,label='',value=0,vmax = None,vmin = None):
+        super(QActionFloat,self).__init__(parent)
+        self.subw = QWidget()
+        self.sublay = QFormLayout()
+        self.spin = QDoubleSpinBox()
+        self.sublab = QLabel(label)
+        self.sublay.addRow(self.sublab,self.spin)
+        self.subw.setLayout(self.sublay)
+        self.setDefaultWidget(self.subw)
+        if not vmax is None:
+            self.spin.setMaximum(vmax)
+        if not value is None:
+            self.spin.setValue(value)
+        if not vmin is None:
+            self.spin.setMinimum(vmin)
+        self.value = self.spin.value
+    def link(self,func):
+        self.spin.editingFinished.connect(func)
+
 
 class RecordingControlWidget(QWidget):
     def __init__(self,parent):
@@ -73,25 +104,59 @@ class RecordingControlWidget(QWidget):
         self.parent = parent
         form = QFormLayout()
 
+        info = '''Set the name of the experiment.
+        Datapath is relative to the folder specified in the preferences.
+        Can be set via UDP (expname=my_experiment/name) or ZMQ (dict(action='expname',value='my_experiment/name'))
+'''
         self.experimentNameEdit = QLineEdit(' ')
-        self.changeNameButton = QPushButton('Set name')
-        form.addRow(self.experimentNameEdit,self.changeNameButton)
-        self.changeNameButton.clicked.connect(self.setExpName)
-
+        self.experimentNameEdit.returnPressed.connect(self.setExpName)
+        label = QLabel('Name:')
+        label.setToolTip(info)
+        self.experimentNameEdit.setToolTip(info)
+        form.addRow(label,self.experimentNameEdit)
         self.camTriggerToggle = QCheckBox()
         self.camTriggerToggle.setChecked(self.parent.triggered.is_set())
         self.camTriggerToggle.stateChanged.connect(self.toggleTriggered)
-        form.addRow(QLabel("Trigger cams: "),self.camTriggerToggle)
-        
+        label = QLabel("Hardware trigger: ")
+        label.setToolTip(info)
+        info = '''Toggle the hardware trigger mode on cameras that support it.
+This will can be differently configured for different cameras.'''
+        self.camTriggerToggle.setToolTip(info)
+        form.addRow(label,self.camTriggerToggle)
         
         self.saveOnStartToggle = QCheckBox()
         self.saveOnStartToggle.setChecked(self.parent.saveOnStart)
         self.saveOnStartToggle.stateChanged.connect(self.toggleSaveOnStart)
         form.addRow(QLabel("Manual save: "),self.saveOnStartToggle)
+        self.softTriggerToggle = QCheckBox()
+        self.softTriggerToggle.setChecked(self.parent.software_trigger)
+        self.softTriggerToggle.stateChanged.connect(
+            self.toggleSoftwareTriggered)
+        label = QLabel("Software trigger: ")
+        label.setToolTip(info)
+        info = '''Toggle the software trigger to start or stop acquisition via software.'''
+        self.softTriggerToggle.setToolTip(info)
+        form.addRow(label,self.softTriggerToggle)
+        self.udpmessages = QLabel('')
+        b1=QFont()
+        b1.setPixelSize(16)
+        b1.setFamily('Regular')
+        b1.setBold(True)
+        self.udpmessages.setFont(b1)
+        self.udpmessages.setStyleSheet("color: rgb(255,165,0)")
+        form.addRow(self.udpmessages)
+        
         self.setLayout(form)
-
+    def toggleSoftwareTriggered(self,value):
+        display('Software trigger pressed [{0}]'.format(value))
+        if value:
+            for cam in self.parent.cams:
+                cam.start_trigger.set()
+        else:
+            for cam in self.parent.cams:
+                cam.start_trigger.clear()
     def toggleTriggered(self,value):
-        display('Toggle trigger mode pressed [{0}]'.format(value))
+        display('Hardware trigger mode pressed [{0}]'.format(value))
         if value:
             self.parent.triggered.set()
         else:
@@ -119,15 +184,17 @@ class RecordingControlWidget(QWidget):
         #for cam in self.parent.cams:
         #    cam.stop_acquisition()
         #time.sleep(.5)
-        for c,(cam,writer) in enumerate(zip(self.parent.cams,
-                                            self.parent.writers)):
-            if not writer is None:
+        for c,(cam,flg,writer) in enumerate(zip(self.parent.cams,
+                                                self.parent.saveflags,
+                                                self.parent.writers)):
+            if flg:
                 if state:
                     cam.saving.set()
-                    writer.write.set()
+                    if not writer is None:
+                        writer.write.set()
                 else:
-                    cam.saving.clear()
-                    writer.write.clear()
+                    cam.stop_saving()
+                    #writer.write.clear()
         display('Toggled ManualSave [{0}]'.format(state))
         
 class CamWidget(QWidget):
@@ -140,6 +207,7 @@ class CamWidget(QWidget):
         super(CamWidget,self).__init__()
         self.parent = parent
         self.iCam = iCam
+        self.cam = self.parent.cams[self.iCam]
         h,w = frame.shape[:2]
         self.w = w
         self.h = h
@@ -156,11 +224,22 @@ class CamWidget(QWidget):
         p1.hideAxis('left')
         p1.hideAxis('bottom')
         p1.addItem(self.view)
-        self.text = pg.TextItem('',color = [200,100,100],anchor = [1,0])
+        self.text = pg.TextItem('',color = [220,80,80],anchor = [0,0])
         p1.addItem(self.text)
         b=QFont()
-        b.setPixelSize(24)
+        b.setPixelSize(14)
+        b.setFamily('Regular')
+        b.setBold(False)
         self.text.setFont(b)
+        # remotemsg
+        #self.text_remote = pg.TextItem('',color = [220,100,200],anchor = [0,0.1])
+        #p1.addItem(self.text_remote)
+        #b1=QFont()
+        #b1.setPixelSize(14)
+        #b1.setFamily('Regular')
+        #b1.setBold(False)
+        #self.text_remote.setFont(b1)
+        
         self.layout.addWidget(win,0,0)
         self.p1 = p1
         self.autoRange = True
@@ -172,6 +251,7 @@ class CamWidget(QWidget):
         if not 'TrackEye' in parameters.keys():
             parameters['TrackEye'] = False
         self.parameters = parameters
+        self.parameters['reference_channel'] = None
         self.lastFrame = frame.copy().astype(np.float32)
         if not 'NBackgroundFrames' in parameters.keys() or not parameters['SubtractBackground']:
             self.nAcum = 0
@@ -194,55 +274,111 @@ class CamWidget(QWidget):
         saveImg = QAction("Take camera shot",self)
         saveImg.triggered.connect(self.saveImageFromCamera)
         self.addAction(saveImg)
+        sep = QAction(self)
+        sep.setSeparator(True)
+        self.addAction(sep)
+        self.functs = []
+        # add camera controls
+        if hasattr(self.cam,'ctrevents'):
+            self.ctract = dict()
+            def vchanged(the):
+                val = the['action'].value()
+                self.cam.eventsQ.put(the['name']+'='+str(int(np.floor(val))))
+
+            for k in  self.cam.ctrevents.keys():
+                self.ctract[k] = dict(**self.cam.ctrevents[k])
+                ev = self.ctract[k]
+                val = eval('self.cam.' + ev['variable'])
+                ev['name'] = k
+                ev['action'] = None
+                if ev['widget'] == 'slider':
+                    ev['action'] = QActionSlider(self,k+' [{0:03d}]:'.format(int(val)),
+                                                 value = val,
+                                                 vmin = ev['min'],
+                                                 vmax = ev['max'],)
+                elif ev['widget'] == 'float':
+                    ev['action'] = QActionFloat(self,k,
+                                                value = val,
+                                                vmin = ev['min'],
+                                                vmax = ev['max'],)
+                    
+                if not ev['action'] is None:
+                        #e.sublab.setText(k + ' [{0:03d}]:'.format(int(val)))
+                    self.functs.append(partial(vchanged,self.ctract[k]))
+                    ev['action'].link(self.functs[-1]) 
+                    self.addAction(ev['action'])
+            
+        sep = QAction(self)
+        sep.setSeparator(True)
+        self.addAction(sep)
+
         # Slider
-        toggleSubtract = QWidgetAction(self)
-        subw = QWidget()
-        sublay = QFormLayout()
-        subwid = QSlider()
-        subwid.setOrientation(Qt.Horizontal)
-        sublab = QLabel('Nsubtract [{0}]:'.format(int(self.nAcum)))
-        sublay.addRow(sublab,subwid)
-        subw.setLayout(sublay)
-        toggleSubtract.setDefaultWidget(subw)
-        subwid.setMaximum(1000)
-        subwid.setValue(self.nAcum)
-        subwid.setMinimum(0)
-        subwid.valueChanged.connect(lambda x: sublab.setText(
-            'Nsubtract [{0}]:'.format(int(x))))
+        toggleSubtract = QActionSlider(self,'Nsubtract [{0:03d}]:'.format(int(self.nAcum)),
+                                       value = 0,
+                                       vmin = 0,
+                                       vmax = 200)
+        toggleSubtract.link(lambda x: toggleSubtract.sublab.setText(
+            'Nsubtract [{0:03d}]:'.format(int(x))))
         def vchanged(val):
             self.nAcum = float(np.floor(val))
-        subwid.valueChanged.connect(vchanged) 
+        toggleSubtract.link(vchanged) 
         # ROIs
         self.addAction(toggleSubtract)
         addroi = QAction("Add ROI",self)
         addroi.triggered.connect(self.addROI)
         self.addAction(addroi)
         # Equalize histogram
-        toggleEqualize = QWidgetAction(self)
-        eqw = QWidget()
-        eqlay = QFormLayout()
-        eqc = QCheckBox()
-        eqlay.addRow(eqc,QLabel('Equalize histogram'))
-        eqw.setLayout(eqlay)
-        toggleEqualize.setDefaultWidget(eqw)
+        toggleEqualize = QActionCheckBox(self,'Equalize histogram',self.parameters['Equalize'])
         def toggleEq():
             self.parameters['Equalize'] = not self.parameters['Equalize']
-            eqc.setChecked(self.parameters['Equalize'])
-        eqc.stateChanged.connect(toggleEq)
+            toggleEqualize.checkbox.setChecked(self.parameters['Equalize'])
+        toggleEqualize.link(toggleEq)
         self.addAction(toggleEqualize)
         # Eye tracker
-        tEt = QAction('Eye tracker',self)
-        tEt.triggered.connect(self.toggleEyeTracker)
-        self.addAction(tEt)
+        self.etrackercheck = QActionCheckBox(self,'Eye tracker',
+                                             self.parameters['TrackEye'])
+        self.etrackercheck.link(self.toggleEyeTracker)
+        self.addAction(self.etrackercheck)
+        # autorange
+        tar = QActionCheckBox(self,'Auto range',self.autoRange)
         def toggleAutoRange():
             self.autoRange = not self.autoRange
-        tEt = QAction('Auto range',self)
-        tEt.triggered.connect(toggleAutoRange)
-        self.addAction(tEt)
+            tar.checkbox.setChecked(self.autoRange)
+        tar.link(toggleAutoRange)
+        self.addAction(tar)
+        # histogram
         tEt = QAction('Histogram',self)
         tEt.triggered.connect(self.histogramWin)
         self.addAction(tEt)
+        # Save
+        ts = QActionCheckBox(self,'Save camera',  self.parent.saveflags[self.iCam])
+        def toggleSaveCam():
+            self.parameters['Save'] = not self.parameters['Save']
+            self.parent.saveflags[self.iCam] = self.parameters['Save']
+            ts.checkbox.setChecked(self.parameters['Save'])
+            if not self.parameters['Save']:
+                self.string = 'no save - {0}'
+            else:
+                self.string = '{0}'            
+        ts.link(toggleSaveCam)
+        self.addAction(ts)
+        tr = QActionCheckBox(self,'reference channel',  False)
+        def toggleReference():
+            if self.parameters['reference_channel'] is None:
+                reffile = str(QFileDialog().getOpenFileName(self,'Load reference image')[0])
+                if not reffile == '':
+                    print('Selected {0}'.format(reffile))
+                    from tifffile import imread
+                    reference = imread(reffile).squeeze()
+                    if len(reference.shape) > 2:
+                        reference = reference.mean(axis = 0)
+                    self.parameters['reference_channel'] = reference
+            else:
+                self.parameters['reference_channel'] = None
+        tr.link(toggleReference)
+        self.addAction(tr)
 
+        
     def histogramWin(self):
         histTab = QDockWidget("histogram cam {0}".format(self.iCam), self)
         widget = QWidget()
@@ -260,8 +396,10 @@ class CamWidget(QWidget):
         hist.setImageItem(self.view)
         layout.addWidget(win,0,0)
         histTab.setWidget(widget)
-        histTab.setAllowedAreas(Qt.BottomDockWidgetArea |
-                                Qt.TopDockWidgetArea )
+        histTab.setAllowedAreas(Qt.LeftDockWidgetArea |
+                                Qt.RightDockWidgetArea |
+                                Qt.BottomDockWidgetArea |
+                                Qt.TopDockWidgetArea)
         histTab.setFeatures(QDockWidget.DockWidgetMovable |
                            QDockWidget.DockWidgetFloatable |
                            QDockWidget.DockWidgetClosable)
@@ -276,8 +414,10 @@ class CamWidget(QWidget):
         if self.roiwidget is None:
             self.roiwidget = ROIPlotWidget(roi_target = self.p1, view = self.view)
             roiTab.setWidget(self.roiwidget)
-            roiTab.setAllowedAreas(Qt.BottomDockWidgetArea |
-                                   Qt.TopDockWidgetArea )
+            roiTab.setAllowedAreas(Qt.LeftDockWidgetArea |
+                                   Qt.RightDockWidgetArea |
+                                   Qt.BottomDockWidgetArea |
+                                   Qt.TopDockWidgetArea)
             roiTab.setFeatures(QDockWidget.DockWidgetMovable |
                                QDockWidget.DockWidgetFloatable |
                                QDockWidget.DockWidgetClosable)
@@ -304,11 +444,13 @@ class CamWidget(QWidget):
     def toggleEyeTracker(self):
         if self.parameters['TrackEye']:
             self.eyeTracker = None
-            self.trackerpar.close()
-            self.trackerTab.close()
-            [self.p1.removeItem(c) for c in self.tracker_roi.items()]
-
+            if hasattr(self,'trackerpar'):
+                self.trackerpar.close()
+                self.trackerTab.close()
+                [self.p1.removeItem(c) for c in self.tracker_roi.items()]
         self.parameters['TrackEye'] = not self.parameters['TrackEye']
+        self.etrackercheck.checkbox.setChecked(self.parameters['TrackEye'])
+
     def saveImageFromCamera(self):
         self.parent.timer.stop()
         frame = self.parent.camframes[self.iCam]
@@ -344,17 +486,16 @@ class CamWidget(QWidget):
         [self.p1.addItem(c) for c in  self.tracker_roi.items()]
         
         self.trackerpar = MptrackerParameters(self.eyeTracker,image,eyewidget=self.tracker_roi)
-        if not self.parent.writers[self.iCam] is None:
+        if self.parent.saveflags[self.iCam]:
             self.trackerToggle = QCheckBox()
-            self.trackerToggle.setChecked(self.parent.writers[self.iCam].trackerFlag.is_set())
+            if not self.parents.writers[self.iCam] is None:
+                self.trackerToggle.setChecked(self.parent.writers[self.iCam].trackerFlag.is_set())
             self.trackerToggle.stateChanged.connect(self.trackerSaveToggle)
             self.trackerpar.pGridSave.addRow(
                 QLabel("Save cameras: "),self.trackerToggle)
         self.trackerTab.setWidget(self.trackerpar)
         self.trackerTab.setFloating(True)
         self.trackerpar.resize(400,250)
-        self.parent.addDockWidget(Qt.RightDockWidgetArea
-                                  ,self.trackerTab)
         self.trackerTab.setAllowedAreas(Qt.LeftDockWidgetArea |
                                         Qt.LeftDockWidgetArea |
                                         Qt.BottomDockWidgetArea |
@@ -362,21 +503,24 @@ class CamWidget(QWidget):
         self.trackerTab.setFeatures(QDockWidget.DockWidgetMovable |
                                   QDockWidget.DockWidgetFloatable |
                                   QDockWidget.DockWidgetClosable)
+        self.parent.addDockWidget(Qt.LeftDockWidgetArea
+                                  ,self.trackerTab)
     def trackerSaveToggle(self,value):
         writer = self.parent.writers[self.iCam]
         if not writer is None:
-            if value:
-                writer.trackerFlag.set()
-                writer.parQ.put((None,self.eyeTracker.parameters))
-            else:
-                writer.trackerFlag.clear()
+            if self.parent.saveflags[self.iCam]:
+                if value:
+                    writer.trackerFlag.set()
+                    writer.parQ.put((None,self.eyeTracker.parameters))
+                else:
+                    writer.trackerFlag.clear()
 
     def image(self,image,nframe):
         if self.lastnFrame != nframe:
             tmp = image.copy()
             if self.parameters['Equalize']:
                 try: # In case the type is messed up..
-                    tmp = cv2.equalizeHist(tmp)
+                    tmp = cv2.equalizeHist(tmp).reshape(image.shape)
                 except:
                     pass
             if self.nAcum > 0:
@@ -390,17 +534,25 @@ class CamWidget(QWidget):
                 self.roiwidget.update(frame,iFrame=nframe)
             if bool(self.parameters['TrackEye']):
                 if self.eyeTracker is None:
-                    self._open_mptracker(image.copy())
-                img = self.eyeTracker.apply(image.copy())
+                    self._open_mptracker(image.squeeze())
+                img = self.eyeTracker.apply(image.squeeze())
                 if not self.eyeTracker.concatenateBinaryImage:
                     (x1,y1,w,h) = self.eyeTracker.parameters['imagecropidx']
                     frame = cv2.cvtColor(frame,cv2.COLOR_GRAY2RGB)
-                    frame[y1:y1+h,x1:x1+w,:] = self.eyeTracker.img
+                    frame[y1:y1+h,x1:x1+w] = self.eyeTracker.img
                 else:
                     frame = self.eyeTracker.img
 
             self.text.setText(self.string.format(nframe))
-            self.view.setImage(frame,autoHistogramRange=self.autoRange)
+            if self.parameters['reference_channel'] is None:
+                self.view.setImage(frame.squeeze(),
+                                   autoHistogramRange=self.autoRange)
+            else:
+                frame = frame.squeeze()
+                ref = self.parameters['reference_channel']
+                ref /= ref.max()
+                im = np.stack([ref,frame/np.max(frame),np.zeros_like(frame)]).transpose([1,2,0])
+                self.view.setImage(im)
             self.lastnFrame = nframe
 
 
@@ -448,7 +600,6 @@ class ROIPlotWidget(QWidget):
     def items(self):
         return self.rois
     def closeEvent(self,ev):
-        print(self.rois)
         for roi in self.rois:
             self.roi_target.removeItem(roi)
         ev.accept()

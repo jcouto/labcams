@@ -1,0 +1,65 @@
+{
+    "cams": [
+        {
+            "NBackgroundFrames": 1.0, 
+            "Save": true, 
+            "TriggerMode": "RisingEdge", 
+            "TriggerSource": "Line1", 
+            "description": "facecam", 
+            "driver": "AVT", 
+            "frameRate": 30.0,
+	    "nFrameBuffers": 10,
+            "gain": 20, 
+            "name": "Mako G-030B 5044 50-0536878664"
+        }, 
+        {
+            "Save": true, 
+            "TrackEye": false, 
+            "TriggerMode": "RisingEdge", 
+            "TriggerSource": "Line1", 
+            "description": "eyecam", 
+            "driver": "AVT", 
+	    "nFrameBuffers": 10,
+            "frameRate": 30.0, 
+            "gain": 20, 
+            "name": "GC660M"
+        }, 
+        {
+            "NBackgroundFrames": 1.0, 
+            "Save": true, 
+            "TriggerMode": "RisingEdge", 
+            "TriggerSource": "Line1", 
+            "description": "facecam_02", 
+            "driver": "AVT", 
+            "frameRate": 30.0,
+	    "nFrameBuffers": 10,
+            "gain": 20, 
+            "name": "Mako G-030B 5044 50-0536876269"
+        }, 
+	{
+            "binning": 4, 
+            "description": "1photon\\raw", 
+            "driver": "PCO", 
+            "exposure": 25, 
+            "id": 0, 
+            "name": "PCO edge", 
+            "triggerType": 0,
+	    "NBackgroundFrames": 20.0
+        }
+    ], 
+    "datapaths": {
+        "analysispaths": "analysis", 
+        "dataserverpaths": [
+            "I:\\data", 
+            "P:\\"
+        ], 
+        "eyecampaths": "eyecam", 
+        "facecampaths": "facecam", 
+        "logpaths": "presentation", 
+        "onephotonpaths": "1photon\\raw"
+    }, 
+    "recorder_frames_per_file": 256, 
+    "recorder_path": "I:\\data", 
+    "recorder_sleep_time": 0.03, 
+    "server_port": 100000
+}
