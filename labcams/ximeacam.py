@@ -10,14 +10,14 @@ class XimeaCam(GenericCam):
                  triggerSource = np.uint16(2),
                  outputs = ['XI_GPO_EXPOSURE_ACTIVE'],
                  triggered = Event(),
+                 recorderpar = None,
                  **kwargs):
-        super(XimeaCam,self).__init__()
+        super(XimeaCam,self).__init__(outQ = outQ, recorderpar = recorderpar)
         self.drivername = 'Ximea'
         if camId is None:
             display('[Ximea] - Need to supply a camera ID.')
         self.cam_id = camId
         self.triggered = triggered
-        self.queue = outQ
         self.outputs = outputs
         self.binning = binning
         self.exposure = exposure
@@ -101,21 +101,14 @@ class XimeaCam(GenericCam):
         try:
             self.cam.get_image(self.cambuf)
         except xiapi.Xi_error:
-            return
+            return None,(None,None)
         frame = self.cambuf.get_image_data_numpy()
         frameID = self.cambuf.nframe
         timestamp = self.cambuf.tsUSec
-        if self.saving.is_set():
-            if not frameID == self.lastframeid :
-                self.queue.put((frame.copy(),
-                                (frameID,timestamp)))
-        if not frameID == self.lastframeid:
-            self.buf[:] = np.reshape(frame.copy(),self.buf.shape)[:]
-            self.cam.set_gpo_mode('XI_GPO_OFF'); #XI_GPO_EXPOSURE_PULSE
-            time.sleep(0.001)
-            self.cam.set_gpo_mode('XI_GPO_ON'); #XI_GPO_EXPOSURE_PULSE
-            self.nframes.value += 1
-        self.lastframeid = frameID
+        self.cam.set_gpo_mode('XI_GPO_OFF'); #XI_GPO_EXPOSURE_PULSE
+        time.sleep(0.001)
+        self.cam.set_gpo_mode('XI_GPO_ON'); #XI_GPO_EXPOSURE_PULSE
+        return frame,(frameID,timestamp)
         
     def _cam_close(self):
         self.cam.stop_acquisition()

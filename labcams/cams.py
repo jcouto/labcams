@@ -20,7 +20,7 @@ import cv2
 # Has last frame on multiprocessing array
 # 
 class GenericCam(Process):
-    def __init__(self, outQ = None,lock = None):
+    def __init__(self, outQ = None, recorderpar = None, refreshperiod = 1/20.):
         Process.__init__(self)
         self.name = ''
         self.cam_id = None
@@ -33,19 +33,28 @@ class GenericCam(Process):
         self.saving = Event()
         self.nframes = Value('i',0)
         self.queue = outQ
-        self.cmd_queue = Queue()
         self.camera_ready = Event()
         self.eventsQ = Queue()
         self._init_controls()
         self._init_ctrevents()
         self.cam_is_running = False
+        self.was_saving=False
+        self.recorderpar = recorderpar
+        self.refresh_period = refreshperiod
+        self._tupdate = time.time()
+        self.daemon = True
+    def stop_saving(self):
+        # This will send a stop to stop saving and close the writer.
+        if self.saving.is_set():
+            self.saving.clear()
+
     def _init_controls(self):
         return
+
     def _init_ctrevents(self):
         if hasattr(self,'ctrevents'):
             for c in self.ctrevents.keys():
-                self.ctrevents[c]['call'] ='self.'+self.ctrevents[c]['function']
-            
+                self.ctrevents[c]['call'] ='self.'+self.ctrevents[c]['function']    
     def _init_variables(self,dtype=np.uint8):
         if dtype == np.uint8:
             cdtype = ctypes.c_ubyte
@@ -55,43 +64,102 @@ class GenericCam(Process):
         self.img = np.frombuffer(
             self.frame.get_obj(),
             dtype = cdtype).reshape([self.h,self.w,self.nchan])
+
+    def _start_recorder(self):
+        if self.queue is None and not self.recorderpar is None:
+            from .io import FFMPEGCamWriter
+            self.recorder = FFMPEGCamWriter(self,
+                                            filename = self.recorderpar['filename'],
+                                            dataname = self.recorderpar['dataname'],
+                                            datafolder = self.recorderpar['datafolder'],
+                                            framesperfile = 0,
+                                            incrementruns = True,
+                                            crf = self.recorderpar['crf'])
+
     def run(self):
         self._init_ctrevents()
         self.buf = np.frombuffer(self.frame.get_obj(),
                             dtype = self.dtype).reshape([self.h,self.w,self.nchan])
         self.close_event.clear()
+        self._start_recorder()
         while not self.close_event.is_set():
             self._cam_init()
             self._cam_waitsoftwaretrigger()
             if not self.stop_trigger.is_set():
                 self._cam_startacquisition()
                 self.cam_is_running = True
-            self.camera_ready.clear()
-            self.start_trigger.clear()
             while not self.stop_trigger.is_set():
-                self._cam_loop()
+                frame,metadata = self._cam_loop()
+                if not frame is None:
+                    self._handle_frame(frame,metadata)
                 self._parse_command_queue()
+                # to be able to pause acquisition on software trigger
+                if not self.start_trigger.is_set():
+                    self._cam_stopacquisition()
+                    self._cam_waitsoftwaretrigger()
+                    if not self.stop_trigger.is_set():
+                        self._cam_startacquisition()
+                        self.cam_is_running = True
+            display('Stop trigger set.')
+            self.start_trigger.clear()
             self._cam_close()
             self.cam_is_running = False
-            self.saving.clear()
+            if self.was_saving:
+                self.was_saving = False
+                if not self.queue is None:
+                    self.queue.put(['STOP'])
             self.stop_trigger.clear()
+
+    def _handle_frame(self,frame,metadata):
+        frameID,timestamp = metadata
+        #display('loop rate : {0}'.format(1./(timestamp - self.lasttime)))
+        if self.saving.is_set():
+            self.was_saving = True
+            if not frameID == self.lastframeid :
+                if self.queue is None:
+                    self.recorder.save(frame,metadata)
+                else:
+                    self.queue.put((frame.copy(),(frameID,timestamp)))
+        elif self.was_saving:
+            self.was_saving = False
+            if not self.queue is None:
+                self.queue.put(['STOP'])
+            else:
+                self.recorder.close_run()
+        if not frameID == self.lastframeid:
+            t = time.time()
+            if (t - self._tupdate) > self.refresh_period:
+                self.buf[:] = np.reshape(frame,self.buf.shape)[:]
+                self._tupdate = t
+            self.nframes.value += 1
+        self.lastframeid = frameID
+        self.lasttime = timestamp
 
     def _parse_command_queue(self):
         if not self.eventsQ.empty():
             cmd = self.eventsQ.get()
-            if hasattr(self,'ctrevents'):
-                if '=' in cmd:
-                    cmd = cmd.split('=')
+            if '=' in cmd:
+                cmd = cmd.split('=')
+                if hasattr(self,'ctrevents'):
                     self._call_event(cmd[0],cmd[1])
-
+                if cmd[0] == 'filename':
+                    if self.queue is None:
+                        if hasattr(self,'recorder'):
+                            self.recorder.set_filename(cmd[1])
+                    self.recorderpar['filename'] = cmd[1]
+                elif cmd[0] == 'log':
+                    if not self.queue is None:
+                        self.queue.put(['# {0},{1} - {2}'.format(self.lastframeid,self.lasttime,cmd[1])])
+                    else:
+                        display('Need to implement log: {0}'.format(cmd[1]))
 
     def _call_event(self,eventname,eventvalue):
         if eventname in self.ctrevents.keys():
             val = eval(self.ctrevents[eventname]['type']+'('+str(eventvalue)+')')
             eval(self.ctrevents[eventname]['call']+'(val)')
             #print(self.ctrevents[eventname])
-        else:
-            display('No event found {0} {1}'.format(eventname,eventvalue))
+#        else:
+#            display('No event found {0} {1}'.format(eventname,eventvalue))
 
     def _cam_init(self):
         '''initialize the camera'''
@@ -100,13 +168,17 @@ class GenericCam(Process):
     def _cam_startacquisition(self):
         '''start camera acq'''
         pass
+
+    def _cam_stopacquisition(self):
+        '''stop camera acq'''
+        pass
     
     def _cam_close(self):
         '''close cam - release driver'''
         pass
 
     def _cam_loop(self):
-        '''get a frame and move on'''
+        '''get a frame and move on, returns frame,(frameID,timestamp)'''
         pass
     
     def _cam_waitsoftwaretrigger(self):
@@ -130,11 +202,14 @@ class GenericCam(Process):
         
 # OpenCV camera; some functionality limited (like hardware triggers)
 class OpenCVCam(GenericCam):    
-    def __init__(self, camId = None, outQ = None,
+    def __init__(self,
+                 camId = None,
+                 outQ = None,
                  frameRate = 30.,
                  triggered = Event(),
+                 recorderpar = None,
                  **kwargs):
-        super(OpenCVCam,self).__init__(outQ = outQ)
+        super(OpenCVCam,self).__init__(outQ = outQ, recorderpar = recorderpar)
         self.drivername = 'openCV'
         if camId is None:
             display('Need to supply a camera ID.')
@@ -175,9 +250,9 @@ class OpenCVCam(GenericCam):
         self.frame_rate = float(framerate)
         if not self.cam is None:
             if not self.frame_rate == float(0):
-                res = self.cam.set(cv2.CAP_PROP_FPS,self.frame_rate)
                 res = self.cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
                 res = self.cam.set(cv2.CAP_PROP_EXPOSURE,1./self.frame_rate)
+                res = self.cam.set(cv2.CAP_PROP_FPS,self.frame_rate)
             else:
                 res = self.cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
 
@@ -202,13 +277,8 @@ class OpenCVCam(GenericCam):
             return
         timestamp = time.time()
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        self.nframes.value += 1
-        if self.saving.is_set():
-            if not frameID == self.lastframeid :
-                self.queue.put((frame.copy(),(frameID,timestamp)))
-        self.lastframeid = frameID
-        self.buf[:] = frame[:]
-        # This artificially limits the frame rate. 
+        return frame,(frameID,timestamp)
+
     def _cam_close(self):
         self.cam.release()
         display('[OpenCV {0}] - Stopped acquisition.'.format(self.cam_id))

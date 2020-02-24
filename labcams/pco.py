@@ -10,8 +10,8 @@ class PCOCam(GenericCam):
                  triggerSource = np.uint16(2),
                  triggered = Event(),
                  dllpath = 'C:\\Program Files (x86)\\pco\\pco.sdk\\bin64\\SC2_Cam.dll',
-                 **kwargs):
-        super(PCOCam,self).__init__()
+                 recorderpar = None,**kwargs):
+        super(PCOCam,self).__init__(outQ = outQ, recorderpar=recorderpar)
         self.armed = False
         self.drivername = 'PCO'
         self._dll = ctypes.WinDLL(dllpath)
@@ -97,7 +97,9 @@ class PCOCam(GenericCam):
         return self._dll.PCO_SetRecordingState(self.hCam, ctypes.c_int16(0))
     
     def get_health_state(self):
-        cameraWarning, cameraError, cameraStatus = (ctypes.c_uint16(), ctypes.c_uint16(),ctypes.c_uint16())
+        cameraWarning, cameraError, cameraStatus = (ctypes.c_uint16(),
+                                                    ctypes.c_uint16(),
+                                                    ctypes.c_uint16())
         iRet = self._dll.PCO_GetCameraHealthStatus(self.hCam,
                                                    ctypes.byref(cameraWarning),
                                                    ctypes.byref(cameraError),
@@ -115,7 +117,8 @@ class PCOCam(GenericCam):
         wBitsPerPixel = ctypes.c_uint16(16)
         dwStatusDll, dwStatusDrv = ctypes.c_uint32(), ctypes.c_uint32()
         bytes_per_pixel = ctypes.c_uint32(2)
-        pixels_per_image = ctypes.c_uint32(self.wXResAct.value * self.wYResAct.value)
+        pixels_per_image = ctypes.c_uint32(self.wXResAct.value *
+                                           self.wYResAct.value)
         added_buffers = []
         for which_buf in range(len(self.buffer_numbers)):
             self._dll.PCO_AddBufferEx(
@@ -132,7 +135,6 @@ class PCOCam(GenericCam):
                           dwStatusDll, dwStatusDrv,
                           bytes_per_pixel, pixels_per_image,
                           added_buffers, ArrayType)
-        return None
     
     def allocate_buffers(self, num_buffers=2):
         """
@@ -148,12 +150,16 @@ class PCOCam(GenericCam):
             self.buffer_numbers.append(ctypes.c_int16(-1))
             self.buffer_pointers.append(ctypes.c_void_p(0))
             self.buffer_events.append(ctypes.c_void_p(0))
-            self._dll.PCO_AllocateBuffer(self.hCam, ctypes.byref(self.buffer_numbers[i]),
-                                         dwSize, ctypes.byref(self.buffer_pointers[i]),
+            self._dll.PCO_AllocateBuffer(self.hCam,
+                                         ctypes.byref(self.buffer_numbers[i]),
+                                         dwSize,
+                                         ctypes.byref(self.buffer_pointers[i]),
                                          ctypes.byref(self.buffer_events[i]))
 
         # Tell camera link what actual resolution to expect
-        self._dll.PCO_CamLinkSetImageParameters(self.hCam, self.wXResAct, self.wYResAct)
+        self._dll.PCO_CamLinkSetImageParameters(self.hCam,
+                                                self.wXResAct,
+                                                self.wYResAct)
     
     #def get_one(self, poll_timeout=5e7):
     #    iRet = PCO_GetImageEx(cam, 1, 0, 0, BufNum, XResAct, YResAct, 16)
@@ -187,8 +193,8 @@ class PCOCam(GenericCam):
         :return: None
         """
         allowed = [1, 2, 4]
-        wBinHorz = ctypes.c_uint16(int(h_bin))
-        wBinVert = ctypes.c_uint16(int(v_bin))
+        wBinHorz = ctypes.c_uint16(np.uint16(h_bin))
+        wBinVert = ctypes.c_uint16(np.uint16(v_bin))
         if (h_bin in allowed) and (v_bin in allowed):
             self._dll.PCO_SetBinning(self.hCam, wBinHorz, wBinVert)
             self._dll.PCO_GetBinning(self.hCam, ctypes.byref(wBinHorz),
@@ -218,9 +224,9 @@ class PCOCam(GenericCam):
 
         # pass values to ctypes variables
         dwDelay = ctypes.c_uint32(0)
-        dwExposure = ctypes.c_uint32(int(exp_time))
+        dwExposure = ctypes.c_uint32(np.uint32(exp_time))
         wTimeBaseDelay = ctypes.c_uint16(0)
-        wTimeBaseExposure = ctypes.c_uint16(int(base_exposure))
+        wTimeBaseExposure = ctypes.c_uint16(np.uint16(base_exposure))
 
         # set exposure time and delay time
         self._dll.PCO_SetDelayExposureTime(self.hCam,
@@ -357,8 +363,12 @@ class PCOCam(GenericCam):
                 num_acquired += 1
             finally:
                 self._dll.PCO_AddBufferEx(  # Put the buffer back in the queue
-                    self.hCam, dw1stImage, dwLastImage,
-                    self.buffer_numbers[which_buf], self.wXResAct, self.wYResAct,
+                    self.hCam,
+                    dw1stImage,
+                    dwLastImage,
+                    self.buffer_numbers[which_buf],
+                    self.wXResAct,
+                    self.wYResAct,
                     wBitsPerPixel)
                 added_buffers.append(which_buf)
         
@@ -441,22 +451,15 @@ class PCOCam(GenericCam):
                 buffer_ptr = ctypes.cast(self.buffer_pointers[which_buf], ctypes.POINTER(self.ArrayType))
                 self.out[:, :] = np.frombuffer(buffer_ptr.contents, dtype=np.uint16).reshape(self.out.shape)
                 num_acquired += 1
-                frame = self.out.copy()
-                self.nframes.value += 1
-                if self.saving.is_set():
-                    if not frameID == self.lastframeid :
-                        self.queue.put((frame.copy(),
-                                        (frameID,timestamp)))
-                self.lastframeid = frameID
-                self.buf[:,:] = np.reshape(frame[:,:],self.buf.shape)[:]
-
             finally:
                 self._dll.PCO_AddBufferEx(  # Put the buffer back in the queue
                     self.hCam, self.dw1stImage, self.dwLastImage,
                     self.buffer_numbers[which_buf], self.wXResAct, self.wYResAct,
                     self.wBitsPerPixel)
                 self.added_buffers.append(which_buf)
-                
+            return frame,(frameID,timestamp)
+        return None,(None,None)
+            
     def _cam_close(self):
         display('PCO [{0}] - Stopping acquisition.'.format(self.camId))
         self.acquisitionstop()
@@ -464,6 +467,9 @@ class PCOCam(GenericCam):
         ret = self.camclose()
         display('PCO - returned {0} on close'.format(ret))
         self.saving.clear()
+        if self.was_saving:
+            self.was_saving = False
+            self.queue.put(['STOP'])
         self.start_trigger.clear()
         self.stop_trigger.clear()
         display('PCO {0} - Close event: {1}'.format(self.camId,

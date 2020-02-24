@@ -36,9 +36,10 @@ class AVTCam(GenericCam):
                  triggerSelector = 'FrameStart',
                  acquisitionMode = 'Continuous',
                  nTriggeredFrames = 1000,
-                 frame_timeout = 100):
+                 frame_timeout = 100,
+                 recorderpar = None):
         self.drivername = 'AVT'
-        super(AVTCam,self).__init__()
+        super(AVTCam,self).__init__(outQ=outQ,recorderpar=recorderpar)
         if camId is None:
             display('Need to supply a camera ID.')
         self.cam_id = camId
@@ -51,7 +52,6 @@ class AVTCam(GenericCam):
         self.acquisitionMode = acquisitionMode
         self.nTriggeredFrames = nTriggeredFrames 
         self.nbuffers = nFrameBuffers
-        self.queue = outQ
         self.frame_timeout = frame_timeout
         self.triggerMode = triggerMode
         self.tickfreq = float(1.0)
@@ -239,16 +239,12 @@ class AVTCam(GenericCam):
                         f.queueFrameCapture()
                     except:
                         display('Queue frame failed: '+ str(f))
-                        return
-                    self.nframes.value += 1
-                    if self.saving.is_set():
-                        if not frameID in self.lastframeid :
-                            self.queue.put((frame.copy(),(frameID,timestamp)))
+                        return None,(None,None)
                     self.lastframeid[ibuf] = frameID
-                    self.buf[:] = np.reshape(frame,self.buf.shape)[:]
+                    return frame,(frameID,timestamp)
             elif avterr == -12:
                 #display('VimbaException: ' +  str(avterr))        
-                return
+                return None,(None,None)
 
     def _cam_close(self):
         self.cam.runFeatureCommand('AcquisitionStop')
@@ -265,9 +261,14 @@ class AVTCam(GenericCam):
                                    shape = (f.height,
                                             f.width)).copy()
                 if self.saving.is_set():
+                    self.was_saving = True
                     if not frameID in self.lastframeid :
                         self.queue.put((frame.copy(),(frameID,timestamp)))
-                        self.lastframeid[ibuf] = frameID
+                elif self.was_saving:
+                    self.was_saving = False
+                    self.queue.put(['STOP'])
+
+                self.lastframeid[ibuf] = frameID
                 self.nframes.value += 1
                 self.frame = frame
             except VimbaException as err:

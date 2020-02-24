@@ -26,7 +26,8 @@ from PyQt5.QtWidgets import (QWidget,
                              QTableWidget,
                              QMainWindow,
                              QDockWidget,
-                             QFileDialog)
+                             QFileDialog,
+                             QInputDialog)
 from PyQt5.QtGui import QImage, QPixmap,QBrush,QPen,QColor,QFont
 from PyQt5.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
 
@@ -37,7 +38,8 @@ pg.setConfigOption('crashWarning', True)
 
 from .utils import *
 from functools import partial
-
+import cv2
+cv2.setNumThreads(1)
 
 class QActionCheckBox(QWidgetAction):
     ''' Check box for the right mouse button dropdown menu'''
@@ -87,7 +89,8 @@ class QActionFloat(QWidgetAction):
         self.setDefaultWidget(self.subw)
         if not vmax is None:
             self.spin.setMaximum(vmax)
-        self.spin.setValue(value)
+        if not value is None:
+            self.spin.setValue(value)
         if not vmin is None:
             self.spin.setMinimum(vmin)
         self.value = self.spin.value
@@ -101,25 +104,59 @@ class RecordingControlWidget(QWidget):
         self.parent = parent
         form = QFormLayout()
 
+        info = '''Set the name of the experiment.
+        Datapath is relative to the folder specified in the preferences.
+        Can be set via UDP (expname=my_experiment/name) or ZMQ (dict(action='expname',value='my_experiment/name'))
+'''
         self.experimentNameEdit = QLineEdit(' ')
-        self.changeNameButton = QPushButton('Set name')
-        form.addRow(self.experimentNameEdit,self.changeNameButton)
-        self.changeNameButton.clicked.connect(self.setExpName)
-
+        self.experimentNameEdit.returnPressed.connect(self.setExpName)
+        label = QLabel('Name:')
+        label.setToolTip(info)
+        self.experimentNameEdit.setToolTip(info)
+        form.addRow(label,self.experimentNameEdit)
         self.camTriggerToggle = QCheckBox()
         self.camTriggerToggle.setChecked(self.parent.triggered.is_set())
         self.camTriggerToggle.stateChanged.connect(self.toggleTriggered)
-        form.addRow(QLabel("Trigger cams: "),self.camTriggerToggle)
-        
+        label = QLabel("Hardware trigger: ")
+        label.setToolTip(info)
+        info = '''Toggle the hardware trigger mode on cameras that support it.
+This will can be differently configured for different cameras.'''
+        self.camTriggerToggle.setToolTip(info)
+        form.addRow(label,self.camTriggerToggle)
         
         self.saveOnStartToggle = QCheckBox()
         self.saveOnStartToggle.setChecked(self.parent.saveOnStart)
         self.saveOnStartToggle.stateChanged.connect(self.toggleSaveOnStart)
         form.addRow(QLabel("Manual save: "),self.saveOnStartToggle)
+        self.softTriggerToggle = QCheckBox()
+        self.softTriggerToggle.setChecked(self.parent.software_trigger)
+        self.softTriggerToggle.stateChanged.connect(
+            self.toggleSoftwareTriggered)
+        label = QLabel("Software trigger: ")
+        label.setToolTip(info)
+        info = '''Toggle the software trigger to start or stop acquisition via software.'''
+        self.softTriggerToggle.setToolTip(info)
+        form.addRow(label,self.softTriggerToggle)
+        self.udpmessages = QLabel('')
+        b1=QFont()
+        b1.setPixelSize(16)
+        b1.setFamily('Regular')
+        b1.setBold(True)
+        self.udpmessages.setFont(b1)
+        self.udpmessages.setStyleSheet("color: rgb(255,165,0)")
+        form.addRow(self.udpmessages)
+        
         self.setLayout(form)
-
+    def toggleSoftwareTriggered(self,value):
+        display('Software trigger pressed [{0}]'.format(value))
+        if value:
+            for cam in self.parent.cams:
+                cam.start_trigger.set()
+        else:
+            for cam in self.parent.cams:
+                cam.start_trigger.clear()
     def toggleTriggered(self,value):
-        display('Toggle trigger mode pressed [{0}]'.format(value))
+        display('Hardware trigger mode pressed [{0}]'.format(value))
         if value:
             self.parent.triggered.set()
         else:
@@ -153,14 +190,18 @@ class RecordingControlWidget(QWidget):
             if flg:
                 if state:
                     cam.saving.set()
-                    writer.write.set()
+                    if not writer is None:
+                        writer.write.set()
                 else:
-                    cam.saving.clear()
-                    writer.write.clear()
+                    cam.stop_saving()
+                    #writer.write.clear()
         display('Toggled ManualSave [{0}]'.format(state))
         
 class CamWidget(QWidget):
-    def __init__(self,frame, iCam = 0, parent = None,
+    def __init__(self,
+                 frame,
+                 iCam = 0,
+                 parent = None,
                  parameters = None,
                  invertX = False):
         super(CamWidget,self).__init__()
@@ -186,10 +227,19 @@ class CamWidget(QWidget):
         self.text = pg.TextItem('',color = [220,80,80],anchor = [0,0])
         p1.addItem(self.text)
         b=QFont()
-        b.setPixelSize(18)
+        b.setPixelSize(14)
         b.setFamily('Regular')
         b.setBold(False)
         self.text.setFont(b)
+        # remotemsg
+        #self.text_remote = pg.TextItem('',color = [220,100,200],anchor = [0,0.1])
+        #p1.addItem(self.text_remote)
+        #b1=QFont()
+        #b1.setPixelSize(14)
+        #b1.setFamily('Regular')
+        #b1.setBold(False)
+        #self.text_remote.setFont(b1)
+        
         self.layout.addWidget(win,0,0)
         self.p1 = p1
         self.autoRange = True
@@ -201,6 +251,7 @@ class CamWidget(QWidget):
         if not 'TrackEye' in parameters.keys():
             parameters['TrackEye'] = False
         self.parameters = parameters
+        self.parameters['reference_channel'] = None
         self.lastFrame = frame.copy().astype(np.float32)
         if not 'NBackgroundFrames' in parameters.keys() or not parameters['SubtractBackground']:
             self.nAcum = 0
@@ -311,6 +362,21 @@ class CamWidget(QWidget):
                 self.string = '{0}'            
         ts.link(toggleSaveCam)
         self.addAction(ts)
+        tr = QActionCheckBox(self,'reference channel',  False)
+        def toggleReference():
+            if self.parameters['reference_channel'] is None:
+                reffile = str(QFileDialog().getOpenFileName(self,'Load reference image')[0])
+                if not reffile == '':
+                    print('Selected {0}'.format(reffile))
+                    from tifffile import imread
+                    reference = imread(reffile).squeeze()
+                    if len(reference.shape) > 2:
+                        reference = reference.mean(axis = 0)
+                    self.parameters['reference_channel'] = reference
+            else:
+                self.parameters['reference_channel'] = None
+        tr.link(toggleReference)
+        self.addAction(tr)
 
         
     def histogramWin(self):
@@ -330,8 +396,10 @@ class CamWidget(QWidget):
         hist.setImageItem(self.view)
         layout.addWidget(win,0,0)
         histTab.setWidget(widget)
-        histTab.setAllowedAreas(Qt.BottomDockWidgetArea |
-                                Qt.TopDockWidgetArea )
+        histTab.setAllowedAreas(Qt.LeftDockWidgetArea |
+                                Qt.RightDockWidgetArea |
+                                Qt.BottomDockWidgetArea |
+                                Qt.TopDockWidgetArea)
         histTab.setFeatures(QDockWidget.DockWidgetMovable |
                            QDockWidget.DockWidgetFloatable |
                            QDockWidget.DockWidgetClosable)
@@ -346,8 +414,10 @@ class CamWidget(QWidget):
         if self.roiwidget is None:
             self.roiwidget = ROIPlotWidget(roi_target = self.p1, view = self.view)
             roiTab.setWidget(self.roiwidget)
-            roiTab.setAllowedAreas(Qt.BottomDockWidgetArea |
-                                   Qt.TopDockWidgetArea )
+            roiTab.setAllowedAreas(Qt.LeftDockWidgetArea |
+                                   Qt.RightDockWidgetArea |
+                                   Qt.BottomDockWidgetArea |
+                                   Qt.TopDockWidgetArea)
             roiTab.setFeatures(QDockWidget.DockWidgetMovable |
                                QDockWidget.DockWidgetFloatable |
                                QDockWidget.DockWidgetClosable)
@@ -374,11 +444,13 @@ class CamWidget(QWidget):
     def toggleEyeTracker(self):
         if self.parameters['TrackEye']:
             self.eyeTracker = None
-            self.trackerpar.close()
-            self.trackerTab.close()
-            [self.p1.removeItem(c) for c in self.tracker_roi.items()]
+            if hasattr(self,'trackerpar'):
+                self.trackerpar.close()
+                self.trackerTab.close()
+                [self.p1.removeItem(c) for c in self.tracker_roi.items()]
         self.parameters['TrackEye'] = not self.parameters['TrackEye']
-        self.etrackercheck.checkbox.setChecked(self.parameters['TrackEye']) 
+        self.etrackercheck.checkbox.setChecked(self.parameters['TrackEye'])
+
     def saveImageFromCamera(self):
         self.parent.timer.stop()
         frame = self.parent.camframes[self.iCam]
@@ -416,15 +488,14 @@ class CamWidget(QWidget):
         self.trackerpar = MptrackerParameters(self.eyeTracker,image,eyewidget=self.tracker_roi)
         if self.parent.saveflags[self.iCam]:
             self.trackerToggle = QCheckBox()
-            self.trackerToggle.setChecked(self.parent.writers[self.iCam].trackerFlag.is_set())
+            if not self.parents.writers[self.iCam] is None:
+                self.trackerToggle.setChecked(self.parent.writers[self.iCam].trackerFlag.is_set())
             self.trackerToggle.stateChanged.connect(self.trackerSaveToggle)
             self.trackerpar.pGridSave.addRow(
                 QLabel("Save cameras: "),self.trackerToggle)
         self.trackerTab.setWidget(self.trackerpar)
         self.trackerTab.setFloating(True)
         self.trackerpar.resize(400,250)
-        self.parent.addDockWidget(Qt.LeftDockWidgetArea
-                                  ,self.trackerTab)
         self.trackerTab.setAllowedAreas(Qt.LeftDockWidgetArea |
                                         Qt.LeftDockWidgetArea |
                                         Qt.BottomDockWidgetArea |
@@ -432,14 +503,17 @@ class CamWidget(QWidget):
         self.trackerTab.setFeatures(QDockWidget.DockWidgetMovable |
                                   QDockWidget.DockWidgetFloatable |
                                   QDockWidget.DockWidgetClosable)
+        self.parent.addDockWidget(Qt.LeftDockWidgetArea
+                                  ,self.trackerTab)
     def trackerSaveToggle(self,value):
         writer = self.parent.writers[self.iCam]
-        if self.parent.saveflags[self.iCam]:
-            if value:
-                writer.trackerFlag.set()
-                writer.parQ.put((None,self.eyeTracker.parameters))
-            else:
-                writer.trackerFlag.clear()
+        if not writer is None:
+            if self.parent.saveflags[self.iCam]:
+                if value:
+                    writer.trackerFlag.set()
+                    writer.parQ.put((None,self.eyeTracker.parameters))
+                else:
+                    writer.trackerFlag.clear()
 
     def image(self,image,nframe):
         if self.lastnFrame != nframe:
@@ -470,8 +544,15 @@ class CamWidget(QWidget):
                     frame = self.eyeTracker.img
 
             self.text.setText(self.string.format(nframe))
-            self.view.setImage(frame.squeeze(),
-                               autoHistogramRange=self.autoRange)
+            if self.parameters['reference_channel'] is None:
+                self.view.setImage(frame.squeeze(),
+                                   autoHistogramRange=self.autoRange)
+            else:
+                frame = frame.squeeze()
+                ref = self.parameters['reference_channel']
+                ref /= ref.max()
+                im = np.stack([ref,frame/np.max(frame),np.zeros_like(frame)]).transpose([1,2,0])
+                self.view.setImage(im)
             self.lastnFrame = nframe
 
 

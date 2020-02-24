@@ -3,6 +3,34 @@ from .cams import *
 from .io import *
 from .widgets import *
 
+LOGO = '''
+                                             MMM
+                                           MMMMMM
+    MMM:               .MMMM             MMMM MMMMMMMM
+    MMM:               .MMMM            MMMMM MMMMMMMM      
+    MMM:               .MMMM             MMMM  MMMMMM        MM 
+    MMM:  :MMMMMMMMM.  .MMMMOMMMMMM       MN     MMM      MMMMM 
+    MMM:  :M     MMMM  .MMMMM?+MMMMM    MMMMMMMMMMMMMMM7MMMMMMM  
+    MMM:         OMMM  .MMMM    MMMM    MMMMMMMMMMMMMMMMMMMMMMM 
+    MMM:  .MMMMMMMMMM  .MMMM    ?MMM    MMMMMMMMMMMMMMMMMMMMMMM 
+    MMM:  MMMM  .8MMM  .MMMM    ZMMM    MMMMMMMMMMMMMMMMMMMMMMM 
+    MMM:  MMM=...8MMM  .MMMM    MMMM    MMMMMMMMMMMMMMM.MMMMMMM  
+    MMM:  MMMMMMMMMMM  .MMMMMMMMMMM                        MMMM 
+    MMM:   MMMMM 8MMM  .MMMM:MMMMZ                            M 
+
+         MMMMMMN  =MMMMMMMM     MMMM.MMMM$ .+MMMM      MMMMMMM: 
+       MMMMMMMMM  +MMMMMMMMM$   MMMMMMMMMMMMMMMMMM   MMMMMMMMM8 
+      MMMM               MMMM   MMMM   MMMM    MMM+  MMM8       
+      MMMZ          OMMMMMMMM   MMMM   NMMM    MMM?  MMMMMMM$   
+      MMMI        MMMMM  MMMM   MMMM   NMMM    MMM?   ZMMMMMMMM 
+      MMMM       7MMM    MMMM   MMMM   NMMM    MMM?        MMMM 
+       MMMMD+7MM  MMMN   MMMM   MMMM   NMMM    MMM?  MM$:.7MMMM   
+        MMMMMMMM  ZMMMMMOMMMM   MMMM   NMMM    MMM?  MMMMMMMM+                                                              
+                          https://bitbucket.org/jpcouto/labcams
+'''
+
+N_UDP = 1024
+
 class LabCamsGUI(QMainWindow):
     app = None
     cams = []
@@ -12,19 +40,50 @@ class LabCamsGUI(QMainWindow):
                  server = True,
                  saveOnStart = False,
                  triggered = False,
-                 updateFrequency = 50):
+                 software_trigger = True,
+                 updateFrequency = 33):
+        '''
+        Graphical interface for controling labcams.
+        '''
         super(LabCamsGUI,self).__init__()
-        display('Starting labcams interface.')
         self.parameters = parameters
         self.app = app
         self.updateFrequency=updateFrequency
         self.saveOnStart = saveOnStart
         self.cam_descriptions = camDescriptions
+        self.software_trigger = software_trigger
         self.triggered = Event()
         if triggered:
             self.triggered.set()
         else:
             self.triggered.clear()
+        if server:
+            if not 'server_refresh_time' in self.parameters.keys():
+                self.parameters['server_refresh_time'] = 30
+            if not 'server' in self.parameters.keys():
+                self.parameters['server'] = 'zmq'
+            if self.parameters['server'] == 'udp':
+                import socket
+                self.udpsocket = socket.socket(socket.AF_INET, 
+                                     socket.SOCK_DGRAM) # UDP
+                self.udpsocket.bind(('0.0.0.0',
+                                     self.parameters['server_port']))
+                display('Listening to UDP port: {0}'.format(
+                    self.parameters['server_port']))
+                self.udpsocket.settimeout(.02)
+            else:
+                import zmq
+                self.zmqContext = zmq.Context()
+                self.zmqSocket = self.zmqContext.socket(zmq.REP)
+                self.zmqSocket.bind('tcp://0.0.0.0:{0}'.format(
+                    self.parameters['server_port']))
+                display('Listening to ZMQ port: {0}'.format(
+                    self.parameters['server_port']))
+            self.serverTimer = QTimer()
+            self.serverTimer.timeout.connect(self.serverActions)
+            self.serverTimer.start(self.parameters['server_refresh_time'])
+
+
         # Init cameras
         camdrivers = [cam['driver'] for cam in camDescriptions]
         if 'AVT' in camdrivers:
@@ -43,7 +102,25 @@ class LabCamsGUI(QMainWindow):
             if not 'Save' in cam.keys():
                 cam['Save'] = True
             self.saveflags.append(cam['Save'])
-            self.camQueues.append(Queue())            
+            if 'NoQueue' in cam.keys():
+                if cam['NoQueue']:
+                    self.camQueues.append(None)
+                else:
+                    self.camQueues.append(Queue())
+            else:
+                self.camQueues.append(Queue())
+
+            if not 'recorder' in cam.keys():
+                cam['recorder'] = dict(type='ffmpeg',
+                                       crf = 17)
+            
+            recorderpar = dict(cam['recorder'],
+                               datafolder=self.parameters['recorder_path'],
+                               framesperfile=self.parameters['recorder_frames_per_file'],
+                               compression = self.parameters['compress'],
+                               filename = expName,
+                               dataname = cam['description'])
+
             if cam['driver'] == 'AVT':
                 from .avt import AVTCam
                 camids = [(camid,name) for (camid,name) in zip(avtids,avtnames) 
@@ -80,7 +157,8 @@ class LabCamsGUI(QMainWindow):
                                         triggerSelector = cam['TriggerSelector'],
                                         acquisitionMode = cam['AcquisitionMode'],
                                         nTriggeredFrames = cam['AcquisitionFrameCount'],
-                                        nFrameBuffers = cam['nFrameBuffers']))
+                                        nFrameBuffers = cam['nFrameBuffers'],
+                                        recorderpar = recorderpar))
                 connected_avt_cams.append(camids[0][0])
             elif cam['driver'] == 'QImaging':
                 from .qimaging import QImagingCam
@@ -92,107 +170,200 @@ class LabCamsGUI(QMainWindow):
                                              gain=cam['gain'],
                                              binning = cam['binning'],
                                              triggerType = cam['triggerType'],
-                                             triggered = self.triggered))
+                                             triggered = self.triggered,
+                                             recorderpar = recorderpar))
             elif cam['driver'] == 'OpenCV':
                 self.cams.append(OpenCVCam(camId=cam['id'],
                                            outQ = self.camQueues[-1],
                                            triggered = self.triggered,
-                                           **cam))
+                                           **cam,
+                                           recorderpar = recorderpar))
             elif cam['driver'] == 'PCO':
                 from .pco import PCOCam
                 self.cams.append(PCOCam(camId=cam['id'],
                                         binning = cam['binning'],
                                         exposure = cam['exposure'],
                                         outQ = self.camQueues[-1],
-                                        triggered = self.triggered))
+                                        triggered = self.triggered,
+                                        recorderpar = recorderpar))
             elif cam['driver'] == 'ximea':
                 from .ximeacam import XimeaCam
                 self.cams.append(XimeaCam(camId=cam['id'],
                                           binning = cam['binning'],
                                           exposure = cam['exposure'],
                                           outQ = self.camQueues[-1],
-                                          triggered = self.triggered))
-            else:
+                                          triggered = self.triggered,
+                                          recorderpar = recorderpar))
+            elif cam['driver'] == 'PointGrey':
+                from .pointgreycam import PointGreyCam
+                if not 'roi' in cam.keys():
+                    cam['roi'] = []
+                if not 'pxformat' in cam.keys():
+                    cam['pxformat'] = 'Mono8' #'BayerRG8'
+                if not 'serial' in cam.keys():
+                    # camera serial number
+                    cam['serial'] = None 
+                if not 'binning' in cam.keys():
+                    cam['binning'] = None
+                if not 'exposure' in cam.keys():
+                    cam['exposure'] = None
+                if not 'gamma' in cam.keys():
+                    cam['gamma'] = None
+                self.cams.append(PointGreyCam(camId=cam['id'],
+                                              serial = cam['serial'],
+                                              gain = cam['gain'],
+                                              roi = cam['roi'],
+                                              frameRate = cam['frameRate'],
+                                              pxformat = cam['pxformat'],
+                                              exposure = cam['exposure'],
+                                              binning = cam['binning'],
+                                              gamma = cam['gamma'],
+                                              outQ = self.camQueues[-1],
+                                              triggered = self.triggered,
+                                              recorderpar = recorderpar))
+            else: 
                 display('[WARNING] -----> Unknown camera driver' +
                         cam['driver'])
                 self.camQueues.pop()
                 self.saveflags.pop()
-            if not 'compress' in self.parameters:
-                self.parameters['compress'] = 0
-            self.writers.append(TiffWriter(inQ = self.camQueues[-1],
-                                           dataFolder=self.parameters['recorder_path'],
-                                           framesPerFile=self.parameters['recorder_frames_per_file'],
-                                           sleepTime = self.parameters['recorder_sleep_time'],
-                                           compression = self.parameters['compress'],
-                                           filename = expName,
-                                           dataName = cam['description']))
+            if not self.camQueues[-1] is None:
+                if not 'compress' in self.parameters:
+                    self.parameters['compress'] = 0
+                if not 'saveMethod' in cam.keys():
+                    cam['saveMethod'] = 'tiff'
+                if not 'recorder_path_format' in self.parameters.keys():
+                    self.parameters['recorder_path_format'] = pjoin('{datafolder}','{dataname}','{filename}','{today}_{run}_{nfiles}')
+                if  cam['saveMethod'] == 'tiff':
+                    self.writers.append(TiffWriter(
+                        inQ = self.camQueues[-1],
+                        datafolder=self.parameters['recorder_path'],
+                        pathformat = self.parameters['recorder_path_format'],
+                        framesperfile=self.parameters['recorder_frames_per_file'],
+                        sleeptime = self.parameters['recorder_sleep_time'],
+                        compression = self.parameters['compress'],
+                        filename = expName,
+                        dataname = cam['description']))
+                elif cam['saveMethod'] == 'ffmpeg':
+                    if not 'hwaccel' in cam.keys():
+                        cam['hwaccel'] = None                        
+                    self.writers.append(FFMPEGWriter(
+                        inQ = self.camQueues[-1],
+                        datafolder=self.parameters['recorder_path'],
+                        sleeptime = self.parameters['recorder_sleep_time'],
+                        pathformat = self.parameters['recorder_path_format'],
+                        compression = 17,
+                        frame_rate = cam['frameRate'],
+                        filename = expName,
+                        hwaccel = cam['hwaccel'],
+                        dataname = cam['description']))
+                else:
+                    self.writers.append(OpenCVWriter(
+                        inQ = self.camQueues[-1],
+                        datafolder=self.parameters['recorder_path'],
+                        pathformat = self.parameters['recorder_path_format'],
+                        sleeptime = self.parameters['recorder_sleep_time'],
+                        compression = 17,
+                        frame_rate = cam['frameRate'],
+                        filename = expName,
+                        dataname = cam['description']))
+            else:
+                self.writers.append(None)
             # Print parameters
             display('\t Camera: {0}'.format(cam['name']))
             for k in np.sort(list(cam.keys())):
-                if not k == 'name':
+                if not k == 'name' and not k == 'recorder':
                     display('\t\t - {0} {1}'.format(k,cam[k]))
-            self.writers[-1].daemon = True
-            self.cams[-1].daemon = True
         #self.resize(100,100)
 
         self.initUI()
         
-        if server:
-            import zmq
-            self.zmqContext = zmq.Context()
-            self.zmqSocket = self.zmqContext.socket(zmq.REP)
-            self.zmqSocket.bind('tcp://0.0.0.0:{0}'.format(self.parameters['server_port']))
-            display('Listening to port: {0}'.format(self.parameters['server_port']))
-            self.zmqTimer = QTimer()
-            self.zmqTimer.timeout.connect(self.zmqActions)
-            self.zmqTimer.start(100)
-
         self.camerasRunning = False
         for cam,writer in zip(self.cams,self.writers):
             cam.start()
-            writer.start()
+            if not writer is None:
+                writer.start()
         camready = 0
         while camready != len(self.cams):
             camready = np.sum([cam.camera_ready.is_set() for cam in self.cams])
         display('Initialized cameras.')
-        self.triggerCams(save=self.saveOnStart)
+        self.triggerCams(soft_trigger = self.software_trigger,save=self.saveOnStart)
 
     def setExperimentName(self,expname):
         # Makes sure that the experiment name has the right slashes.
         if os.path.sep == '/':
-            expname = expname.replace('\\',os.path.sep)
-        for flg,writer in zip(self.saveflags,self.writers):
+            expname = expname.replace('\\',os.path.sep).strip(' ')
+        for flg,writer,cam in zip(self.saveflags,self.writers,self.cams):
             if flg:
-                writer.setFilename(expname)
+                if not writer is None:
+                    writer.set_filename(expname)
+                else:
+                    display('Setting serial recorder filename.')
+                    cam.eventsQ.put('filename='+expname)
         time.sleep(0.15)
         self.recController.experimentNameEdit.setText(expname)
         
-    def zmqActions(self):
-        import zmq
-        try:
-            message = self.zmqSocket.recv_pyobj(flags=zmq.NOBLOCK)
-        except zmq.error.Again:
-            return
-        self.zmqSocket.send_pyobj(dict(action='handshake'))
-        if message['action'] == 'expName':
+    def serverActions(self):
+        if self.parameters['server'] == 'zmq':
+            try:
+                message = self.zmqSocket.recv_pyobj(flags=zmq.NOBLOCK)
+            except:
+                return
+            self.zmqSocket.send_pyobj(dict(action='handshake'))
+        elif self.parameters['server'] == 'udp':
+            try:
+                msg,address = self.udpsocket.recvfrom(N_UDP)
+            except:
+                return
+            msg = msg.decode().split('=')
+            message = dict(action=msg[0])
+            if len(msg) > 1:
+                message = dict(message,value=msg[1])
+        #display('Server received message: {0}'.format(message))
+        if message['action'].lower() == 'expname':
             self.setExperimentName(message['value'])
-        elif message['action'] == 'trigger':
+            self.udpsocket.sendto(b'ok=expname',address)
+        elif message['action'].lower() == 'softtrigger':
+            self.recController.softTriggerToggle.setChecked(
+                int(message['value']))
+            self.udpsocket.sendto(b'ok=software_trigger',address)
+        elif message['action'].lower() == 'trigger':
             for cam in self.cams:
                 cam.stop_acquisition()
             # make sure all cams closed
             for c,(cam,writer) in enumerate(zip(self.cams,self.writers)):
-                cam.saving.clear()
-                if not writer is None:
-                    writer.write.clear()
-            self.triggerCams(save = True)
-
-    def triggerCams(self,save=False):
+                cam.stop_saving()
+                #if not writer is None: # Logic moved to inside camera.
+                #    writer.write.clear()
+            self.triggerCams(soft_trigger = self.software_trigger,save = True)
+            self.udpsocket.sendto(b'ok=save_hardwaretrigger',address)
+        elif message['action'].lower() == 'settrigger':
+            self.recController.camTriggerToggle.setChecked(
+                int(message['value']))
+            self.udpsocket.sendto(b'ok=hardware_trigger',address)
+        elif message['action'].lower() in ['setmanualsave','manualsave']:
+            self.recController.saveOnStartToggle.setChecked(
+                int(message['value']))
+            self.udpsocket.sendto(b'ok=save',address)
+        elif message['action'].lower() == 'log':
+            for cam in self.cams:
+                cam.eventsQ.put('log={0}'.format(message['value']))
+            # write on display
+            #self.camwidgets[0].text_remote.setText(message['value'])
+            self.udpsocket.sendto(b'ok=log',address)
+            self.recController.udpmessages.setText(message['value'])
+        elif message['action'].lower() == 'ping':
+            display('Server got PING.')
+            self.udpsocket.sendto(b'pong',address)
+        elif message['action'].lower() == 'quit':
+            self.udpsocket.sendto(b'ok=bye',address)
+            self.close()
+    def triggerCams(self,soft_trigger = True, save=False):
         # stops previous saves if there were any
         display("Waiting for the cameras to be ready.")
         for c,cam in enumerate(self.cams):
             while not cam.camera_ready.is_set():
                 time.sleep(0.001)
-            display('Camera {{0}} ready.'.format(c))
+            display('Camera [{0}] ready.'.format(c))
         display('Doing save ({0}) and trigger'.format(save))
         if save:
             for c,(cam,flg,writer) in enumerate(zip(self.cams,
@@ -200,21 +371,31 @@ class LabCamsGUI(QMainWindow):
                                                     self.writers)):
                 if flg:
                     cam.saving.set()
-                    writer.write.set()
+                    if not writer is None:
+                        writer.write.set()
         else:
             for c,(cam,flg,writer) in enumerate(zip(self.cams,
                                                     self.saveflags,
                                                     self.writers)):
                 if flg:
-                    cam.saving.clear()
-                    writer.write.clear()
+                    if not writer is None:
+                        cam.stop_saving()
+                    #writer.write.clear() # cam stops writer
         #time.sleep(2)
-        for c,cam in enumerate(self.cams):
-            cam.start_trigger.set()
-        display('Software triggered cameras.')
+        if soft_trigger:
+            for c,cam in enumerate(self.cams):
+                cam.start_trigger.set()
+            display('Software triggered cameras.')
         
     def experimentMenuTrigger(self,q):
-        display(q.text()+ "clicked. ")
+        if q.text() == 'Set refresh time':
+            self.timer.stop()
+            res = QInputDialog().getDouble(self,"What refresh period do you want?","GUI refresh period",
+                                           self.updateFrequency)
+            if res[1]:
+                self.updateFrequency = res[0]
+            self.timer.start(self.updateFrequency)
+            #display(q.text()+ "clicked. ")
         
     def initUI(self):
         # Menu
@@ -223,8 +404,8 @@ class LabCamsGUI(QMainWindow):
 )
         from .widgets import CamWidget,RecordingControlWidget
         bar = self.menuBar()
-        editmenu = bar.addMenu("Experiment")
-        editmenu.addAction("New")
+        editmenu = bar.addMenu("Options")
+        editmenu.addAction("Set refresh time")
         editmenu.triggered[QAction].connect(self.experimentMenuTrigger)
         self.setWindowTitle("labcams")
         self.tabs = []
@@ -235,7 +416,7 @@ class LabCamsGUI(QMainWindow):
         for c,cam in enumerate(self.cams):
             tt = ''
             if self.saveflags[c]:
-                tt +=  ' - ' + self.writers[c].dataName +' ' 
+                tt +=  ' - ' + self.cam_descriptions[c]['description'] +' ' 
             self.tabs.append(QDockWidget("Camera: "+str(c) + tt,self))
             self.camwidgets.append(CamWidget(frame = np.zeros((cam.h,cam.w,cam.nchan),
                                                               dtype=cam.dtype),
@@ -245,13 +426,13 @@ class LabCamsGUI(QMainWindow):
             self.tabs[-1].setWidget(self.camwidgets[-1])
             self.tabs[-1].setFloating(False)
             self.tabs[-1].setAllowedAreas(Qt.LeftDockWidgetArea |
-                                          Qt.LeftDockWidgetArea |
+                                          Qt.RightDockWidgetArea |
                                           Qt.BottomDockWidgetArea |
                                           Qt.TopDockWidgetArea)
             self.tabs[-1].setFeatures(QDockWidget.DockWidgetMovable |
                                       QDockWidget.DockWidgetFloatable)
             self.addDockWidget(
-                Qt.LeftDockWidgetArea,
+                Qt.BottomDockWidgetArea,
                 self.tabs[-1])
             self.tabs[-1].setMinimumHeight(200)
             display('Init view: ' + str(c))
@@ -276,8 +457,8 @@ class LabCamsGUI(QMainWindow):
                     exc_tb.tb_frame.f_code.co_filename)[1]
                 print(e, fname, exc_tb.tb_lineno)
     def closeEvent(self,event):
-        if hasattr(self,'zmqTimer'):
-            self.zmqTimer.stop()
+        if hasattr(self,'serverTimer'):
+            self.serverTimer.stop()
         self.timer.stop()
         for cam in self.cams:
             cam.stop_acquisition()
@@ -286,9 +467,10 @@ class LabCamsGUI(QMainWindow):
                                             self.saveflags,
                                             self.writers)):
             if flg:
-                cam.saving.clear()
-                writer.write.clear()
-                writer.stop()
+                cam.stop_saving()
+                #writer.write.clear() # logic moved inside writer
+                if not writer is None:
+                    writer.stop()
             cam.close()
         for c in self.cams:
             c.join()
@@ -296,22 +478,18 @@ class LabCamsGUI(QMainWindow):
                                                 self.saveflags,
                                                 self.writers)):
             if flg:
-                display('   ' + self.cam_descriptions[c]['name']+
-                        ' [ Acquired:'+
-                        str(cam.nframes.value) + ' - Saved: ' + 
-                        str(writer.frameCount.value) +']')
-                writer.join()
+                if not writer is None:
+                    writer.join()
         from .widgets import pg
         pg.setConfigOption('crashWarning', False)
         event.accept()
 
 
 def main():
-    from argparse import ArgumentParser
+    from argparse import ArgumentParser, RawDescriptionHelpFormatter
     import os
     import json
-    
-    parser = ArgumentParser(description='Script to control and record from cameras.')
+    parser = ArgumentParser(description=LOGO + '\n\n  Multiple camera control and recording.',formatter_class=RawDescriptionHelpFormatter)
     parser.add_argument('preffile',
                         metavar='configfile',
                         type=str,
@@ -321,7 +499,10 @@ def main():
                         type=str,
                         default = None,
                         action='store')
-    parser.add_argument('--triggered',
+    parser.add_argument('-w','--wait',
+                        default = False,
+                        action='store_true')
+    parser.add_argument('-t','--triggered',
                         default=False,
                         action='store_true')
     parser.add_argument('-c','--cam-select',
@@ -347,8 +528,9 @@ def main():
                    camDescriptions = cams,
                    parameters = parameters,
                    server = not opts.no_server,
+                   software_trigger = not opts.wait,
                    triggered = opts.triggered)
     sys.exit(app.exec_())
-
+    
 if __name__ == '__main__':
     main()

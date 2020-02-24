@@ -10,7 +10,8 @@ class QImagingCam(GenericCam):
                  nFrameBuffers = 1,
                  binning = 2,
                  triggerType = 0,
-                 triggered = Event()):
+                 triggered = Event(),
+                 recorderpar = None):
         '''
         Qimaging camera (tested with the Emc2 only!)
             triggerType (0=freerun,1=hardware,5=software)
@@ -120,8 +121,12 @@ class QImagingCam(GenericCam):
                 timestamp = f.timeStamp
                 frameID = f.frameNumber
                 if self.saving.is_set():
+                    self.was_saving = True
                     self.queue.put((frame.reshape([self.h,self.w]),
                                     (frameID,timestamp)))
+                elif self.was_saving:
+                    self.was_saving = False
+                    self.queue.put(['STOP'])
                 buf[:] = np.reshape(frame,buf.shape)[:]
 
                 queue.put(f)
