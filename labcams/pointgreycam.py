@@ -372,6 +372,9 @@ class PointGreyCam(GenericCam):
 
         x,y,w,h = self.roi
         self.set_binning(self.binning)
+        # reset size first
+        pg_image_settings(self.nodemap,X=0,Y=0,
+                          W=None,H=None,pxformat=self.pxformat)
         pg_image_settings(self.nodemap,X=x,Y=y,W=w,H=h,pxformat=self.pxformat)
         self.set_gain(self.gain)
         self.set_exposure(self.exposure)
