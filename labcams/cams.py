@@ -254,7 +254,9 @@ class OpenCVCam(GenericCam):
                 res = self.cam.set(cv2.CAP_PROP_EXPOSURE,1./self.frame_rate)
                 res = self.cam.set(cv2.CAP_PROP_FPS,self.frame_rate)
             else:
-                res = self.cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+                display('[OpenCV] Setting auto exposure.')
+                res = self.cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.75)
+                self.cam.set(cv2.CAP_PROP_EXPOSURE, 100) 
 
             if self.cam_is_running:
                 self.stop_trigger.set()
