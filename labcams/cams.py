@@ -84,6 +84,8 @@ class GenericCam(Process):
         self._start_recorder()
         while not self.close_event.is_set():
             self._cam_init()
+            if self.stop_trigger.is_set():
+                break
             self._cam_waitsoftwaretrigger()
             if not self.stop_trigger.is_set():
                 self._cam_startacquisition()
@@ -94,7 +96,7 @@ class GenericCam(Process):
                     self._handle_frame(frame,metadata)
                 self._parse_command_queue()
                 # to be able to pause acquisition on software trigger
-                if not self.start_trigger.is_set():
+                if not self.start_trigger.is_set() and not self.stop_trigger.is_set():
                     self._cam_stopacquisition()
                     self._cam_waitsoftwaretrigger()
                     if not self.stop_trigger.is_set():
@@ -109,6 +111,8 @@ class GenericCam(Process):
                 if not self.queue is None:
                     self.queue.put(['STOP'])
             self.stop_trigger.clear()
+            if self.close_event.is_set():
+                break
 
     def _handle_frame(self,frame,metadata):
         frameID,timestamp = metadata

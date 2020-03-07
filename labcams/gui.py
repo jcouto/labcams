@@ -460,8 +460,6 @@ class LabCamsGUI(QMainWindow):
         if hasattr(self,'serverTimer'):
             self.serverTimer.stop()
         self.timer.stop()
-        for cam in self.cams:
-            cam.stop_acquisition()
         display('Acquisition stopped (close event).')
         for c,(cam,flg,writer) in enumerate(zip(self.cams,
                                             self.saveflags,

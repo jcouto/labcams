@@ -486,7 +486,6 @@ class PCOCam(GenericCam):
                 #print("After", num_polls, "polls, buffer")
                 #print(self.buffer_numbers[which_buf].value)
                 #print("is ready.")
-                frameID = self.nframes.value
                 polling = False
                 break
             else:
@@ -515,6 +514,9 @@ class PCOCam(GenericCam):
                     self.buffer_numbers[which_buf], self.wXResAct, self.wYResAct,
                     self.wBitsPerPixel)
                 self.added_buffers.append(which_buf)
+            frameID = int(''.join([hex(((a >> 8*0) & 0xFF))[-2:] for a in self.out[0,:4]]).replace('x','0'))
+            #display('{0}{1}-{2}-{3} {4}:{5}:{6}.{7}{8}{9}'.format(self.out[0,4]>>1,*self.out[0,5:14]))
+            self.nframes.value = frameID
             return self.out,(frameID,timestamp)
         return None,(None,None)
             
