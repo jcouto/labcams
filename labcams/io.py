@@ -221,16 +221,16 @@ class GenericWriterProcess(Process,GenericWriter):
             if not self.parQ.empty():
                 self.getFromParQueue()
             while self.write.is_set():
-                if not self.inQ.empty():
+                while not self.inQ.empty():
                     frameid,frame = self.get_from_queue_and_save()
+                # spare the processor just in case...
+                time.sleep(self.sleeptime)
             # If queue is not empty, empty if to disk.
             while not self.inQ.empty():
                 frameid,frame = self.get_from_queue_and_save()
                 display('Queue is empty. Proceding with close.')
             # close the run
             self.close_run()
-            # spare the processor just in case...
-            time.sleep(self.sleeptime)
 
 '''
         if self.trackerFlag.is_set():
@@ -408,9 +408,6 @@ class FFMPEGWriter(GenericWriterProcess):
             frame_rate = 30.
             display('Using frame rate 30 (this value can be set with the frame_rate argument).')
         self.frame_rate = frame_rate
-        self.dinputs = dict(format='rawvideo',
-                            pix_fmt='gray',
-                            s='{}x{}')
         self.w = None
         self.h = None
         if hwaccel is None:
@@ -430,12 +427,11 @@ class FFMPEGWriter(GenericWriterProcess):
                                  '-threads':str(1),
                                  '-crf':str(self.compression)}
             elif hwaccel == 'nvidia':
-                self.doutputs = {'-pix_fmt':'nv12',
-                                 '-level': '40',
-                                 '-gpu':'-1',
-                                 '-vcodec':'h264_nvenc'}
+                self.doutputs = {'-vcodec':'h264_nvenc',
+                                 '-pix_fmt':'yuv420p'}
         self.doutputs['-r'] =str(self.frame_rate)
-
+        self.hwaccel = hwaccel
+        
     def close_file(self):
         if not self.fd is None:
             self.fd.close()
@@ -444,14 +440,15 @@ class FFMPEGWriter(GenericWriterProcess):
     def _open_file(self,filename,frame = None):
         self.w = frame.shape[1]
         self.h = frame.shape[0]
-        self.fd = FFmpegWriter(filename,outputdict=self.doutputs)
+        self.fd = FFmpegWriter(filename,
+                               outputdict=self.doutputs)
 
     def _write(self,frame,frameid,timestamp):
         self.fd.writeFrame(frame)
 
 ################################################################################
 ################################################################################
-class FFMPEGWriter_legacy(GenericWriter):
+class FFMPEGWriter_legacy(GenericWriterProcess):
     def __init__(self,
                  inQ = None,
                  loggerQ = None,
@@ -461,6 +458,7 @@ class FFMPEGWriter_legacy(GenericWriter):
                  pathformat = pjoin('{datafolder}','{dataname}','{filename}',
                                     '{today}_{run}_{nfiles}'),
                  framesperfile=0,
+                 hwaccel='nvidia',
                  sleeptime = 1./30,
                  frame_rate = 30.,
                  incrementruns=True,
@@ -488,16 +486,23 @@ class FFMPEGWriter_legacy(GenericWriter):
                             s='{}x{}')
         self.w = None
         self.h = None
-        self.doutputs = dict(format='h264',
-                             pix_fmt='yuv420p',#'gray',
-                             vcodec='h264_qsv',#'libx264',
-                             global_quality=17, # specific to the qsv
-                             look_ahead=1, 
+        if hwaccel == 'intel':
+            self.doutputs = {'format':'h264',
+                             'pix_fmt':'yuv420p',#'gray',
+                             'vcodec':'h264_qsv',#'libx264',
+                             'global_quality':str(25), # specific to the qsv
+                             'look_ahead':str(1), 
                              #preset='veryfast',#'ultrafast',
-                             threads = 1,
-                             r = self.frame_rate,
-                             crf=self.compression)
-        
+                             'threads':str(1),
+                             'crf':str(self.compression)}
+        elif hwaccel == 'nvidia':
+            self.doutputs = {'vcodec':'h264_nvenc',#'-pix_fmt':'yuv420p',
+                             'preset':'slow',
+                             'qmin':'10',
+                             'qmax':'52',
+                             'loglevel':'debug'}
+        self.doutputs['r'] =str(self.frame_rate)
+
     def close_file(self):
         if not self.fd is None:
             self.fd.stdin.close()
