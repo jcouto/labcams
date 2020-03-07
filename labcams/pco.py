@@ -9,13 +9,18 @@ class PCOCam(GenericCam):
                  useCameraParameters = True,
                  triggerSource = np.uint16(2),
                  triggered = Event(),
-                 dllpath = 'C:\\Program Files (x86)\\pco\\pco.sdk\\bin64\\SC2_Cam.dll',
+                 dllpath = None,
                  recorderpar = None,**kwargs):
         super(PCOCam,self).__init__(outQ = outQ, recorderpar=recorderpar)
         self.armed = False
         self.drivername = 'PCO'
-        self._dll = ctypes.WinDLL(dllpath)
-        self.dllpath = dllpath
+        if dllpath is None:
+            dllpath = ['C:\\Program Files (x86)\\pco\\pco.sdk\\bin64\\SC2_Cam.dll',
+                       'C:\\Program Files (x86)\\Digital Camera Toolbox\\pco.sdk\\bin64\\SC2_Cam.dll']
+        for path in dllpath:
+            if os.path.isfile(path):
+                self._dll = ctypes.WinDLL(path)
+                self.dllpath = path
         self.poll_timeout=1
                 
         self.trigerMode = 0
@@ -70,9 +75,9 @@ class PCOCam(GenericCam):
         '''Open PCO camera'''
         opencamera = self._dll.PCO_OpenCamera
         # PCO_OpenCamera(HANDLE *hCam, int board_num), return int
-        opencamera.argtypes = (ctypes.POINTER(ctypes.c_int), ctypes.c_int)
+        opencamera.argtypes = (ctypes.POINTER(ctypes.c_void_p), ctypes.c_uint16)
         opencamera.restype = ctypes.c_int
-        self.hCam = ctypes.c_int()
+        self.hCam = ctypes.c_void_p()
         ret = opencamera(self.hCam, camid)
         #if ret == 0 and reset:
         #    self._dll.PCO_ResetSettingsToDefault(self.hCam)
@@ -87,14 +92,14 @@ class PCOCam(GenericCam):
         Start recording
         :return: message from recording status
         """
-        return self._dll.PCO_SetRecordingState(self.hCam, ctypes.c_int16(1))
+        return self._dll.PCO_SetRecordingState(self.hCam, ctypes.c_uint16(1))
     
     def acquisitionstop(self):
         """
         Start recording
         :return: message from recording status
         """
-        return self._dll.PCO_SetRecordingState(self.hCam, ctypes.c_int16(0))
+        return self._dll.PCO_SetRecordingState(self.hCam, ctypes.c_uint16(0))
     
     def get_health_state(self):
         cameraWarning, cameraError, cameraStatus = (ctypes.c_uint16(),
@@ -136,7 +141,7 @@ class PCOCam(GenericCam):
                           bytes_per_pixel, pixels_per_image,
                           added_buffers, ArrayType)
     
-    def allocate_buffers(self, num_buffers=2):
+    def allocate_buffers(self, num_buffers=1):
         """
         Allocate buffers for image grabbing
         :param num_buffers:
@@ -264,7 +269,6 @@ class PCOCam(GenericCam):
         :return:
         """
         if self.armed:
-            
             raise UserWarning("PCO - Camera already armed?")
 
         # Arm camera
@@ -393,6 +397,7 @@ class PCOCam(GenericCam):
             self.set_trigger_mode(0)
         display('PCO - Trigger mode: {0}'.format(self.get_trigger_mode()))
         display('PCO - size: {0} x {1}'.format(self.h,self.w))
+        self._dll.PCO_SetTimestampMode(self.hCam,ctypes.c_uint16(1))
         self.arm()
         self.camera_ready.set()
         self.nframes.value = 0
@@ -410,13 +415,66 @@ class PCOCam(GenericCam):
         self.out = np.zeros((self.wYResAct.value, self.wXResAct.value),
                             dtype=np.uint16)
         
-    def _cam_loop(self):
-
+    def _cam_loop(self,poll_timeout=5e7):
+        
         timestamp = 0
         message = 0
         num_acquired = 0
         num_polls = 0
         polling = True
+
+        num_polls = 0
+        polling = True
+        '''
+        while polling:
+            num_polls += 1
+            message = self._dll.PCO_GetBufferStatus(
+                self.hCam, self.buffer_numbers[self.added_buffers[0]],
+                ctypes.byref(self.dwStatusDll), ctypes.byref(self.dwStatusDrv))
+            if self.dwStatusDll.value == 0xc0008000:
+                which_buf = self.added_buffers.pop(0)  # Buffer exits the queue
+                #print("After", num_polls, "polls, buffer")
+                #print(self.buffer_numbers[which_buf].value)
+                #print("is ready.")
+                polling = False
+                break
+            else:
+                time.sleep(0.00005)  # Wait 50 microseconds
+            if num_polls > poll_timeout:
+                print("After %i polls, no buffer."%(poll_timeout))
+                return None
+        if self.dwStatusDrv.value == 0x00000000:
+            pass
+        elif self.dwStatusDrv.value == 0x80332028:
+            print('DMA error during record_to_memory')
+            raise MemoryError('DMA error during record_to_memory')
+        else:
+            print("dwStatusDrv:", self.dwStatusDrv.value)
+            print("Buffer status error")
+            #raise UserWarning("Buffer status error")
+            
+            #print("Record to memory result:")
+            print(hex(dwStatusDll.value), hex(dwStatusDrv.value))
+            #print(message)
+
+            
+        buffer_ptr = ctypes.cast(self.buffer_pointers[which_buf], ctypes.POINTER(self.ArrayType))
+        self.out[:, :] = np.frombuffer(buffer_ptr.contents, dtype=np.uint16).reshape(self.out.shape)
+        num_acquired += 1
+        frameID = self.nframes.value
+        self._dll.PCO_AddBufferEx(  # Put the buffer back in the queue
+            self.hCam,
+            self.dw1stImage,
+            self.dwLastImage,
+            self.buffer_numbers[which_buf],
+            self.wXResAct,
+            self.wYResAct,
+            self.wBitsPerPixel)
+        self.added_buffers.append(which_buf)
+        return self.out,(frameID,timestamp)
+        '''
+
+        
         while polling:
             which_buf = None
             num_polls += 1
@@ -457,7 +515,7 @@ class PCOCam(GenericCam):
                     self.buffer_numbers[which_buf], self.wXResAct, self.wYResAct,
                     self.wBitsPerPixel)
                 self.added_buffers.append(which_buf)
-            return frame,(frameID,timestamp)
+            return self.out,(frameID,timestamp)
         return None,(None,None)
             
     def _cam_close(self):
@@ -470,7 +528,5 @@ class PCOCam(GenericCam):
         if self.was_saving:
             self.was_saving = False
             self.queue.put(['STOP'])
-        self.start_trigger.clear()
-        self.stop_trigger.clear()
         display('PCO {0} - Close event: {1}'.format(self.camId,
                                                     self.close_event.is_set()))
