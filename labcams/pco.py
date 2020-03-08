@@ -80,7 +80,7 @@ class PCOCam(GenericCam):
         self.hCam = ctypes.c_void_p()
         ret = opencamera(self.hCam, camid)
         #if ret == 0 and reset:
-        #    self._dll.PCO_ResetSettingsToDefault(self.hCam)
+            #self._dll.PCO_ResetSettingsToDefault(self.hCam)
         return ret
     
     def camclose(self):
@@ -99,6 +99,7 @@ class PCOCam(GenericCam):
         Start recording
         :return: message from recording status
         """
+        display('[PCO] - Stopping acquisition.')
         return self._dll.PCO_SetRecordingState(self.hCam, ctypes.c_uint16(0))
     
     def get_health_state(self):
@@ -406,14 +407,17 @@ class PCOCam(GenericCam):
     def _cam_startacquisition(self):
         self.acquisitionstart()
         display('PCO [{0}] - Started acquisition.'.format(self.camId))
-        self.camera_ready.clear()
-        self._prepare_to_mem()
-        (self.dw1stImage, self.dwLastImage, self.wBitsPerPixel, self.dwStatusDll,
-         self.dwStatusDrv, bytes_per_pixel,
-         pixels_per_image, self.added_buffers, self.ArrayType) = self._prepared
-        assert bytes_per_pixel.value == 2
-        self.out = np.zeros((self.wYResAct.value, self.wXResAct.value),
-                            dtype=np.uint16)
+        if not self.cam_is_running:
+            self._prepare_to_mem()
+            (self.dw1stImage, self.dwLastImage, self.wBitsPerPixel, self.dwStatusDll,
+             self.dwStatusDrv, bytes_per_pixel,
+             pixels_per_image, self.added_buffers, self.ArrayType) = self._prepared
+            assert bytes_per_pixel.value == 2
+            self.out = np.zeros((self.wYResAct.value, self.wXResAct.value),
+                                dtype=np.uint16)
+            
+    def _cam_stopacquisition(self):
+        self.acquisitionstop()
         
     def _cam_loop(self,poll_timeout=5e7):
         
