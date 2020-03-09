@@ -32,17 +32,19 @@ FRAME = 'F'
 # Class to talk to arduino  using a separate process.
 class CamStimInterface(Process):
     def __init__(self,port='COM3', baudrate=115200,
-                 inQ = None, outQ=None,timeout=0.1):
+                 inQ = None, outQ=None, saving = None, timeout=0.1):
         Process.__init__(self)
         if inQ is None:
             inQ = Queue()
-        if outQ is None:
-            outQ = Queue()
         self.inQ = inQ
         self.outQ = outQ
         self.port = port
         self.baudrate = baudrate
         self.timeout = timeout
+        if saving is None:
+            self.is_saving = Event()
+        else:
+            self.is_saving = saving
         try:
             self.ino = serial.Serial(port=self.port,
                                      baudrate=self.baudrate,
@@ -64,8 +66,7 @@ Could not open teensy on port {0}
         self.last_time = Value('i',0)
         self.width = Value('i',13000)
         self.margin = Value('i',1000)
-        self.is_saving = Event()
-        self.start()
+        #self.start()
     def close(self):
         self.exit.set()
 
@@ -133,7 +134,7 @@ Could not open teensy on port {0}
                 self.frame_count.value = int(tmp[1])
                 self.last_led.value = int(tmp[2])
                 self.last_time.value = int(tmp[3])
-                return(['# LED:{0},{1},{2}'.format(self.frame_count.value,
+                return(['#LED:{0},{1},{2}'.format(self.frame_count.value,
                                             self.last_led.value,
                                             self.last_time.value)])
             else:
@@ -141,7 +142,7 @@ Could not open teensy on port {0}
         else:
             self.corrupt_messages += 1
             display('Error on msg [' + str(self.corrupt_messages) + ']: '+ msg.strip(STX).strip(ETX))
-            return '# ERROR {0}'.format(msg)
+            return ['#ERROR {0}'.format(msg)]
         return None
 
     def run(self):
@@ -166,7 +167,9 @@ Could not open teensy on port {0}
                     print(m)
                 finally:
                     if (not toout is None) and (self.is_saving.is_set()):
-                        self.outQ.put(toout)
+                        if not self.outQ is None:
+                            self.outQ.put(toout)
+
                     
         self.ino.close()        
         display('Ended communication with arduino.')

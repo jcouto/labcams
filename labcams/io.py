@@ -87,19 +87,29 @@ class GenericWriter(object):
         self._open_file(filename,frame)
         # Create a log file
         if self.logfile is None:
-            logfname = filename.replace('.{extension}'.format(
-                **self.path_keys),'.camlog')
-            self.logfile = open(logfname,'w')
-            self.logfile.write('# Camera: {0} log file'.format(
-                self.dataname) + '\n')
-            self.logfile.write('# Date: {0}'.format(
-                datetime.today().strftime('%d-%m-%Y')) + '\n')
-            self.logfile.write('# labcams version: {0}'.format(
-                VERSION) + '\n')                
-            self.logfile.write('# Log header:' + 'frame_id,timestamp' + '\n')
+            self._open_logfile()
         self.nFiles += 1
         display('Opened: '+ filename)        
         self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - ' + filename + '\n')
+
+    def _open_logfile(self):
+        self.path_keys['run'] = 'run{0:03d}'.format(self.runs)
+        nfiles = self.nFiles
+        self.path_keys['nfiles'] = '{0:08d}'.format(nfiles)
+        self.path_keys['filename'] = self.get_filename()
+
+        filename = (self.path_format+'.{extension}').format(**self.path_keys)
+
+        logfname = filename.replace('.{extension}'.format(
+            **self.path_keys),'.camlog')
+        self.logfile = open(logfname,'w')
+        self.logfile.write('# Camera: {0} log file'.format(
+            self.dataname) + '\n')
+        self.logfile.write('# Date: {0}'.format(
+            datetime.today().strftime('%d-%m-%Y')) + '\n')
+        self.logfile.write('# labcams version: {0}'.format(
+            VERSION) + '\n')                
+        self.logfile.write('# Log header:' + 'frame_id,timestamp' + '\n')
 
     def _open_file(self,filename,frame):
         pass
@@ -122,6 +132,8 @@ class GenericWriter(object):
                 display('Stopping writer.')
                 self._stop_write()
             elif msg.startswith('#'):
+                if self.logfile is None:
+                    self._open_logfile()
                 self.logfile.write(msg + '\n')
             return None,msg
         else:

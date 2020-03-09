@@ -1,5 +1,5 @@
 from .cams import *
-
+from datetime import datetime
 class PCOCam(GenericCam):
     time_modes = {0:"ns", 1: "us", 2: "ms"}
     def __init__(self, camId = None, outQ = None,
@@ -9,6 +9,7 @@ class PCOCam(GenericCam):
                  useCameraParameters = True,
                  triggerSource = np.uint16(2),
                  triggered = Event(),
+                 acquisition_stim_trigger = None,
                  dllpath = None,
                  recorderpar = None,**kwargs):
         super(PCOCam,self).__init__(outQ = outQ, recorderpar=recorderpar)
@@ -52,10 +53,18 @@ class PCOCam(GenericCam):
         self._init_variables(dtype)
         self.triggered = triggered
         self.triggerSource = triggerSource
-
+        # TODO: interface with the excitation stim trigger
+        if not acquisition_stim_trigger is None:
+            self.acquisition_stim_trigger = dict(mode = acquisition_stim_trigger.mode)
+            acquisition_stim_trigger.is_saving = self.saving
+            self.refresh_period = -1
+            # refresh every frame
+        else:
+            self.acquisition_stim_trigger = None
+            
         self._dll = None
         self.img[:] = np.reshape(frame,self.img.shape)[:]
-
+        
         display("Got info from camera (name: {0})".format(
              'PCO'))
 
@@ -142,7 +151,7 @@ class PCOCam(GenericCam):
                           bytes_per_pixel, pixels_per_image,
                           added_buffers, ArrayType)
     
-    def allocate_buffers(self, num_buffers=1):
+    def allocate_buffers(self, num_buffers=5):
         """
         Allocate buffers for image grabbing
         :param num_buffers:
@@ -403,7 +412,7 @@ class PCOCam(GenericCam):
         self.camera_ready.set()
         self.nframes.value = 0
         self.stop_trigger.clear()
-
+        self.datestart = datetime.now() 
     def _cam_startacquisition(self):
         self.acquisitionstart()
         display('PCO [{0}] - Started acquisition.'.format(self.camId))
@@ -519,11 +528,23 @@ class PCOCam(GenericCam):
                     self.wBitsPerPixel)
                 self.added_buffers.append(which_buf)
             frameID = int(''.join([hex(((a >> 8*0) & 0xFF))[-2:] for a in self.out[0,:4]]).replace('x','0'))
-            #display('{0}{1}-{2}-{3} {4}:{5}:{6}.{7}{8}{9}'.format(self.out[0,4]>>1,*self.out[0,5:14]))
+            datestr = ('{0}{1}-{2}-{3} {4}:{5}:{6}.{7}{8}{9}'.format(
+                *[hex(((a >> 8*0) & 0xFF)
+                )[-2:] for a in self.out[0,4:14]]).replace('x','0'))
+            timestam = datetime.strptime(datestr,'%Y-%m-%d %H:%M:%S.%f')
+            timestamp = (timestam - self.datestart).total_seconds()
             self.nframes.value = frameID
-            return self.out,(frameID,timestamp)
+            return self.out.copy(),(frameID,timestamp)
         return None,(None,None)
-            
+
+    def _update_buffer(self,frame,frameID):
+        if not self.acquisition_stim_trigger is None:
+            if self.acquisition_stim_trigger['mode'].value == 3:
+                if np.mod(frameID,2) == 0:
+                    self.buf[:] = np.reshape(frame,self.buf.shape)[:]
+                return
+        self.buf[:] = np.reshape(frame,self.buf.shape)[:]
+    
     def _cam_close(self):
         display('PCO [{0}] - Stopping acquisition.'.format(self.camId))
         self.acquisitionstop()

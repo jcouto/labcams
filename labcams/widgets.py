@@ -193,6 +193,7 @@ This will can be differently configured for different cameras.'''
                     if not writer is None:
                         writer.write.set()
                 else:
+                    display('Manual stop saving.')
                     cam.stop_saving()
                     #writer.write.clear()
         display('Toggled ManualSave [{0}]'.format(state))
@@ -614,11 +615,11 @@ class ROIPlotWidget(QWidget):
                          y = buf[1,:])
 
 class CamStimTriggerWidget(QWidget):
-    def __init__(self,port = None,ino=None):
+    def __init__(self,port = None,ino=None, outQ = None):
         super(CamStimTriggerWidget,self).__init__()
         if (ino is None) and (not port is None):
             from .cam_stim_trigger import CamStimInterface
-            ino = CamStimInterface(port = port)
+            ino = CamStimInterface(port = port,outQ = outQ)
         self.ino = ino
         form = QFormLayout()
         if not ino is None:

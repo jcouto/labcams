@@ -180,10 +180,14 @@ class LabCamsGUI(QMainWindow):
                                            recorderpar = recorderpar))
             elif cam['driver'] == 'PCO':
                 from .pco import PCOCam
+                if 'CamStimTrigger' in cam.keys(): 
+                    self.camstim_widget = CamStimTriggerWidget(port = cam['CamStimTrigger']['port'],
+                                                               outQ = self.camQueues[-1])
                 self.cams.append(PCOCam(camId=cam['id'],
                                         binning = cam['binning'],
                                         exposure = cam['exposure'],
                                         outQ = self.camQueues[-1],
+                                        acquisition_stim_trigger = self.camstim_widget.ino, 
                                         triggered = self.triggered,
                                         recorderpar = recorderpar))
             elif cam['driver'] == 'ximea':
@@ -268,6 +272,8 @@ class LabCamsGUI(QMainWindow):
                         dataname = cam['description']))
             else:
                 self.writers.append(None)
+            if 'CamStimTrigger' in cam.keys():
+                self.camstim_widget.outQ = self.writers[-1].inQ
             # Print parameters
             display('\t Camera: {0}'.format(cam['name']))
             for k in np.sort(list(cam.keys())):
@@ -280,6 +286,8 @@ class LabCamsGUI(QMainWindow):
         self.camerasRunning = False
         for cam,writer in zip(self.cams,self.writers):
             cam.start()
+            if hasattr(self,'camstim_widget'):
+                self.camstim_widget.ino.start()
             if not writer is None:
                 writer.start()
         camready = 0
@@ -435,13 +443,12 @@ class LabCamsGUI(QMainWindow):
                 self.tabs[-1])
             self.tabs[-1].setMinimumHeight(200)
             display('Init view: ' + str(c))
-        if 'CamStimTrigger' in self.parameters.keys():
-            self.camstim_widget = CamStimTriggerWidget(port = self.parameters['CamStimTrigger']['port'])
+        if hasattr(self,'camstim_widget'):
             self.camstim_tab = QDockWidget("Camera excitation control",self)
             self.camstim_tab.setWidget(self.camstim_widget)
             self.addDockWidget(
                 Qt.LeftDockWidgetArea,
-                self.camstim_tab)
+            self.camstim_tab)
 
             
         self.timer = QTimer()

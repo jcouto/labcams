@@ -6,14 +6,14 @@ const byte PIN_LED0_TRIGGER = 4;
 const byte PIN_LED1_TRIGGER = 5;
 
 volatile long current_time = 0;
-long start_time = 0;
+volatile long start_time = 0;
 volatile long last_pulse_count = -1;
 volatile long last_rise = -1;
 volatile byte last_led = 0;
 
 volatile long pulse_count = 0; // number of pulses to trigger
-volatile int pulse_width = 13000; // width of the stimulation pulse (us)
-volatile int pulse_delay = 10; // delay of the stimulation in us
+volatile int pulse_width = 15000; // width of the stimulation pulse (us)
+volatile int pulse_delay = 1000; // delay of the stimulation in us
 volatile byte mode = 3;       // mode 0 : trigger the camera only
                               // mode 1 : LED0
                               // mode 2 : LED1
@@ -144,8 +144,6 @@ void serialEvent()
             mode = atoi(token);
             reply += SET_MODE;
             Serial.print(reply);
-            Serial.print(SEP);
-            Serial.print(current_time);
             Serial.print(SEP);
             Serial.print(mode);
             Serial.print(ETX);

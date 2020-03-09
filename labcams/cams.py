@@ -43,11 +43,12 @@ class GenericCam(Process):
         self.refresh_period = refreshperiod
         self._tupdate = time.time()
         self.daemon = True
+        self.lasttime = 0
     def stop_saving(self):
         # This will send a stop to stop saving and close the writer.
-        if self.saving.is_set():
-            self.saving.clear()
-
+        #if self.saving.is_set():
+        self.saving.clear()
+        
     def _init_controls(self):
         return
 
@@ -92,8 +93,7 @@ class GenericCam(Process):
                 self.cam_is_running = True
             while not self.stop_trigger.is_set():
                 frame,metadata = self._cam_loop()
-                if not frame is None:
-                    self._handle_frame(frame,metadata)
+                self._handle_frame(frame,metadata)
                 self._parse_command_queue()
                 # to be able to pause acquisition on software trigger
                 if not self.start_trigger.is_set() and not self.stop_trigger.is_set():
@@ -109,35 +109,44 @@ class GenericCam(Process):
             if self.was_saving:
                 self.was_saving = False
                 if not self.queue is None:
+                    display('Sending stop signal to the recorder.')
                     self.queue.put(['STOP'])
+                else:
+                    self.recorder.close_run()
             self.stop_trigger.clear()
             if self.close_event.is_set():
                 break
 
     def _handle_frame(self,frame,metadata):
-        frameID,timestamp = metadata
         #display('loop rate : {0}'.format(1./(timestamp - self.lasttime)))
         if self.saving.is_set():
             self.was_saving = True
-            if not frameID == self.lastframeid :
-                if self.queue is None:
-                    self.recorder.save(frame,metadata)
-                else:
-                    self.queue.put((frame.copy(),(frameID,timestamp)))
+            if not frame is None:
+                if not metadata[0] == self.lastframeid :
+                    if self.queue is None:
+                        self.recorder.save(frame,metadata)
+                    else:
+                        self.queue.put((frame,metadata))
         elif self.was_saving:
             self.was_saving = False
             if not self.queue is None:
+                display('Sending stop signal to the recorder.')
                 self.queue.put(['STOP'])
             else:
                 self.recorder.close_run()
-        if not frameID == self.lastframeid:
-            t = time.time()
-            if (t - self._tupdate) > self.refresh_period:
-                self.buf[:] = np.reshape(frame,self.buf.shape)[:]
-                self._tupdate = t
-            self.nframes.value += 1
-        self.lastframeid = frameID
-        self.lasttime = timestamp
+        if not frame is None:
+            frameID,timestamp = metadata
+            if not frameID == self.lastframeid:
+                t = time.time()
+                if (t - self._tupdate) > self.refresh_period:
+                    self._update_buffer(frame,frameID)
+                    self._tupdate = t
+                #self.nframes.value += 1
+            self.lastframeid = frameID
+            self.lasttime = timestamp
+        
+    def _update_buffer(self,frame,frameID):
+        self.buf[:] = np.reshape(frame,self.buf.shape)[:]
 
     def _parse_command_queue(self):
         if not self.eventsQ.empty():
@@ -188,12 +197,12 @@ class GenericCam(Process):
     def _cam_waitsoftwaretrigger(self):
         '''wait for software trigger'''
         display('[{0} {1}] waiting for software trigger.'.format(self.drivername,self.cam_id))
-        while not self.start_trigger.is_set():
+        while not self.start_trigger.is_set() or self.stop_trigger.is_set():
             # limits resolution to 1 ms 
             time.sleep(0.001)
-            if self.close_event.is_set():
+            if self.close_event.is_set() or self.stop_trigger.is_set():
                 break
-        if self.close_event.is_set():
+        if self.close_event.is_set() or self.stop_trigger.is_set():
             return
         self.camera_ready.clear()
 
@@ -278,6 +287,8 @@ class OpenCVCam(GenericCam):
         self.nframes.value = 0
     def _cam_loop(self):
         frameID = self.nframes.value
+        self.nframes.value = frameID + 1 
+
         ret_val, frame = self.cam.read()
         if not ret_val:
             return
