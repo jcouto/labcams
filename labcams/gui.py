@@ -402,7 +402,6 @@ class LabCamsGUI(QMainWindow):
         self.setDockOptions(QMainWindow.AllowTabbedDocks |
                             QMainWindow.AllowNestedDocks
 )
-        from .widgets import CamWidget,RecordingControlWidget
         bar = self.menuBar()
         editmenu = bar.addMenu("Options")
         editmenu.addAction("Set refresh time")
@@ -436,7 +435,15 @@ class LabCamsGUI(QMainWindow):
                 self.tabs[-1])
             self.tabs[-1].setMinimumHeight(200)
             display('Init view: ' + str(c))
+        if 'CamStimTrigger' in self.parameters.keys():
+            self.camstim_widget = CamStimTriggerWidget(port = self.parameters['CamStimTrigger']['port'])
+            self.camstim_tab = QDockWidget("Camera excitation control",self)
+            self.camstim_tab.setWidget(self.camstim_widget)
+            self.addDockWidget(
+                Qt.LeftDockWidgetArea,
+                self.camstim_tab)
 
+            
         self.timer = QTimer()
         self.timer.timeout.connect(self.timerUpdate)
         self.timer.start(self.updateFrequency)
@@ -456,10 +463,15 @@ class LabCamsGUI(QMainWindow):
                 fname = os.path.split(
                     exc_tb.tb_frame.f_code.co_filename)[1]
                 print(e, fname, exc_tb.tb_lineno)
+
     def closeEvent(self,event):
         if hasattr(self,'serverTimer'):
             self.serverTimer.stop()
         self.timer.stop()
+        if hasattr(self,'camstim_widget'):
+            self.camstim_widget.ino.disarm()
+            self.camstim_widget.close()
+            
         display('Acquisition stopped (close event).')
         for c,(cam,flg,writer) in enumerate(zip(self.cams,
                                             self.saveflags,
@@ -478,7 +490,6 @@ class LabCamsGUI(QMainWindow):
             if flg:
                 if not writer is None:
                     writer.join()
-        from .widgets import pg
         pg.setConfigOption('crashWarning', False)
         event.accept()
 

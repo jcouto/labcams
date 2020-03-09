@@ -612,3 +612,58 @@ class ROIPlotWidget(QWidget):
             self.buffers[i] = buf
             plot.setData(x = buf[0,:],
                          y = buf[1,:])
+
+class CamStimTriggerWidget(QWidget):
+    def __init__(self,port = None,ino=None):
+        super(CamStimTriggerWidget,self).__init__()
+        if (ino is None) and (not port is None):
+            from .cam_stim_trigger import CamStimInterface
+            ino = CamStimInterface(port = port)
+        self.ino = ino
+        form = QFormLayout()
+        if not ino is None:
+            def disarm():
+                ino.disarm()
+            disarmButton = QPushButton('Disarm')
+            disarmButton.clicked.connect(disarm)
+            form.addRow(disarmButton)
+
+            def arm():
+                ino.arm()
+            armButton = QPushButton('Arm')
+            armButton.clicked.connect(arm)
+            form.addRow(armButton)
+
+            wcombo = QComboBox()
+            # TODO: make this general/ access from the json file.
+            wcombo.addItems(['470nm','405nm','both'])
+            wcombo.currentIndexChanged.connect(self.setMode)
+            form.addRow(wcombo)
+
+            self.wwidth = QLineEdit(str(ino.width.value))
+            self.wmargin = QLineEdit(str(ino.margin.value))
+            wparametersButton = QPushButton('Set parameters')
+            wparametersButton.clicked.connect(self.setParameters)
+            form.addRow(QLabel('Width'),self.wwidth)
+            form.addRow(QLabel('PMT margin'),self.wmargin)
+            form.addRow(wparametersButton)
+            
+        self.setLayout(form)
+        self.setMode(2)
+        self.ino.set_parameters(None,None)
+        
+    def setMode(self,i):
+        self.ino.set_mode(i+1)
+        
+    def setParameters(self):
+        try:
+            width = int(self.wwidth.text())
+            margin = int(self.wmargin.text())
+        except:
+            print('Could not interpret parameters.')
+        finally:
+            self.ino.set_parameters(width,margin)
+
+    def close(self):
+        self.ino.close()
+        self.ino.join()

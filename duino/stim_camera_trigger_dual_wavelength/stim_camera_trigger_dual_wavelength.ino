@@ -7,6 +7,7 @@ const byte PIN_LED1_TRIGGER = 5;
 
 volatile long current_time = 0;
 long start_time = 0;
+volatile long last_pulse_count = -1;
 volatile long last_rise = -1;
 volatile byte last_led = 0;
 
@@ -28,6 +29,7 @@ volatile byte armed = 1;      // whether the triggers are armed
 #define STOP_LEDS 'S'
 #define SET_PARAMETERS 'P' // set the width and the delay
 #define SET_MODE 'M' // set the width and the delay
+#define FRAME 'F' // signal the frame time
 
 // Serial communication "receive"
 # define MSGSIZE 64
@@ -35,7 +37,7 @@ char msg[MSGSIZE];
 int cnt = 0;
 
 void camera_triggered() {
-  
+  pulse_count++;
   if (armed) {
     // set the time of the next pulse
     byte pin;
@@ -58,12 +60,12 @@ void camera_triggered() {
     }
     delayMicroseconds(pulse_delay);
     digitalWriteFast(pin, HIGH);
-    last_rise = millis() - start_time;
-    last_led = pin;
     delayMicroseconds(pulse_width);
     digitalWriteFast(pin, LOW);    
+    last_rise = millis() - start_time;
+    last_led = pin;
+    last_pulse_count = pulse_count;
   }
-  pulse_count++;
 }
 
 void setup() {
@@ -82,7 +84,19 @@ void setup() {
 }
 
 void loop() {
-  current_time = millis() - start_time;
+  //current_time = millis() - start_time;
+  if (last_rise > 0) {
+    Serial.print(STX);
+    Serial.print(FRAME);
+    Serial.print(SEP);
+    Serial.print(last_led);
+    Serial.print(SEP);
+    Serial.print(last_pulse_count);
+    Serial.print(SEP);
+    Serial.print(last_rise);
+    Serial.print(ETX);
+    last_rise = -1;
+  }
 //  if (((next_rise - current_time) <= 0) & ((next_rise + pulse_width - current_time) >= 0)) {
 //    digitalWriteFast(PIN_LED0_TRIGGER, HIGH);
 //  }
@@ -106,6 +120,7 @@ void serialEvent()
         switch (msg[1]) {
           case START_LEDS:
             // @N
+            pulse_count = 0;
             armed = 1;
             reply += START_LEDS;
             Serial.print(reply);
@@ -139,7 +154,6 @@ void serialEvent()
             setParameters(msg);
             reply += SET_PARAMETERS;
             Serial.print(reply);
-            Serial.print(SEP);
             Serial.print(SEP);
             Serial.print(pulse_width);
             Serial.print(SEP);

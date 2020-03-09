@@ -10,3 +10,4 @@ pyqt5
 pyqtgraph
 pillow
 scikit-video
+pyserial
