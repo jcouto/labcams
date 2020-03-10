@@ -323,7 +323,7 @@ class PointGreyCam(GenericCam):
         if not self.cam is None:
             
             genable = PySpin.CBooleanPtr(self.nodemap.GetNode("GammaEnabled"))
-            if not PySpin.IsWritable(genable):
+            if PySpin.IsWritable(genable):
                 display('[PointGrey] - Cannot control gamma (check LUT?).')
                 genable.SetValue(True)
             if self.cam.Gamma.GetAccessMode() != PySpin.RW:
