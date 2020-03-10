@@ -440,7 +440,9 @@ class FFMPEGWriter(GenericWriterProcess):
                                  '-crf':str(self.compression)}
             elif hwaccel == 'nvidia':
                 self.doutputs = {'-vcodec':'h264_nvenc',
-                                 '-pix_fmt':'yuv420p'}
+                                 '-pix_fmt':'yuv420p',
+                                 '-cq:v':'19',
+                                 '-preset':'fast'}
         self.doutputs['-r'] =str(self.frame_rate)
         self.hwaccel = hwaccel
         
@@ -508,11 +510,10 @@ class FFMPEGWriter_legacy(GenericWriterProcess):
                              'threads':str(1),
                              'crf':str(self.compression)}
         elif hwaccel == 'nvidia':
-            self.doutputs = {'vcodec':'h264_nvenc',#'-pix_fmt':'yuv420p',
-                             'preset':'slow',
-                             'qmin':'10',
-                             'qmax':'52',
-                             'loglevel':'debug'}
+            self.doutputs = {'vcodec':'h264_nvenc',
+                             'pix_fmt':'yuv420p',
+                             'cq:v':19,
+                             'preset':'fast'}
         self.doutputs['r'] =str(self.frame_rate)
 
     def close_file(self):
