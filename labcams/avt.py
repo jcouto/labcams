@@ -269,7 +269,7 @@ class AVTCam(GenericCam):
                     self.queue.put(['STOP'])
 
                 self.lastframeid[ibuf] = frameID
-                self.nframes.value += 1
+                self.nframes.value = frameID
                 self.frame = frame
             except VimbaException as err:
                 #display('VimbaException: ' + str(err))

@@ -429,6 +429,7 @@ class PointGreyCam(GenericCam):
             img.Release()
             frameID = img.GetFrameID()
             timestamp = img.GetTimeStamp()*1e-9
+            self.nframes.value = frameID
             return frame,(frameID,timestamp)
         else:
             return None,(None,None)
