@@ -278,6 +278,12 @@ class PointGreyCam(GenericCam):
         if not self.cam is None:
             self.frame_rate = min(self.cam.AcquisitionFrameRate.GetMax(),self.frame_rate)
             self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off) # Need to have the trigger off to set the rate.
+
+            framerate_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionFrameRateAuto'))
+        if not PySpin.IsAvailable(framerate_mode) or not PySpin.IsWritable(framerate_mode):
+            autooff = framerate_mode.GetEntryByName('Off')
+            framerate_mode.SetIntValue(autooff.GetValue())
+            
             try:
                 self.cam.AcquisitionFrameRateEnable.SetValue(True)
             except:
@@ -321,10 +327,12 @@ class PointGreyCam(GenericCam):
             return
         self.gamma = gamma
         if not self.cam is None:
-            
             genable = PySpin.CBooleanPtr(self.nodemap.GetNode("GammaEnabled"))
+            if not PySpin.IsWritable(genable):
+                cprocess = PySpin.CBooleanPtr(
+                    self.nodemap.GetNode("OnBoardColorProcessEnabled"))
+                cprocess.SetValue(True)
             if PySpin.IsWritable(genable):
-                display('[PointGrey] - Cannot control gamma (check LUT?).')
                 genable.SetValue(True)
             if self.cam.Gamma.GetAccessMode() != PySpin.RW:
                 display('[PointGrey] - Cannot set gamma.')
