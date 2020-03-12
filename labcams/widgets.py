@@ -489,9 +489,10 @@ class CamWidget(QWidget):
         self.trackerpar = MptrackerParameters(self.eyeTracker,image,eyewidget=self.tracker_roi)
         if self.parent.saveflags[self.iCam]:
             self.trackerToggle = QCheckBox()
-            if not self.parents.writers[self.iCam] is None:
-                self.trackerToggle.setChecked(self.parent.writers[self.iCam].trackerFlag.is_set())
-            self.trackerToggle.stateChanged.connect(self.trackerSaveToggle)
+            if not self.parent.writers[self.iCam] is None:
+                pass
+                #self.trackerToggle.setChecked(self.parent.writers[self.iCam].trackerFlag.is_set())
+            #self.trackerToggle.stateChanged.connect(self.trackerSaveToggle)
             self.trackerpar.pGridSave.addRow(
                 QLabel("Save cameras: "),self.trackerToggle)
         self.trackerTab.setWidget(self.trackerpar)
@@ -608,7 +609,7 @@ class ROIPlotWidget(QWidget):
         for i,(roi,plot) in enumerate(zip(self.rois,self.plots)):
             r = roi.getArrayRegion(img, self.view)
             buf = np.roll(self.buffers[i], -1, axis = 1)
-            buf[1,-1] = np.mean(r)
+            buf[1,-1] = np.nanmean(r)
             buf[0,-1] = iFrame
             self.buffers[i] = buf
             plot.setData(x = buf[0,:],

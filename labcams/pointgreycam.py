@@ -280,9 +280,9 @@ class PointGreyCam(GenericCam):
             self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off) # Need to have the trigger off to set the rate.
 
             framerate_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionFrameRateAuto'))
-        if not PySpin.IsAvailable(framerate_mode) or not PySpin.IsWritable(framerate_mode):
-            autooff = framerate_mode.GetEntryByName('Off')
-            framerate_mode.SetIntValue(autooff.GetValue())
+            if not PySpin.IsAvailable(framerate_mode) or not PySpin.IsWritable(framerate_mode):
+                autooff = framerate_mode.GetEntryByName('Off')
+                framerate_mode.SetIntValue(autooff.GetValue())
             
             try:
                 self.cam.AcquisitionFrameRateEnable.SetValue(True)
@@ -291,7 +291,7 @@ class PointGreyCam(GenericCam):
                 pass
             self.cam.AcquisitionFrameRate.SetValue(self.frame_rate)
             display('[PointGrey] - Frame rate: {0}'.format(
-            self.cam.AcquisitionFrameRate.GetValue()))
+                self.cam.AcquisitionFrameRate.GetValue()))
 
     def set_binning(self,binning = 1):
         if binning is None:
@@ -384,10 +384,17 @@ class PointGreyCam(GenericCam):
         pg_image_settings(self.nodemap,X=0,Y=0,
                           W=None,H=None,pxformat=self.pxformat)
         pg_image_settings(self.nodemap,X=x,Y=y,W=w,H=h,pxformat=self.pxformat)
-        self.set_gain(self.gain)
         self.set_exposure(self.exposure)
-        self.set_gamma(self.gamma)
         self.set_framerate(self.frame_rate)
+        self.set_gain(self.gain)
+        self.set_gamma(self.gamma)
+        sharpnessauto = PySpin.CEnumerationPtr(
+            self.nodemap.GetNode('SharpnessAuto'))
+        if not PySpin.IsAvailable(sharpnessauto) or not PySpin.IsWritable(
+                sharpnessauto):
+            autooff = sharpnessauto.GetEntryByName('Off')
+            sharpnessauto.SetIntValue(autooff.GetValue())
+
         self.lastframeid = -1
         self.nframes.value = 0
         self.camera_ready.set()
