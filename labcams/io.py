@@ -232,11 +232,12 @@ class GenericWriterProcess(Process,GenericWriter):
             self.nFiles = 0
             if not self.parQ.empty():
                 self.getFromParQueue()
-            while self.write.is_set():
+            while self.write.is_set() and not self.close.is_set():
                 while not self.inQ.empty():
                     frameid,frame = self.get_from_queue_and_save()
                 # spare the processor just in case...
                 time.sleep(self.sleeptime)
+            time.sleep(self.sleeptime)
         # If queue is not empty, empty if to disk.
         while not self.inQ.empty():
             frameid,frame = self.get_from_queue_and_save()
