@@ -18,7 +18,7 @@ volatile byte mode = 3;       // mode 0 : trigger the camera only
                               // mode 1 : LED0
                               // mode 2 : LED1
                               // mode 3 : LEDs alternate
-volatile byte armed = 1;      // whether the triggers are armed  
+volatile byte armed = 0;      // whether the triggers are armed  
 
 // Serial communication
 #define STX '@'
@@ -37,6 +37,7 @@ char msg[MSGSIZE];
 int cnt = 0;
 
 void camera_triggered() {
+  
   pulse_count++;
   if (armed) {
     // set the time of the next pulse
@@ -65,6 +66,7 @@ void camera_triggered() {
     last_rise = millis() - start_time;
     last_led = pin;
     last_pulse_count = pulse_count;
+    
   }
 }
 
@@ -97,6 +99,11 @@ void loop() {
     Serial.print(ETX);
     last_rise = -1;
   }
+  if (armed)
+      digitalWriteFast(PIN_CAM_TRIGGER, HIGH);
+  else
+      digitalWriteFast(PIN_CAM_TRIGGER, LOW);
+  
 //  if (((next_rise - current_time) <= 0) & ((next_rise + pulse_width - current_time) >= 0)) {
 //    digitalWriteFast(PIN_LED0_TRIGGER, HIGH);
 //  }
