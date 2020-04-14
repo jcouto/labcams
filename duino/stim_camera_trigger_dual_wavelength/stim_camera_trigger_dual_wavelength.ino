@@ -35,7 +35,7 @@ volatile byte armed = 0;      // whether the triggers are armed
 # define MSGSIZE 64
 char msg[MSGSIZE];
 int cnt = 0;
-
+/* // This can be used to control how much the LEDs are ON (at the expense of a delay in the interrupt)
 void camera_triggered() {
   
   pulse_count++;
@@ -69,6 +69,41 @@ void camera_triggered() {
     
   }
 }
+*/
+void camera_triggered() {
+  if (digitalReadFast(PIN_CAM_EXPOSURE) == LOW) {
+        digitalWriteFast(PIN_LED0_TRIGGER, LOW);
+      digitalWriteFast(PIN_LED1_TRIGGER, LOW);  
+  } else {
+    
+  if (armed) {
+    pulse_count++;
+    // set the time of the next pulse
+    byte pin;
+    switch (mode) {
+      case 1:
+          pin = PIN_LED0_TRIGGER;
+          break;
+      case 2:
+          pin = PIN_LED1_TRIGGER;
+          break;
+      case 3:
+        int tmp = pulse_count % 2;
+        if (tmp == 0)
+          pin = PIN_LED1_TRIGGER;
+        else
+          pin = PIN_LED0_TRIGGER;
+        break;
+      default:
+          pin = PIN_LED0_TRIGGER;
+    }
+    digitalWriteFast(pin, HIGH);
+    last_rise = millis() - start_time;
+    last_led = pin;
+    last_pulse_count = pulse_count;    
+  }
+}
+}
 
 void setup() {
   pinMode(PIN_LED0_TRIGGER, OUTPUT);
@@ -81,7 +116,7 @@ void setup() {
   digitalWriteFast(PIN_CAM_TRIGGER, LOW);
 
   Serial.begin(115200);
-  attachInterrupt(digitalPinToInterrupt(PIN_CAM_EXPOSURE), camera_triggered, RISING);
+  attachInterrupt(digitalPinToInterrupt(PIN_CAM_EXPOSURE), camera_triggered, CHANGE);
   start_time = millis();
 }
 
