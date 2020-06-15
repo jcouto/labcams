@@ -276,23 +276,27 @@ class PointGreyCam(GenericCam):
            return 
         self.frame_rate = float(framerate)
         if not self.cam is None:
-            self.frame_rate = min(self.cam.AcquisitionFrameRate.GetMax(),self.frame_rate)
+            self.frame_rate = min(self.cam.AcquisitionFrameRate.GetMax(),
+                                  self.frame_rate)
             self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off) # Need to have the trigger off to set the rate.
 
             framerate_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionFrameRateAuto'))
             if not PySpin.IsAvailable(framerate_mode) or not PySpin.IsWritable(framerate_mode):
                 autooff = framerate_mode.GetEntryByName('Off')
                 framerate_mode.SetIntValue(autooff.GetValue())
-            
             try:
                 self.cam.AcquisitionFrameRateEnable.SetValue(True)
             except:
                 display('[PointGrey] - Could not set frame rate enable.')
                 pass
-            self.cam.AcquisitionFrameRate.SetValue(self.frame_rate)
-            display('[PointGrey] - Frame rate: {0}'.format(
-                self.cam.AcquisitionFrameRate.GetValue()))
-
+            try:
+                self.cam.AcquisitionFrameRate.SetValue(self.frame_rate)
+                display('[PointGrey] - Frame rate: {0}'.format(
+                    self.cam.AcquisitionFrameRate.GetValue()))
+            except:
+                self.frame_rate = self.cam.AcquisitionFrameRate.GetValue()
+                display('[PointGrey] - Could not set frame rate {0}'.format(self.frame_rate))
+                
     def set_binning(self,binning = 1):
         if binning is None:
            return 
