@@ -18,7 +18,7 @@ import pandas as pd
 from skvideo.io import FFmpegWriter
 import cv2
 
-VERSION = '0.4'
+VERSION = '0.5'
 
 class GenericWriter(object):
     def __init__(self,
@@ -50,6 +50,7 @@ class GenericWriter(object):
         self.parQ = None
         self.today = datetime.today().strftime('%Y%m%d')
         self.logfile = None
+        self.nFiles = 0
         runname = 'run{0:03d}'.format(self.runs)
         self.path_format = pathformat
         self.path_keys =  dict(datafolder=self.datafolder,
@@ -118,7 +119,7 @@ class GenericWriter(object):
         pass
 
     def save(self,frame,metadata):
-        return _handle_frame((frame,metadata))
+        return self._handle_frame((frame,metadata))
     
     def _handle_frame(self,buff):
         if buff[0] is None:
@@ -142,15 +143,21 @@ class GenericWriter(object):
                 (self.framesperfile > 0 and np.mod(self.saved_frame_count,
                                                    self.framesperfile)==0)):
                 self.open_file(frame = frame)
-                display('Queue size: {0}'.format(self.inQ.qsize()))
+                if not self.inQ is None:
+                    display('Queue size: {0}'.format(self.inQ.qsize()))
 
-                self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - '
-                                   + 'Queue: {0}'.format(self.inQ.qsize())
-                                   + '\n')
+                    self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - '
+                                       + 'Queue: {0}'.format(self.inQ.qsize())
+                                       + '\n')
             self._write(frame,frameid,timestamp)
+            
             if np.mod(frameid,7000) == 0:
-                display('[{0} - frame:{1}] Queue size: {2}'.format(
-                    self.dataname,frameid,self.inQ.qsize()))
+                if self.inQ is None:
+                    display('[{0} - frame:{1}]'.format(
+                        self.dataname,frameid))
+                else:
+                    display('[{0} - frame:{1}] Queue size: {2}'.format(
+                        self.dataname,frameid,self.inQ.qsize()))
             self.logfile.write('{0},{1}\n'.format(frameid,
                                                   timestamp))
             self.saved_frame_count += 1
@@ -385,6 +392,53 @@ class TiffWriter(GenericWriterProcess):
                      compress=self.compression,
                      description='id:{0};timestamp:{1}'.format(frameid,
                                                                timestamp))
+
+################################################################################
+################################################################################
+################################################################################
+class BinaryWriter(GenericWriterProcess):
+    def __init__(self,
+                 inQ = None,
+                 loggerQ = None,
+                 filename = pjoin('dummy','run'),
+                 dataname = 'eyecam',
+                 datafolder=pjoin(os.path.expanduser('~'),'data'),
+                 pathformat = pjoin('{datafolder}','{dataname}','{filename}',
+                                    '{today}_{run}_{nfiles}'),
+                 framesperfile=0,
+                 sleeptime = 1./300,
+                 incrementruns=True):
+        self.extension = '{wid}_{hei}.bin'
+        super(BinaryWriter,self).__init__(inQ = inQ,
+                                          loggerQ=loggerQ,
+                                          filename=filename,
+                                          dataname=dataname,
+                                          pathformat = pathformat,
+                                          framesperfile=framesperfile,
+                                          sleeptime=sleeptime,
+                                          incrementruns=incrementruns)
+        self.w = None
+        self.h = None
+        self.buf = []
+    def close_file(self):
+        if not self.fd is None:
+            if len(self.buf):
+                self.fd.write(np.stack(self.buf))
+                self.buf = []
+            self.fd.close()
+        self.fd = None
+
+    def _open_file(self,filename,frame = None):
+        self.w = frame.shape[1]
+        self.h = frame.shape[0]
+        filename = filename.format(wid=self.w,hei=self.h) 
+        self.fd = open(filename,'wb')
+    def _write(self,frame,frameid,timestamp):
+        if len(self.buf) > 1000:
+            self.fd.write(np.stack(self.buf))
+            display('Wrote {0} frames - {1}'.format(len(self.buf),frameid))
+            self.buf = [];
+        self.buf.append(frame)
 
 ################################################################################
 ################################################################################
@@ -661,6 +715,45 @@ class FFMPEGCamWriter(GenericWriter):
     def _write(self,frame,frameid,timestamp):
         self.fd.stdin.write(frame.tobytes())
 
+################################################################################
+################################################################################
+################################################################################
+
+class BinaryCamWriter(GenericWriter):
+    def __init__(self,
+                 cam,
+                 filename = pjoin('dummy','run'),
+                 dataname = 'eyecam',
+                 datafolder=pjoin(os.path.expanduser('~'),'data'),
+                 pathformat = pjoin('{datafolder}','{dataname}','{filename}',
+                                    '{today}_{run}_{nfiles}'),
+                 framesperfile=0,
+                 incrementruns=True):
+        self.extension = '{hei}_{wid}.bin'
+        self.cam = cam
+        super(BinaryCamWriter,self).__init__(filename=filename,
+                                             dataname=dataname,
+                                             pathformat = pathformat,
+                                             framesperfile=framesperfile,
+                                             incrementruns=incrementruns)
+        self.w = None
+        self.h = None
+
+    def close_file(self):
+        if not self.fd is None:
+            self.fd.close()
+            print("------->>> Closed file.")
+        self.fd = None
+
+    def _open_file(self,filename,frame = None):
+        self.w = frame.shape[1]
+        self.h = frame.shape[0]
+        filename = filename.format(wid=self.w,hei=self.h) 
+        self.fd = open(filename,'wb')
+
+    def _write(self,frame,frameid,timestamp):
+        self.fd.write(frame)
+        
         
 ################################################################################
 ################################################################################

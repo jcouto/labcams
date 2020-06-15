@@ -68,14 +68,13 @@ class GenericCam(Process):
 
     def _start_recorder(self):
         if self.queue is None and not self.recorderpar is None:
-            from .io import FFMPEGCamWriter
-            self.recorder = FFMPEGCamWriter(self,
+            from .io import BinaryCamWriter
+            self.recorder = BinaryCamWriter(self,
                                             filename = self.recorderpar['filename'],
                                             dataname = self.recorderpar['dataname'],
                                             datafolder = self.recorderpar['datafolder'],
                                             framesperfile = 0,
-                                            incrementruns = True,
-                                            crf = self.recorderpar['crf'])
+                                            incrementruns = True)
 
     def run(self):
         self._init_ctrevents()

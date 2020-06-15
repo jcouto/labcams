@@ -111,8 +111,7 @@ class LabCamsGUI(QMainWindow):
                 self.camQueues.append(Queue())
 
             if not 'recorder' in cam.keys():
-                cam['recorder'] = dict(type='ffmpeg',
-                                       crf = 17)
+                cam['recorder'] = dict(type='binary')
             
             recorderpar = dict(cam['recorder'],
                                datafolder=self.parameters['recorder_path'],
@@ -260,6 +259,14 @@ class LabCamsGUI(QMainWindow):
                         filename = expName,
                         hwaccel = cam['hwaccel'],
                         dataname = cam['description']))
+                elif cam['saveMethod'] == 'binary':
+                    self.writers.append(BinaryWriter(
+                        inQ = self.camQueues[-1],
+                        datafolder=self.parameters['recorder_path'],
+                        sleeptime = self.parameters['recorder_sleep_time'],
+                        pathformat = self.parameters['recorder_path_format'],
+                        filename = expName,
+                        dataname = cam['description']))
                 else:
                     self.writers.append(OpenCVWriter(
                         inQ = self.camQueues[-1],
@@ -273,7 +280,8 @@ class LabCamsGUI(QMainWindow):
             else:
                 self.writers.append(None)
             if 'CamStimTrigger' in cam.keys():
-                self.camstim_widget.outQ = self.writers[-1].inQ
+                if not self.writers[-1] is None:
+                    self.camstim_widget.outQ = self.writers[-1].inQ
             # Print parameters
             display('\t Camera: {0}'.format(cam['name']))
             for k in np.sort(list(cam.keys())):
