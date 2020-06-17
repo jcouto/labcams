@@ -138,7 +138,7 @@ class GenericWriter(object):
                 self.logfile.write(msg + '\n')
             return None,msg
         else:
-            frame,(frameid,timestamp,) = buff
+            frame,(metadata) = buff
             if (self.fd is None or
                 (self.framesperfile > 0 and np.mod(self.saved_frame_count,
                                                    self.framesperfile)==0)):
@@ -149,8 +149,8 @@ class GenericWriter(object):
                     self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - '
                                        + 'Queue: {0}'.format(self.inQ.qsize())
                                        + '\n')
+            frameid, timestamp = metadata[:2] 
             self._write(frame,frameid,timestamp)
-            
             if np.mod(frameid,7000) == 0:
                 if self.inQ is None:
                     display('[{0} - frame:{1}]'.format(
@@ -158,8 +158,7 @@ class GenericWriter(object):
                 else:
                     display('[{0} - frame:{1}] Queue size: {2}'.format(
                         self.dataname,frameid,self.inQ.qsize()))
-            self.logfile.write('{0},{1}\n'.format(frameid,
-                                                  timestamp))
+            self.logfile.write(','.join(['{0}'.format(a) for a in metadata]) + '\n')
             self.saved_frame_count += 1
         return frameid,frame
     

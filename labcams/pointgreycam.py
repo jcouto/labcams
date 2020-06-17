@@ -1,11 +1,6 @@
 import PySpin
 from .cams import *
 # Adapted from point grey spinnaker examples
-class TriggerType:
-    SOFTWARE = 1
-    HARDWARE = 2
-
-CHOSEN_TRIGGER = TriggerType.SOFTWARE
 
 def pg_device_info(nodemap):
     """
@@ -134,6 +129,7 @@ class PointGreyCam(GenericCam):
                  triggerSource = np.uint16(0),
                  outputs = ['XI_GPO_EXPOSURE_ACTIVE'],
                  triggered = Event(),
+                 hardware_trigger = None,
                  recorderpar=None,
                  **kwargs):
         super(PointGreyCam,self).__init__(outQ = outQ, recorderpar=recorderpar)
@@ -179,6 +175,7 @@ class PointGreyCam(GenericCam):
         if len(frame.shape) == 3:
             self.nchan = frame.shape[2] 
         self.dtype = frame.dtype
+        self.hardware_trigger = hardware_trigger
         self._init_variables(self.dtype)
 
         self.img[:] = np.reshape(frame,self.img.shape)[:]
@@ -236,7 +233,7 @@ class PointGreyCam(GenericCam):
 
     def get_one(self):
         self._cam_init()
-
+        self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
         node_acquisition_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionMode'))
         if not PySpin.IsAvailable(node_acquisition_mode) or not PySpin.IsWritable(node_acquisition_mode):
             display('[PointGrey] - Unable to set acquisition mode(enum retrieval). Aborting...')
@@ -247,8 +244,6 @@ class PointGreyCam(GenericCam):
             display('[PointGrey] - Unable to set acquisition mode to continuous (entry retrieval). Aborting...')
         # Set integer value from entry node as new value of enumeration node
         node_acquisition_mode.SetIntValue(node_acquisition_mode_continuous.GetValue())
-
-        self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
 
         self.cam.BeginAcquisition()
         try:
@@ -314,6 +309,7 @@ class PointGreyCam(GenericCam):
             return
         self.exposure = exposure
         if not self.cam is None:
+            self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
             if self.cam.ExposureAuto.GetAccessMode() != PySpin.RW:
                 display('[PointGrey] - Cannot disable automatic exposure.')
                 return
@@ -370,6 +366,12 @@ class PointGreyCam(GenericCam):
         
         self.cam = self.cam_list[self.cam_id]
         self.cam.Init()
+        self.cam.ChunkModeActive.SetValue(True)
+        #self.cam.ChunkSelector.SetValue(PySpin.ChunkSelector_ExposureLineStatusAll)
+        #self.cam.ChunkEnable.SetValue(True)
+        self.cam.ChunkSelector.SetValue(PySpin.ChunkSelector_ExposureTime)
+        self.cam.ChunkEnable.SetValue(True)
+        #self.cam.ChunkSelector.SetValue(PySpin.ChunkSelector_FrameCounter)
         self.nodemap_tldevice = self.cam.GetTLDeviceNodeMap()
         serial = PySpin.CStringPtr(
             self.nodemap_tldevice.GetNode('DeviceSerialNumber'))
@@ -406,25 +408,48 @@ class PointGreyCam(GenericCam):
         self.lasttime = time.time()
         
     def _cam_startacquisition(self):
-        node_acquisition_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionMode'))
-        if not PySpin.IsAvailable(node_acquisition_mode) or not PySpin.IsWritable(node_acquisition_mode):
+        node_acquisition_mode = PySpin.CEnumerationPtr(
+            self.nodemap.GetNode('AcquisitionMode'))
+        if (not PySpin.IsAvailable(node_acquisition_mode)
+            or not PySpin.IsWritable(node_acquisition_mode)):
             display('[PointGrey] - Unable to set acquisition mode(enum retrieval). Aborting...')
         # Retrieve entry node from enumeration node
         node_acquisition_mode_continuous = node_acquisition_mode.GetEntryByName('Continuous')
-        if not PySpin.IsAvailable(node_acquisition_mode_continuous) or not PySpin.IsReadable(
-                node_acquisition_mode_continuous):
+        if (not PySpin.IsAvailable(node_acquisition_mode_continuous) or
+            not PySpin.IsReadable(node_acquisition_mode_continuous)):
             display('[PointGrey] - Unable to set acquisition mode to continuous (entry retrieval). Aborting...')
         # Set integer value from entry node as new value of enumeration node
         node_acquisition_mode.SetIntValue(node_acquisition_mode_continuous.GetValue())
 
         if self.triggered.is_set():
-            self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line0)
+            self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
+            # Line 3 for triggering (hardcoded for now)
+            self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
             self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
             display('PointGrey [{0}] - Triggered mode ON.'.format(self.cam_id))            
         else:
             display('PointGrey [{0}] - Triggered mode OFF.'.format(self.cam_id))            
             self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
-            
+
+        # Set GPIO lines and strobe # these should go in the config
+        # Line 2 and Line 3
+        if not self.hardware_trigger is None:
+            self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
+            if self.hardware_trigger == 'in_line3':
+                self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
+                self.cam.TriggerActivation.SetValue(PySpin.TriggerActivation_RisingEdge)
+                self.cam.ExposureMode.SetValue(PySpin.ExposureMode_TriggerWidth)
+                self.cam.TriggerSelector.SetValue(1) # this is exposure active in CM3
+
+                self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
+            if self.hardware_trigger == 'out_line3':
+                self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
+                self.cam.LineSelector.SetValue(PySpin.LineMode_Output)
+                self.cam.LineSource.SetValue(PySpin.LineSource_ExposureActive)
+                # Delay this camera start
+                time.sleep(0.5)
+
+            display('PointGrey [{0}] - External trigger mode ON .'.format(self.cam_id))               
         self.cam.BeginAcquisition()
         display('PointGrey [{0}] - Started acquitition.'.format(self.cam_id))            
     def _cam_stopacquisition(self):
@@ -445,13 +470,17 @@ class PointGreyCam(GenericCam):
                 print('Image incomplete with image status %d ...' % image_result.GetImageStatus())
             else:
                 frame = img.GetNDArray()
-            img.Release()
             frameID = img.GetFrameID()
             timestamp = img.GetTimeStamp()*1e-9
+            linestat = self.cam.LineStatusAll()
+            #frameinfo = img.GetChunkData()
+            #linestat = frameinfo.GetFrameID()
+            #display('Line {0} {1}'.format(linestat,frameinfo.GetExposureLineStatusAll())) # 
+            img.Release()
             self.nframes.value = frameID
-            return frame,(frameID,timestamp)
+            return frame,(frameID,timestamp,linestat)
         else:
-            return None,(None,None)
+            return None,(None,None,None)
 
     def _cam_close(self):
         if not self.cam is None:

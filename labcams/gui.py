@@ -212,6 +212,8 @@ class LabCamsGUI(QMainWindow):
                     cam['exposure'] = None
                 if not 'gamma' in cam.keys():
                     cam['gamma'] = None
+                if not 'hardware_trigger' in cam.keys():
+                    cam['hardware_trigger'] = None
                 self.cams.append(PointGreyCam(camId=cam['id'],
                                               serial = cam['serial'],
                                               gain = cam['gain'],
@@ -223,7 +225,8 @@ class LabCamsGUI(QMainWindow):
                                               gamma = cam['gamma'],
                                               outQ = self.camQueues[-1],
                                               triggered = self.triggered,
-                                              recorderpar = recorderpar))
+                                              recorderpar = recorderpar,
+                                              hardware_trigger = cam['hardware_trigger']))
             else: 
                 display('[WARNING] -----> Unknown camera driver' +
                         cam['driver'])

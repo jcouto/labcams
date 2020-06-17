@@ -134,7 +134,7 @@ class GenericCam(Process):
             else:
                 self.recorder.close_run()
         if not frame is None:
-            frameID,timestamp = metadata
+            frameID,timestamp = metadata[:2]
             if not frameID == self.lastframeid:
                 t = time.time()
                 if (t - self._tupdate) > self.refresh_period:
