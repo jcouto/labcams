@@ -244,12 +244,12 @@ class GenericWriterProcess(Process,GenericWriter):
                 # spare the processor just in case...
                 time.sleep(self.sleeptime)
             time.sleep(self.sleeptime)
-        # If queue is not empty, empty if to disk.
-        while not self.inQ.empty():
-            frameid,frame = self.get_from_queue_and_save()
-            display('Queue is empty. Proceding with close.')
-        # close the run
-        self.close_run()
+            # If queue is not empty, empty if to disk.
+            while not self.inQ.empty():
+                frameid,frame = self.get_from_queue_and_save()
+                #display('Queue is empty. Proceding with close.')
+            # close the run
+            self.close_run()
 
 '''
         if self.trackerFlag.is_set():

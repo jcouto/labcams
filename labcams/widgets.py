@@ -150,11 +150,19 @@ This will can be differently configured for different cameras.'''
     def toggleSoftwareTriggered(self,value):
         display('Software trigger pressed [{0}]'.format(value))
         if value:
+            if hasattr(self.parent,'camstim_widget'):
+                self.parent.camstim_widget.ino.arm()
+                display('Cam stim trigger armed.')
             for cam in self.parent.cams:
                 cam.start_trigger.set()
+            
         else:
             for cam in self.parent.cams:
                 cam.start_trigger.clear()
+            if hasattr(self.parent,'camstim_widget'):
+                self.parent.camstim_widget.ino.disarm()
+                display('Cam stim trigger disarmed.')
+                
     def toggleTriggered(self,value):
         display('Hardware trigger mode pressed [{0}]'.format(value))
         if value:
@@ -642,30 +650,26 @@ class CamStimTriggerWidget(QWidget):
             wcombo.currentIndexChanged.connect(self.setMode)
             form.addRow(wcombo)
 
-            self.wwidth = QLineEdit(str(ino.width.value))
-            self.wmargin = QLineEdit(str(ino.margin.value))
-            wparametersButton = QPushButton('Set parameters')
-            wparametersButton.clicked.connect(self.setParameters)
-            form.addRow(QLabel('Width'),self.wwidth)
-            form.addRow(QLabel('PMT margin'),self.wmargin)
-            form.addRow(wparametersButton)
+            wsync = QLabel()
+            wsyncstr = 'sync {0} - frame {1}'
+            def update_count():
+                if ino.sync.value:
+                    wsyncstr = '<b>sync {0} - frame {1}<\b>'
+                else:
+                    wsyncstr = 'sync {0} - frame {1}'               
+                wsync.setText(wsyncstr.format(ino.sync_count.value,
+                                              ino.sync_frame_count.value))
             
+            form.addRow(wsync)
+            self.t = QTimer()
+            self.t.timeout.connect(update_count)
+            self.t.start(100)
         self.setLayout(form)
         self.setMode(2)
-        self.ino.set_parameters(None,None)
         
     def setMode(self,i):
         self.ino.set_mode(i+1)
         
-    def setParameters(self):
-        try:
-            width = int(self.wwidth.text())
-            margin = int(self.wmargin.text())
-        except:
-            print('Could not interpret parameters.')
-        finally:
-            self.ino.set_parameters(width,margin)
-
     def close(self):
         self.ino.close()
         self.ino.join()

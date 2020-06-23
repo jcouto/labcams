@@ -27,11 +27,12 @@ SEP = '_'
 ETX=serial.LF.decode()
 DISARM = 'S'
 SET_MODE = 'M'
-SET_PARAMETERS = 'P'
+SYNC = 'T'
+#SET_PARAMETERS = 'P'
 FRAME = 'F'
 # Class to talk to arduino  using a separate process.
 class CamStimInterface(Process):
-    def __init__(self,port='COM3', baudrate=115200,
+    def __init__(self,port='COM3', baudrate=2000000,
                  inQ = None, outQ=None, saving = None, timeout=0.1):
         Process.__init__(self)
         if inQ is None:
@@ -63,9 +64,13 @@ Could not open teensy on port {0}
         self.mode = Value('i',3)
         self.frame_count = Value('i',0)
         self.last_led = Value('i',0)
-        self.last_time = Value('i',0)
-        self.width = Value('i',13000)
-        self.margin = Value('i',1000)
+        self.last_time = Value('f',0)
+
+        self.sync_frame_count = Value('i',0)
+        self.sync_count = Value('i',0)
+        self.sync = Value('i',0)
+        self.last_sync_time = Value('f',0)
+
         #self.start()
     def close(self):
         self.exit.set()
@@ -86,31 +91,11 @@ Could not open teensy on port {0}
     def disarm(self):
         self.inQ.put(DISARM)
 
-    def set_parameters(self, width = None, margin = None):
-        if width is None:
-            width = self.width.value
-        if margin is None:
-            margin = self.margin.value
-        self.width.value = width
-        self.margin.value = margin
-        self.inQ.put(SET_PARAMETERS + SEP + str(width) + SEP + str(margin))
-
     def set_mode(self, mode = None):
         if mode is None:
             mode = self.mode.value
         self.mode.value = mode
         self.inQ.put(SET_MODE + SEP + str(mode))
-
-    def print_parameters(self):
-        msg = '''
-        LED gating parameters:
-             - mode {0}
-             - width {1}
-             - margin {2}
-        '''.format(self.mode.value,
-                   self.width.value,
-                   self.margin.value)
-        display(msg)
         
     def process_message(self, tread, msg):
         #treceived = long((tread - self.expStartTime.value)*1000)
@@ -121,24 +106,33 @@ Could not open teensy on port {0}
                 display('Stimulation is armed.')
             elif msg[0] == DISARM:
                 display('Stimulation is disarmed.')
-            elif msg[0] == SET_PARAMETERS:
-                tmp = msg.split(SEP)
-                self.width.value = int(tmp[1])
-                self.margin.value = int(tmp[2])
-                self.print_parameters()
             elif msg[0] == SET_MODE:
                 tmp = msg.split(SEP)
                 self.mode.value = int(tmp[1])
+            elif msg[0] == SYNC:
+                tmp = msg.split(SEP)
+                self.sync_frame_count.value = int(tmp[1])
+                sync_count = int(tmp[2])
+                if sync_count == self.sync_count.value:
+                    self.sync.value = 0
+                else:
+                    self.sync.value = 1
+                self.sync_count.value = sync_count
+                self.last_sync_time.value = float(tmp[3])
+                return(['#SYNC:{0},{1},{2}'.format(self.sync_frame_count.value,
+                                                   self.sync_count.value,
+                                                   self.last_sync_time.value)])
+                
             elif msg[0] == FRAME:
                 tmp = msg.split(SEP)
                 self.frame_count.value = int(tmp[1])
                 self.last_led.value = int(tmp[2])
-                self.last_time.value = int(tmp[3])
+                self.last_time.value = float(tmp[3])
                 return(['#LED:{0},{1},{2}'.format(self.frame_count.value,
                                             self.last_led.value,
                                             self.last_time.value)])
             else:
-                print('Unknown message: ' + msg)
+                print('[CamStimTrigger] Unknown message: ' + msg)
         else:
             self.corrupt_messages += 1
             display('Error on msg [' + str(self.corrupt_messages) + ']: '+ msg.strip(STX).strip(ETX))
@@ -151,7 +145,6 @@ Could not open teensy on port {0}
                                  timeout = self.timeout)
         self.ino.flushInput()
         time.sleep(0.5) # So that the first cued orders get processed
-        self.set_parameters()
         while not self.exit.is_set():
             # Write whatever needed
             if not self.inQ.empty():
@@ -169,10 +162,8 @@ Could not open teensy on port {0}
                     if (not toout is None) and (self.is_saving.is_set()):
                         if not self.outQ is None:
                             self.outQ.put(toout)
-
-                    
         self.ino.close()        
-        display('Ended communication with arduino.')
+        display('[CamStimTrigger] Ended communication with arduino.')
 
     def close(self):
         display('[CamStimTrigger] Calling exit.')
