@@ -665,8 +665,7 @@ class CamStimTriggerWidget(QWidget):
             self.t.timeout.connect(update_count)
             self.t.start(100)
         self.setLayout(form)
-        self.setMode(2)
-        
+        wcombo.setCurrentIndex(2)
     def setMode(self,i):
         self.ino.set_mode(i+1)
         

@@ -295,17 +295,25 @@ class LabCamsGUI(QMainWindow):
         self.initUI()
         
         self.camerasRunning = False
+        if hasattr(self,'camstim_widget'):
+            self.camstim_widget.ino.start()
+            self.camstim_widget.ino.disarm()
+
         for cam,writer in zip(self.cams,self.writers):
             cam.start()
-            if hasattr(self,'camstim_widget'):
-                self.camstim_widget.ino.start()
             if not writer is None:
                 writer.start()
+        
         camready = 0
         while camready != len(self.cams):
             camready = np.sum([cam.camera_ready.is_set() for cam in self.cams])
         display('Initialized cameras.')
-        self.triggerCams(soft_trigger = self.software_trigger,save=self.saveOnStart)
+
+        if hasattr(self,'camstim_widget'):
+            self.camstim_widget.ino.arm()
+
+        self.triggerCams(soft_trigger = self.software_trigger,
+                         save=self.saveOnStart)
 
     def setExperimentName(self,expname):
         # Makes sure that the experiment name has the right slashes.
