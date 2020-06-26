@@ -12,7 +12,7 @@ volatile byte last_led = 0;
 
 //sync counts
 volatile long last_sync_rise = -1;
-volatile byte sync_count = 0;
+volatile long sync_count = 0;
 volatile long sync_frame_count = 0;
 
 volatile long pulse_count = 0; // number of pulses to trigger
