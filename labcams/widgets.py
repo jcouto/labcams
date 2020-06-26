@@ -556,7 +556,7 @@ class CamWidget(QWidget):
             self.text.setText(self.string.format(nframe))
             if self.parameters['reference_channel'] is None:
                 self.view.setImage(frame.squeeze(),
-                                   autoHistogramRange=self.autoRange)
+                                   autoLevels=self.autoRange)
             else:
                 frame = frame.squeeze()
                 ref = self.parameters['reference_channel']

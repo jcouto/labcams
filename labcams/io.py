@@ -103,6 +103,9 @@ class GenericWriter(object):
 
         logfname = filename.replace('.{extension}'.format(
             **self.path_keys),'.camlog')
+        folder = os.path.dirname(logfname)
+        if not os.path.exists(folder):
+            os.makedirs(folder)
         self.logfile = open(logfname,'w')
         self.logfile.write('# Camera: {0} log file'.format(
             self.dataname) + '\n')

@@ -48,6 +48,24 @@ Here should be a description of options on the configuration files.
 
 **Please let me know whether this works for you and acknowledge if you use it in a publication.**
 
+UDP and ZMQ:
+------------
+
+labcams can listen for UDP or ZMQ commands.
+
+
+To configure use the command ``"server":"udp"`` in the end of the config file.
+
+The port can be configured with ``"server_port":9999``
+
+The UDP commands are:
+    - Set the experiment name ``expname=EXPERIMENT_NAME``
+    - Software trigger the cameras ``softtrigger=1`` (multiple cameras are not in sync)        
+    - Hardware trigger mode and save ``trigger=1``
+    - Start/stop saving ``manualsave=1``
+    - Add a message to the log ``log=MESSAGE``
+    - Quit ``quit``
+
 Joao Couto - jpcouto@gmail.com
 May 2017
 
