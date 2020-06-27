@@ -480,7 +480,7 @@ class CamWidget(QWidget):
         if filename:
             from tifffile import imsave
             imsave(str(filename),
-                   frame,
+                   frame.transpose([2,0,1]).squeeze(),
                    metadata = {
                        'Camera':str(self.iCam)})
             display('Saved camera frame for cam: {0}'.format(self.iCam))
