@@ -201,6 +201,7 @@ class GenericCam(Process):
             time.sleep(0.001)
             if self.close_event.is_set() or self.stop_trigger.is_set():
                 break
+            self._handle_frame(None,None) # to stop saving while waiting for triggers
         if self.close_event.is_set() or self.stop_trigger.is_set():
             return
         self.camera_ready.clear()

@@ -115,6 +115,7 @@ class LabCamsGUI(QMainWindow):
             
             recorderpar = dict(cam['recorder'],
                                datafolder=self.parameters['recorder_path'],
+                               
                                framesperfile=self.parameters['recorder_frames_per_file'],
                                compression = self.parameters['compress'],
                                filename = expName,
@@ -180,8 +181,9 @@ class LabCamsGUI(QMainWindow):
             elif cam['driver'] == 'PCO':
                 from .pco import PCOCam
                 if 'CamStimTrigger' in cam.keys(): 
-                    self.camstim_widget = CamStimTriggerWidget(port = cam['CamStimTrigger']['port'],
-                                                               outQ = self.camQueues[-1])
+                    self.camstim_widget = CamStimTriggerWidget(
+                        port = cam['CamStimTrigger']['port'],
+                        outQ = self.camQueues[-1])
                 self.cams.append(PCOCam(camId=cam['id'],
                                         binning = cam['binning'],
                                         exposure = cam['exposure'],
@@ -255,9 +257,8 @@ class LabCamsGUI(QMainWindow):
                     self.writers.append(FFMPEGWriter(
                         inQ = self.camQueues[-1],
                         datafolder=self.parameters['recorder_path'],
-                        sleeptime = self.parameters['recorder_sleep_time'],
                         pathformat = self.parameters['recorder_path_format'],
-                        compression = 17,
+                        sleeptime = self.parameters['recorder_sleep_time'],
                         frame_rate = cam['frameRate'],
                         filename = expName,
                         hwaccel = cam['hwaccel'],
@@ -266,8 +267,8 @@ class LabCamsGUI(QMainWindow):
                     self.writers.append(BinaryWriter(
                         inQ = self.camQueues[-1],
                         datafolder=self.parameters['recorder_path'],
-                        sleeptime = self.parameters['recorder_sleep_time'],
                         pathformat = self.parameters['recorder_path_format'],
+                        sleeptime = self.parameters['recorder_sleep_time'],
                         filename = expName,
                         dataname = cam['description']))
                 else:

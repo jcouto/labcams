@@ -199,6 +199,7 @@ class GenericWriterProcess(Process,GenericWriter):
         GenericWriter.__init__(self,inQ = inQ,
                                loggerQ=loggerQ,
                                filename=filename,
+                               datafolder=datafolder,
                                dataname=dataname,
                                pathformat=pathformat,
                                framesperfile=framesperfile,
@@ -365,6 +366,7 @@ class TiffWriter(GenericWriterProcess):
         self.extension = 'tif'
         super(TiffWriter,self).__init__(inQ = inQ,
                                         loggerQ=loggerQ,
+                                        datafolder=datafolder,
                                         filename=filename,
                                         dataname=dataname,
                                         pathformat=pathformat,
@@ -414,6 +416,7 @@ class BinaryWriter(GenericWriterProcess):
         super(BinaryWriter,self).__init__(inQ = inQ,
                                           loggerQ=loggerQ,
                                           filename=filename,
+                                          datafolder=datafolder,
                                           dataname=dataname,
                                           pathformat = pathformat,
                                           framesperfile=framesperfile,
@@ -422,11 +425,9 @@ class BinaryWriter(GenericWriterProcess):
         self.w = None
         self.h = None
         self.buf = []
+
     def close_file(self):
         if not self.fd is None:
-            if len(self.buf):
-                self.fd.write(np.stack(self.buf))
-                self.buf = []
             self.fd.close()
         self.fd = None
 
@@ -436,11 +437,10 @@ class BinaryWriter(GenericWriterProcess):
         filename = filename.format(wid=self.w,hei=self.h) 
         self.fd = open(filename,'wb')
     def _write(self,frame,frameid,timestamp):
-        if len(self.buf) > 1000:
-            self.fd.write(np.stack(self.buf))
+        self.fd.write(frame)
+        if np.mod(frameid,5000) == 0: 
             display('Wrote {0} frames - {1}'.format(len(self.buf),frameid))
-            self.buf = [];
-        self.buf.append(frame)
+        
 
 ################################################################################
 ################################################################################
@@ -464,6 +464,7 @@ class FFMPEGWriter(GenericWriterProcess):
         super(FFMPEGWriter,self).__init__(inQ = inQ,
                                           loggerQ=loggerQ,
                                           filename=filename,
+                                          datafolder=datafolder,
                                           dataname=dataname,
                                           pathformat = pathformat,
                                           framesperfile=framesperfile,
@@ -539,6 +540,7 @@ class FFMPEGWriter_legacy(GenericWriterProcess):
         super(FFMPEGWriter,self).__init__(inQ = inQ,
                                           loggerQ=loggerQ,
                                           filename=filename,
+                                          datafolder=datafolder,
                                           dataname=dataname,
                                           pathformat=pathformat,
                                           framesperfile=framesperfile,
@@ -617,6 +619,7 @@ class OpenCVWriter(GenericWriter):
         super(OpenCVWriter,self).__init__(inQ = inQ,
                                           loggerQ=loggerQ,
                                           filename=filename,
+                                          datafolder=datafolder,
                                           pathformat = pathformat,
                                           dataname=dataname,
                                           framesperfile=framesperfile,
@@ -670,6 +673,7 @@ class FFMPEGCamWriter(GenericWriter):
         self.extension = 'avi'
         super(FFMPEGCamWriter,self).__init__(cam=cam,
                                              filename=filename,
+                                             datafolder=datafolder,
                                              dataname=dataname,
                                              pathformat = pathformat,
                                              framesperfile=framesperfile,
@@ -734,6 +738,7 @@ class BinaryCamWriter(GenericWriter):
         self.extension = '{hei}_{wid}.bin'
         self.cam = cam
         super(BinaryCamWriter,self).__init__(filename=filename,
+                                             datafolder=datafolder,
                                              dataname=dataname,
                                              pathformat = pathformat,
                                              framesperfile=framesperfile,
