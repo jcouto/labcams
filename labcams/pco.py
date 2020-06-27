@@ -408,26 +408,28 @@ class PCOCam(GenericCam):
         display('PCO - Trigger mode: {0}'.format(self.get_trigger_mode()))
         display('PCO - size: {0} x {1}'.format(self.h,self.w))
         self._dll.PCO_SetTimestampMode(self.hCam,ctypes.c_uint16(1))
-        self.arm()
         self.camera_ready.set()
         self.nframes.value = 0
         self.stop_trigger.clear()
         self.datestart = datetime.now() 
     def _cam_startacquisition(self):
-        self.acquisitionstart()
         display('PCO [{0}] - Started acquisition.'.format(self.camId))
-        if not self.cam_is_running:
-            self._prepare_to_mem()
-            (self.dw1stImage, self.dwLastImage, self.wBitsPerPixel, self.dwStatusDll,
-             self.dwStatusDrv, bytes_per_pixel,
-             pixels_per_image, self.added_buffers, self.ArrayType) = self._prepared
-            assert bytes_per_pixel.value == 2
-            self.out = np.zeros((self.wYResAct.value, self.wXResAct.value),
-                                dtype=np.uint16)
-            
+        self.arm()        
+        self._prepare_to_mem()
+        (self.dw1stImage, self.dwLastImage, self.wBitsPerPixel, self.dwStatusDll,
+         self.dwStatusDrv, bytes_per_pixel,
+         pixels_per_image, self.added_buffers, self.ArrayType) = self._prepared
+        assert bytes_per_pixel.value == 2
+        self.out = np.zeros((self.wYResAct.value, self.wXResAct.value),
+                            dtype=np.uint16)
+        self.acquisitionstart()
+                
     def _cam_stopacquisition(self):
         self.acquisitionstop()
+        self.disarm()
         
+        
+
     def _cam_loop(self,poll_timeout=5e7):
         
         timestamp = 0
