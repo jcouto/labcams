@@ -55,6 +55,7 @@ class CamStimInterface(Process):
 Could not open teensy on port {0}
 
             Try logging out and back in to clear the port.'''.format(self.port)))
+        self.ino.write((STX + DISARM + ETX).encode())
         self.ino.flushInput()
         self.ino.close()
         display('Probed port {0}.'.format(port))

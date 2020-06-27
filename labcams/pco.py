@@ -428,8 +428,6 @@ class PCOCam(GenericCam):
         self.acquisitionstop()
         self.disarm()
         
-        
-
     def _cam_loop(self,poll_timeout=5e7):
         
         timestamp = 0
