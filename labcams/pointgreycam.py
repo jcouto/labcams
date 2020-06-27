@@ -134,6 +134,7 @@ class PointGreyCam(GenericCam):
                  **kwargs):
         super(PointGreyCam,self).__init__(outQ = outQ, recorderpar=recorderpar)
         self.drivername = 'PointGrey'
+        self.hardware_trigger = hardware_trigger
         if camId is None:
             display('[PointGrey] - Need to supply a camera ID.')
         self.serial = serial
@@ -175,7 +176,6 @@ class PointGreyCam(GenericCam):
         if len(frame.shape) == 3:
             self.nchan = frame.shape[2] 
         self.dtype = frame.dtype
-        self.hardware_trigger = hardware_trigger
         self._init_variables(self.dtype)
 
         self.img[:] = np.reshape(frame,self.img.shape)[:]
@@ -390,17 +390,20 @@ class PointGreyCam(GenericCam):
         pg_image_settings(self.nodemap,X=0,Y=0,
                           W=None,H=None,pxformat=self.pxformat)
         pg_image_settings(self.nodemap,X=x,Y=y,W=w,H=h,pxformat=self.pxformat)
+        self.cam.ExposureAuto.SetValue(0)
+        
+        genable = PySpin.CBooleanPtr(self.nodemap.GetNode("AcquisitionFrameRateAuto"))
+        if PySpin.IsWritable(genable):
+            genable.SetValue(0)
+        
+        genable = PySpin.CBooleanPtr(self.nodemap.GetNode("SharpenessAuto"))
+        if PySpin.IsWritable(genable):
+            genable.SetValue(0)
         self.set_exposure(self.exposure)
         self.set_framerate(self.frame_rate)
         self.set_gain(self.gain)
         self.set_gamma(self.gamma)
-        sharpnessauto = PySpin.CEnumerationPtr(
-            self.nodemap.GetNode('SharpnessAuto'))
-        if not PySpin.IsAvailable(sharpnessauto) or not PySpin.IsWritable(
-                sharpnessauto):
-            autooff = sharpnessauto.GetEntryByName('Off')
-            sharpnessauto.SetIntValue(autooff.GetValue())
-
+            
         self.lastframeid = -1
         self.nframes.value = 0
         self.camera_ready.set()
@@ -440,17 +443,17 @@ class PointGreyCam(GenericCam):
                 self.cam.TriggerActivation.SetValue(PySpin.TriggerActivation_RisingEdge)
                 self.cam.ExposureMode.SetValue(PySpin.ExposureMode_TriggerWidth)
                 self.cam.TriggerSelector.SetValue(1) # this is exposure active in CM3
-
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
+                display('PointGrey [{0}] - External trigger mode ON .'.format(self.cam_id))      
             if self.hardware_trigger == 'out_line3':
+                display('Setting the output line for line 3')
                 self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
-                self.cam.LineSelector.SetValue(PySpin.LineMode_Output)
+                self.cam.LineMode.SetValue(PySpin.LineMode_Output)
                 self.cam.LineSource.SetValue(PySpin.LineSource_ExposureActive)
                 # Delay this camera start
                 time.sleep(0.5)
-
-            display('PointGrey [{0}] - External trigger mode ON .'.format(self.cam_id))               
         self.cam.BeginAcquisition()
+        
         display('PointGrey [{0}] - Started acquitition.'.format(self.cam_id))            
     def _cam_stopacquisition(self):
         '''stop camera acq'''
