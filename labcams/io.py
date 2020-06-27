@@ -33,7 +33,7 @@ class GenericWriter(object):
                  sleeptime = 1./30,
                  incrementruns=True):
         if not hasattr(self,'extension'):
-            self.extension = 'nan'
+            self.extension = '.nan'
         self.saved_frame_count = 0
         self.runs = 0
         self.write = False
@@ -78,7 +78,7 @@ class GenericWriter(object):
         self.path_keys['nfiles'] = '{0:08d}'.format(nfiles)
         self.path_keys['filename'] = self.get_filename()
 
-        filename = (self.path_format+'.{extension}').format(**self.path_keys)
+        filename = (self.path_format+'{extension}').format(**self.path_keys)
         folder = os.path.dirname(filename)
         
         if not os.path.exists(folder):
@@ -99,9 +99,9 @@ class GenericWriter(object):
         self.path_keys['nfiles'] = '{0:08d}'.format(nfiles)
         self.path_keys['filename'] = self.get_filename()
 
-        filename = (self.path_format+'.{extension}').format(**self.path_keys)
+        filename = (self.path_format+'{extension}').format(**self.path_keys)
 
-        logfname = filename.replace('.{extension}'.format(
+        logfname = filename.replace('{extension}'.format(
             **self.path_keys),'.camlog')
         folder = os.path.dirname(logfname)
         if not os.path.exists(folder):
@@ -363,7 +363,7 @@ class TiffWriter(GenericWriterProcess):
                  sleeptime = 1./30,
                  incrementruns=True,
                  compression=None):
-        self.extension = 'tif'
+        self.extension = '.tif'
         super(TiffWriter,self).__init__(inQ = inQ,
                                         loggerQ=loggerQ,
                                         datafolder=datafolder,
@@ -412,7 +412,7 @@ class BinaryWriter(GenericWriterProcess):
                  framesperfile=0,
                  sleeptime = 1./300,
                  incrementruns=True):
-        self.extension = '{wid}_{hei}.bin'
+        self.extension = '_{H}_{W}.dat'
         super(BinaryWriter,self).__init__(inQ = inQ,
                                           loggerQ=loggerQ,
                                           filename=filename,
@@ -434,7 +434,7 @@ class BinaryWriter(GenericWriterProcess):
     def _open_file(self,filename,frame = None):
         self.w = frame.shape[1]
         self.h = frame.shape[0]
-        filename = filename.format(wid=self.w,hei=self.h) 
+        filename = filename.format(W=self.w,H=self.h) 
         self.fd = open(filename,'wb')
     def _write(self,frame,frameid,timestamp):
         self.fd.write(frame)
@@ -460,7 +460,7 @@ class FFMPEGWriter(GenericWriterProcess):
                  incrementruns=True,
                  hwaccel = None,
                  compression=None):
-        self.extension = 'avi'
+        self.extension = '.avi'
         super(FFMPEGWriter,self).__init__(inQ = inQ,
                                           loggerQ=loggerQ,
                                           filename=filename,
@@ -536,7 +536,7 @@ class FFMPEGWriter_legacy(GenericWriterProcess):
                  incrementruns=True,
                  compression=None):
         '''This version wasnt closing files.'''
-        self.extension = 'avi'
+        self.extension = '.avi'
         super(FFMPEGWriter,self).__init__(inQ = inQ,
                                           loggerQ=loggerQ,
                                           filename=filename,
@@ -615,7 +615,7 @@ class OpenCVWriter(GenericWriter):
                  compression=None,
                  frame_rate = 30.,
                  fourcc = 'X264'):
-        self.extension = 'avi'
+        self.extension = '.avi'
         super(OpenCVWriter,self).__init__(inQ = inQ,
                                           loggerQ=loggerQ,
                                           filename=filename,
@@ -670,7 +670,7 @@ class FFMPEGCamWriter(GenericWriter):
                  framesperfile=0,
                  incrementruns=True,
                  crf=None):
-        self.extension = 'avi'
+        self.extension = '.avi'
         super(FFMPEGCamWriter,self).__init__(cam=cam,
                                              filename=filename,
                                              datafolder=datafolder,
@@ -735,7 +735,7 @@ class BinaryCamWriter(GenericWriter):
                                     '{today}_{run}_{nfiles}'),
                  framesperfile=0,
                  incrementruns=True):
-        self.extension = '{hei}_{wid}.bin'
+        self.extension = '_{H}_{W}.dat'
         self.cam = cam
         super(BinaryCamWriter,self).__init__(filename=filename,
                                              datafolder=datafolder,
@@ -755,7 +755,7 @@ class BinaryCamWriter(GenericWriter):
     def _open_file(self,filename,frame = None):
         self.w = frame.shape[1]
         self.h = frame.shape[0]
-        filename = filename.format(wid=self.w,hei=self.h) 
+        filename = filename.format(W=self.w,H=self.h) 
         self.fd = open(filename,'wb')
 
     def _write(self,frame,frameid,timestamp):
