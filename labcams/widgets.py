@@ -571,8 +571,8 @@ class CamWidget(QWidget):
                 if self.displaychannel == -1 and frame.shape[2]==2:
                     f = frame.copy()
                     frame = np.zeros((f.shape[0],f.shape[1],3),dtype = f.dtype)
-                    frame[:,:,0] = f[:,:,0]
-                    frame[:,:,1] = f[:,:,1]
+                    frame[:,:,1] = f[:,:,0]
+                    frame[:,:,2] = f[:,:,1]
                 self.view.setImage(frame.squeeze(),
                                    autoLevels=self.autoRange)
             else:
