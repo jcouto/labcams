@@ -439,9 +439,8 @@ class BinaryWriter(GenericWriterProcess):
     def _write(self,frame,frameid,timestamp):
         self.fd.write(frame)
         if np.mod(frameid,5000) == 0: 
-            display('Wrote {0} frames - {1}'.format(len(self.buf),frameid))
+            display('Wrote frame id - {0}'.format(frameid))
         
-
 ################################################################################
 ################################################################################
 ################################################################################

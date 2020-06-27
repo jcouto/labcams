@@ -49,22 +49,24 @@ class PCOCam(GenericCam):
         self.h = frame.shape[0]
         self.w = frame.shape[1]
         display('PCO - size: {0} x {1}'.format(self.h,self.w))
-        self.nchannels = 1 #frame.shape[2]
-        self._init_variables(dtype)
-        self.triggered = triggered
-        self.triggerSource = triggerSource
         # TODO: interface with the excitation stim trigger
         if not acquisition_stim_trigger is None:
             self.acquisition_stim_trigger = dict(mode = acquisition_stim_trigger.mode)
             acquisition_stim_trigger.is_saving = self.saving
             self.refresh_period = -1
             # refresh every frame
+            self.nchan = 2 #frame.shape[2] (do mod)
+
         else:
             self.acquisition_stim_trigger = None
+            self.nchan = 1 #frame.shape[2]
+        self._init_variables(dtype)
+        self.triggered = triggered
+        self.triggerSource = triggerSource
             
         self._dll = None
-        self.img[:] = np.reshape(frame,self.img.shape)[:]
-        
+        for c in range(self.nchan):
+            self.img[:,:,c] = frame[:]
         display("Got info from camera (name: {0})".format(
              'PCO'))
 
@@ -541,9 +543,13 @@ class PCOCam(GenericCam):
         if not self.acquisition_stim_trigger is None:
             if self.acquisition_stim_trigger['mode'].value == 3:
                 if np.mod(frameID,2) == 0:
-                    self.buf[:] = np.reshape(frame,self.buf.shape)[:]
-                return
-        self.buf[:] = np.reshape(frame,self.buf.shape)[:]
+                    self.buf[:,:,0] = frame[:]
+                else:
+                    self.buf[:,:,1] = frame[:]
+            else:
+                self.buf[:,:,self.acquisition_stim_trigger['mode'].value -1] = frame[:]
+        else:
+            self.buf[:] = np.reshape(frame,self.buf.shape)[:]
     
     def _cam_close(self):
         display('PCO [{0}] - Stopping acquisition.'.format(self.camId))

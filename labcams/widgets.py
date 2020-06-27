@@ -220,6 +220,8 @@ class CamWidget(QWidget):
         h,w = frame.shape[:2]
         self.w = w
         self.h = h
+        self.nchan = frame.shape[-1]
+        self.displaychannel = -1
         self.roiwidget = None
         self.layout = QGridLayout()
         self.setLayout(self.layout)
@@ -320,7 +322,15 @@ class CamWidget(QWidget):
         sep = QAction(self)
         sep.setSeparator(True)
         self.addAction(sep)
-
+        if self.nchan > 1:
+            displaychan = QActionSlider(self,'display channel',
+                                       value = self.displaychannel,
+                                       vmin = -1,
+                                       vmax = self.nchan-1)
+            def change_chan(value):
+                self.displaychannel = int(value)
+            displaychan.link(change_chan) 
+            self.addAction(displaychan)
         # Slider
         toggleSubtract = QActionSlider(self,'Nsubtract [{0:03d}]:'.format(int(self.nAcum)),
                                        value = 0,
@@ -554,7 +564,15 @@ class CamWidget(QWidget):
                     frame = self.eyeTracker.img
 
             self.text.setText(self.string.format(nframe))
+            if not self.displaychannel == -1:
+                frame = frame[:,:,self.displaychannel]
+
             if self.parameters['reference_channel'] is None:
+                if self.displaychannel == -1 and frame.shape[2]==2:
+                    f = frame.copy()
+                    frame = np.zeros((f.shape[0],f.shape[1],3),dtype = f.dtype)
+                    frame[:,:,0] = f[:,:,0]
+                    frame[:,:,1] = f[:,:,1]
                 self.view.setImage(frame.squeeze(),
                                    autoLevels=self.autoRange)
             else:
