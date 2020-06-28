@@ -61,9 +61,9 @@ void camera_triggered() {
       case 3:
         int tmp = pulse_count % 2;
         if (tmp == 0)
-          pin = PIN_LED0_TRIGGER;
-        else
           pin = PIN_LED1_TRIGGER;
+        else
+          pin = PIN_LED0_TRIGGER;
         break;
       default:
           pin = PIN_LED0_TRIGGER;

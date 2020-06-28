@@ -543,11 +543,11 @@ class PCOCam(GenericCam):
         if not self.acquisition_stim_trigger is None:
             if self.acquisition_stim_trigger['mode'].value == 3:
                 if np.mod(frameID,2) == 0:
-                    self.buf[:,:,0] = frame[:]
-                else:
                     self.buf[:,:,1] = frame[:]
+                else:
+                    self.buf[:,:,0] = frame[:] # because frame ids start in one
             else:
-                self.buf[:,:,self.acquisition_stim_trigger['mode'].value -1] = frame[:]
+                self.buf[:,:,self.acquisition_stim_trigger['mode'].value - 1] = frame[:]
         else:
             self.buf[:] = np.reshape(frame,self.buf.shape)[:]
     
