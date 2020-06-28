@@ -47,6 +47,8 @@ class LabCamsGUI(QMainWindow):
         '''
         super(LabCamsGUI,self).__init__()
         self.parameters = parameters
+        if not 'compress' in self.parameters:
+            self.parameters['compress'] = 0
         self.app = app
         self.updateFrequency=updateFrequency
         self.saveOnStart = saveOnStart
@@ -235,8 +237,6 @@ class LabCamsGUI(QMainWindow):
                 self.camQueues.pop()
                 self.saveflags.pop()
             if not self.camQueues[-1] is None:
-                if not 'compress' in self.parameters:
-                    self.parameters['compress'] = 0
                 if not 'saveMethod' in cam.keys():
                     cam['saveMethod'] = 'tiff'
                 if not 'recorder_path_format' in self.parameters.keys():

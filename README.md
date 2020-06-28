@@ -19,7 +19,7 @@ Features:
  *  Data from camera acquisition process placed on a cue.
  *  Display options: background subtraction; histogram equalization; pupil tracking via the [ mptracker ](https://bitbucket.org/jpcouto/mptracker).	
  *  Multiple buffers on Allied vision technologies cameras allows high speed data acquisition.
- * Online compression using ffmpeg (supporting hardware acceleration)
+ * Online compression using ffmpeg (supports hardware acceleration)
 
 
 Instalation:
@@ -35,15 +35,31 @@ Instalation:
 5. Clone the repositoty: ``git clone git@bitbucket.org:jpcouto/labcams.git``
 6. Go into that folder``cd labcams`` and finally ``python setup.py develop``. The develop instalation makes that changes to the code take effect immediately.
 
+
+Another way is to install conda and do ``pip install -r requirements.txt`` followed by ``python setup.py develop``
+
 Usage:
 ------
-Typing ``labcams -h`` for help.
+Open a terminal and type ``labcams -h`` for help.
+
+The first time you run ``labcams`` it will create a folder in the user home directory where the default preference file is stored.
+
+Command line options:
++++++++++++++++++++++
+
+| Short | Long command | Function |
+|-------|--------------|----------|
+| ``-w``| ``--wait`` - start with software trigger off |
+| ``-t``| ``--triggered`` |  start with hardware trigger ON |
+| ``-c X Y`` | ``--cam-select X Y``     |  start only some cameras ``-c 0 1`` |
+| ``-d PATH`` | ``--make-config PATH``  |  create a configuration file |
+| | ``--no-server`` | do not start the ZMQ nor the UDP server |
+ 
 
 Configuration files:
 --------------------
 Configuration files ensure you always use the same parameters during your experiments.
 
-Here should be a description of options on the configuration files.
 
 
 **Please let me know whether this works for you and acknowledge if you use it in a publication.**
