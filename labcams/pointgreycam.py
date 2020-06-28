@@ -234,6 +234,8 @@ class PointGreyCam(GenericCam):
     def get_one(self):
         self._cam_init()
         self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
+        self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
+
         node_acquisition_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionMode'))
         if not PySpin.IsAvailable(node_acquisition_mode) or not PySpin.IsWritable(node_acquisition_mode):
             display('[PointGrey] - Unable to set acquisition mode(enum retrieval). Aborting...')
@@ -437,23 +439,22 @@ class PointGreyCam(GenericCam):
         # Set GPIO lines and strobe # these should go in the config
         # Line 2 and Line 3
         if not self.hardware_trigger is None:
-            self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
-            if self.hardware_trigger == 'in_line3':
-                self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
-                self.cam.TriggerActivation.SetValue(PySpin.TriggerActivation_RisingEdge)
-                self.cam.ExposureMode.SetValue(PySpin.ExposureMode_TriggerWidth)
-                self.cam.TriggerSelector.SetValue(1) # this is exposure active in CM3
-                self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
-                display('PointGrey [{0}] - External trigger mode ON .'.format(self.cam_id))      
             if self.hardware_trigger == 'out_line3':
                 display('Setting the output line for line 3')
                 self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
                 self.cam.LineMode.SetValue(PySpin.LineMode_Output)
                 self.cam.LineSource.SetValue(PySpin.LineSource_ExposureActive)
-                # Delay this camera start
-                time.sleep(0.5)
+                # This is not doing what i would like it to do.
+            self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
+            if self.hardware_trigger == 'in_line3':
+                self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
+                self.cam.TriggerActivation.SetValue(PySpin.TriggerActivation_RisingEdge)
+                self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed) #PySpin.ExposureMode_TriggerWidth)
+                self.cam.TriggerSelector.SetValue(1) # this is exposure active in CM3
+                self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
+                display('PointGrey [{0}] - External trigger mode ON .'.format(self.cam_id))      
+
         self.cam.BeginAcquisition()
-        
         display('PointGrey [{0}] - Started acquitition.'.format(self.cam_id))            
     def _cam_stopacquisition(self):
         '''stop camera acq'''
