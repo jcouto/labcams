@@ -412,7 +412,7 @@ class BinaryWriter(GenericWriterProcess):
                  framesperfile=0,
                  sleeptime = 1./300,
                  incrementruns=True):
-        self.extension = '_{H}_{W}.dat'
+        self.extension = '_{H}_{W}_{dtype}.dat'
         super(BinaryWriter,self).__init__(inQ = inQ,
                                           loggerQ=loggerQ,
                                           filename=filename,
@@ -434,7 +434,14 @@ class BinaryWriter(GenericWriterProcess):
     def _open_file(self,filename,frame = None):
         self.w = frame.shape[1]
         self.h = frame.shape[0]
-        filename = filename.format(W=self.w,H=self.h) 
+        dtype = frame.dtype
+        if dtype == np.float32:
+            dtype='float32'
+        elif dtype == np.uint8:
+            dtype='uint8'
+        else:
+            dtype='uint16'
+        filename = filename.format(W=self.w, H=self.h, dtype=dtype) 
         self.fd = open(filename,'wb')
     def _write(self,frame,frameid,timestamp):
         self.fd.write(frame)
@@ -734,7 +741,7 @@ class BinaryCamWriter(GenericWriter):
                                     '{today}_{run}_{nfiles}'),
                  framesperfile=0,
                  incrementruns=True):
-        self.extension = '_{H}_{W}.dat'
+        self.extension = '_{H}_{W}_{dtype}.dat'
         self.cam = cam
         super(BinaryCamWriter,self).__init__(filename=filename,
                                              datafolder=datafolder,
@@ -754,7 +761,14 @@ class BinaryCamWriter(GenericWriter):
     def _open_file(self,filename,frame = None):
         self.w = frame.shape[1]
         self.h = frame.shape[0]
-        filename = filename.format(W=self.w,H=self.h) 
+        dtype = frame.dtype
+        if dtype == np.float32:
+            dtype='float32'
+        elif dtype == np.uint8:
+            dtype='uint8'
+        else:
+            dtype='uint16'
+        filename = filename.format(W=self.w, H=self.h, dtype=dtype) 
         self.fd = open(filename,'wb')
 
     def _write(self,frame,frameid,timestamp):
