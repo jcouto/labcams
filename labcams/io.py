@@ -465,7 +465,7 @@ class FFMPEGWriter(GenericWriterProcess):
                  frame_rate = 30.,
                  incrementruns=True,
                  hwaccel = None,
-                 compression=None):
+                 compression=17):
         self.extension = '.avi'
         super(FFMPEGWriter,self).__init__(inQ = inQ,
                                           loggerQ=loggerQ,
@@ -476,10 +476,7 @@ class FFMPEGWriter(GenericWriterProcess):
                                           framesperfile=framesperfile,
                                           sleeptime=sleeptime,
                                           incrementruns=incrementruns)
-        self.compression = 17
-        if not compression is None:
-            if compression > 0:
-                self.compression = compression
+        self.compression = compression
         if frame_rate <= 0:
             frame_rate = 30.
             display('Using frame rate 30 (this value can be set with the frame_rate argument).')
@@ -498,7 +495,7 @@ class FFMPEGWriter(GenericWriterProcess):
                                  '-pix_fmt':'yuv420p',#'gray',
                                  '-vcodec':'h264_qsv',#'libx264',
                                  '-global_quality':str(25), # specific to the qsv
-                                 '-look_ahead':str(1), 
+                                 '-look_ahead':str(1),
                                  #preset='veryfast',#'ultrafast',
                                  '-threads':str(1),
                                  '-crf':str(self.compression)}
@@ -510,6 +507,8 @@ class FFMPEGWriter(GenericWriterProcess):
         self.doutputs['-r'] =str(self.frame_rate)
         self.hwaccel = hwaccel
         
+        self.dinputs = {'-r':str(self.frame_rate)}
+        
     def close_file(self):
         if not self.fd is None:
             self.fd.close()
@@ -519,6 +518,7 @@ class FFMPEGWriter(GenericWriterProcess):
         self.w = frame.shape[1]
         self.h = frame.shape[0]
         self.fd = FFmpegWriter(filename,
+                               inputdict=self.dinputs,
                                outputdict=self.doutputs)
 
     def _write(self,frame,frameid,timestamp):
