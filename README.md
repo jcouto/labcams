@@ -1,10 +1,31 @@
-labcams
-=======
+                                             MMM
+                                           MMMMMM
+    MMM:               .MMMM             MMMM MMMMMMMM
+    MMM:               .MMMM            MMMMM MMMMMMMM      
+    MMM:               .MMMM             MMMM  MMMMMM        MM 
+    MMM:  :MMMMMMMMM.  .MMMMOMMMMMM       MN     MMM      MMMMM 
+    MMM:  :M     MMMM  .MMMMM?+MMMMM    MMMMMMMMMMMMMMM7MMMMMMM  
+    MMM:         OMMM  .MMMM    MMMM    MMMMMMMMMMMMMMMMMMMMMMM 
+    MMM:  .MMMMMMMMMM  .MMMM    ?MMM    MMMMMMMMMMMMMMMMMMMMMMM 
+    MMM:  MMMM  .8MMM  .MMMM    ZMMM    MMMMMMMMMMMMMMMMMMMMMMM 
+    MMM:  MMM=...8MMM  .MMMM    MMMM    MMMMMMMMMMMMMMM.MMMMMMM  
+    MMM:  MMMMMMMMMMM  .MMMMMMMMMMM                        MMMM 
+    MMM:   MMMMM 8MMM  .MMMM:MMMMZ                            M 
 
-Multicamera control and acquisition. Uses separate processes to record from multiple cameras at high speed.
+         MMMMMMN  =MMMMMMMM     MMMM.MMMM$ .+MMMM      MMMMMMM: 
+       MMMMMMMMM  +MMMMMMMMM$   MMMMMMMMMMMMMMMMMM   MMMMMMMMM8 
+      MMMM               MMMM   MMMM   MMMM    MMM+  MMM8       
+      MMMZ          OMMMMMMMM   MMMM   NMMM    MMM?  MMMMMMM$   
+      MMMI        MMMMM  MMMM   MMMM   NMMM    MMM?   ZMMMMMMMM 
+      MMMM       7MMM    MMMM   MMMM   NMMM    MMM?        MMMM 
+       MMMMD+7MM  MMMN   MMMM   MMMM   NMMM    MMM?  MM$:.7MMMM   
+        MMMMMMMM  ZMMMMMOMMMM   MMMM   NMMM    MMM?  MMMMMMMM+                                                              
 
-Supported cameras:
-------------------
+Multicamera control and acquisition.
+
+This aims to facilitate video acquisition and automation of experimens, uses separate processes to record and store data.
+
+### Supported cameras:
 
  * Allied Vision Technologies (via pymba)
  * PointGrey cameras (via PySpin)
@@ -12,8 +33,7 @@ Supported cameras:
  * PCO cameras (only windows)
  * Ximea cameras
 
-Features:
----------
+### Features:
 
  *  Separates viewer, camera control/acquisition and file writer in different processes.
  *  Data from camera acquisition process placed on a cue.
@@ -22,8 +42,8 @@ Features:
  * Online compression using ffmpeg (supports hardware acceleration)
 
 
-Instalation:
-------------
+## Instalation:
+
 
 **Note:** On windows I suggest getting the [ git bash terminal ](https://git-scm.com/downloads).
 
@@ -38,27 +58,29 @@ Instalation:
 
 Another way is to install conda and do ``pip install -r requirements.txt`` followed by ``python setup.py develop``
 
-Usage:
-------
+## Usage:
+
 Open a terminal and type ``labcams -h`` for help.
 
 The first time you run ``labcams`` it will create a folder in the user home directory where the default preference file is stored.
 
-Command line options:
-+++++++++++++++++++++
+### Command line options:
 
-| Short | Long command | Function |
-|-------|--------------|----------|
+|-------|--------------|-------------|
+|       |  command     | description |
+|-------|--------------|-------------|
 | ``-w``| ``--wait`` - start with software trigger off |
 | ``-t``| ``--triggered`` |  start with hardware trigger ON |
 | ``-c X Y`` | ``--cam-select X Y``     |  start only some cameras ``-c 0 1`` |
 | ``-d PATH`` | ``--make-config PATH``  |  create a configuration file |
 | | ``--no-server`` | do not start the ZMQ nor the UDP server |
- 
 
-Configuration files:
---------------------
+
+
+## Configuration files:
+
 Configuration files ensure you always use the same parameters during your experiments.
+
 
 
 
