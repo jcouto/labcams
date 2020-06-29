@@ -45,7 +45,7 @@ This aims to facilitate video acquisition and automation of experimens, uses sep
 
 ## Instalation:
 
-**Note:** On windows I suggest getting the [ git bash terminal ](https://git-scm.com/downloads). I had issues running from cmd.exe when installed with conda.
+**Note:** On windows get the [ git bash terminal ](https://git-scm.com/downloads). I had issues running from cmd.exe when installed with conda.
 
 1. Get [ anaconda ](https://conda.io/anaconda.html). Add conda to system PATH when asked. Open a terminal (use git bash if on windows) and type ``conda init bash``.
 2. Clone the repository: ``git clone git@bitbucket.org:jpcouto/labcams.git``
@@ -78,8 +78,9 @@ The first time you run ``labcams`` it will create a folder in the user home dire
 Configuration files ensure you always use the same parameters during your experiments.
 
 The configuration files are simple ``json`` files. There are 2 parts to the files.
-1) ``cams`` - **camera descriptions** - each camera has a section to store acquisition and recording parameters.
-2) **genera parameters** to control the remote communication ports and general gui or recording parameters.
+
+1. ``cams`` - **camera descriptions** - each camera has a section to store acquisition and recording parameters.
+2. **general parameters** to control the remote communication ports and general gui or recording parameters.
 
 ### UDP and ZMQ:
 
