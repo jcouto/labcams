@@ -1,25 +1,25 @@
-                                             MMM
-                                           MMMMMM
-    MMM:               .MMMM             MMMM MMMMMMMM
-    MMM:               .MMMM            MMMMM MMMMMMMM      
-    MMM:               .MMMM             MMMM  MMMMMM        MM 
-    MMM:  :MMMMMMMMM.  .MMMMOMMMMMM       MN     MMM      MMMMM 
-    MMM:  :M     MMMM  .MMMMM?+MMMMM    MMMMMMMMMMMMMMM7MMMMMMM  
-    MMM:         OMMM  .MMMM    MMMM    MMMMMMMMMMMMMMMMMMMMMMM 
-    MMM:  .MMMMMMMMMM  .MMMM    ?MMM    MMMMMMMMMMMMMMMMMMMMMMM 
-    MMM:  MMMM  .8MMM  .MMMM    ZMMM    MMMMMMMMMMMMMMMMMMMMMMM 
-    MMM:  MMM=...8MMM  .MMMM    MMMM    MMMMMMMMMMMMMMM.MMMMMMM  
-    MMM:  MMMMMMMMMMM  .MMMMMMMMMMM                        MMMM 
-    MMM:   MMMMM 8MMM  .MMMM:MMMMZ                            M 
+**                                             MMM                **
+**                                           MMMMMM               **
+**    MMM:               .MMMM             MMMM MMMMMMMM          **
+**    MMM:               .MMMM            MMMMM MMMMMMMM          **
+**    MMM:               .MMMM             MMMM  MMMMMM        MM **
+**    MMM:  :MMMMMMMMM.  .MMMMOMMMMMM       MN     MMM      MMMMM **
+**    MMM:  :M     MMMM  .MMMMM?+MMMMM    MMMMMMMMMMMMMMM7MMMMMMM **
+**    MMM:         OMMM  .MMMM    MMMM    MMMMMMMMMMMMMMMMMMMMMMM **
+**    MMM:  .MMMMMMMMMM  .MMMM    ?MMM    MMMMMMMMMMMMMMMMMMMMMMM **
+**    MMM:  MMMM  .8MMM  .MMMM    ZMMM    MMMMMMMMMMMMMMMMMMMMMMM **
+**    MMM:  MMM=...8MMM  .MMMM    MMMM    MMMMMMMMMMMMMMM.MMMMMMM **
+**    MMM:  MMMMMMMMMMM  .MMMMMMMMMMM                        MMMM **
+**    MMM:   MMMMM 8MMM  .MMMM:MMMMZ                            M ** 
 
-         MMMMMMN  =MMMMMMMM     MMMM.MMMM$ .+MMMM      MMMMMMM: 
-       MMMMMMMMM  +MMMMMMMMM$   MMMMMMMMMMMMMMMMMM   MMMMMMMMM8 
-      MMMM               MMMM   MMMM   MMMM    MMM+  MMM8       
-      MMMZ          OMMMMMMMM   MMMM   NMMM    MMM?  MMMMMMM$   
-      MMMI        MMMMM  MMMM   MMMM   NMMM    MMM?   ZMMMMMMMM 
-      MMMM       7MMM    MMMM   MMMM   NMMM    MMM?        MMMM 
-       MMMMD+7MM  MMMN   MMMM   MMMM   NMMM    MMM?  MM$:.7MMMM   
-        MMMMMMMM  ZMMMMMOMMMM   MMMM   NMMM    MMM?  MMMMMMMM+                                                              
+**       MMMMMMN  =MMMMMMMM     MMMM.MMMM$ .+MMMM      MMMMMMM:   **
+**     MMMMMMMMM  +MMMMMMMMM$   MMMMMMMMMMMMMMMMMM   MMMMMMMMM8   **
+**    MMMM               MMMM   MMMM   MMMM    MMM+  MMM8         **
+**    MMMZ          OMMMMMMMM   MMMM   NMMM    MMM?  MMMMMMM$     **
+**    MMMI        MMMMM  MMMM   MMMM   NMMM    MMM?   ZMMMMMMMM   **
+**    MMMM       7MMM    MMMM   MMMM   NMMM    MMM?        MMMM   **
+**     MMMMD+7MM  MMMN   MMMM   MMMM   NMMM    MMM?  MM$:.7MMMM   **
+**      MMMMMMMM  ZMMMMMOMMMM   MMMM   NMMM    MMM?  MMMMMMMM+    **                                                          
 
 Multicamera control and acquisition.
 
