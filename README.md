@@ -19,8 +19,8 @@
       MMMI        MMMMM  MMMM   MMMM   NMMM    MMM?   ZMMMMMMMM 
       MMMM       7MMM    MMMM   MMMM   NMMM    MMM?        MMMM 
        MMMMD+7MM  MMMN   MMMM   MMMM   NMMM    MMM?  MM$:.7MMMM   
-        MMMMMMMM  ZMMMMMOMMMM   MMMM   NMMM    MMM?  MMMMMMMM+                                                              
-                          https://bitbucket.org/jpcouto/labcams                  
+        MMMMMMMM  ZMMMMMOMMMM   MMMM   NMMM    MMM?  MMMMMMMM+  
+                          https://bitbucket.org/jpcouto/labcams   
 
 Multicamera control and acquisition.
 
@@ -45,17 +45,16 @@ This aims to facilitate video acquisition and automation of experimens, uses sep
 
 ## Instalation:
 
-It is better to install with anaconda, if you are in a hurry you can try simply ``pip install -r requirements.txt`` followed by ``python setup.py develop`` after downloading the repository.
+**Note:** On windows I suggest getting the [ git bash terminal ](https://git-scm.com/downloads). I had issues running from cmd.exe when installed with conda.
 
-**Note:** On windows I suggest getting the [ git bash terminal ](https://git-scm.com/downloads).
-
-1. Get [ anaconda ](https://conda.io/anaconda.html) 
-2. Open a terminal (use git bash if on windows) and clone the repositoty: ``git clone git@bitbucket.org:jpcouto/labcams.git``
+1. Get [ anaconda ](https://conda.io/anaconda.html). Add conda to system PATH when asked. Open a terminal (use git bash if on windows) and type ``conda init bash``.
+2. Clone the repository: ``git clone git@bitbucket.org:jpcouto/labcams.git``
 3. Go into the cloned ``cd labcams`` folder.
 4. Install the required packages, use e.g. ``pip install -r requirements.txt`` or conda install... 
 5. Install ``labcams`` with ``python setup.py develop``
 6. Follow the [camera specific instalation](./camera_instructions.md) and instructions for syncronization. Each camera must have a section in the ``~/labcams/default.json`` file that is created the first time you try to run the software with the command ``labcams`` from the terminal. Use a text editor to add the correct options. There are examples in the examples folder.
 
+You can run ``labcams`` from the command terminal.
 
 ## Usage:
 
@@ -65,7 +64,6 @@ The first time you run ``labcams`` it will create a folder in the user home dire
 
 ### Command line options:
 
-|-------|--------------|-------------|
 |       |  command     | description |
 |-------|--------------|-------------|
 | ``-w``| ``--wait`` - start with software trigger off |
