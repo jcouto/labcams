@@ -54,7 +54,7 @@ This aims to facilitate video acquisition and automation of experimens, uses sep
 5. Install ``labcams`` with ``python setup.py develop``
 6. Follow the [camera specific instalation](./camera_instructions.md) and instructions for syncronization. Each camera must have a section in the ``~/labcams/default.json`` file that is created the first time you try to run the software with the command ``labcams`` from the terminal. Use a text editor to add the correct options. There are examples in the examples folder.
 
-You can run ``labcams`` from the command terminal.
+You can run ``labcams`` from the command terminal. Install *FFMPEG* if you need to save in compressed video formats.
 
 ## Usage:
 
@@ -100,6 +100,8 @@ The UDP commands are:
     - Quit ``quit``
 
 **Please drop me a line for feedback and acknowledge if you use labcams in your work.**
+
 Joao Couto - jpcouto@gmail.com
+
 May 2017
 
