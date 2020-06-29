@@ -66,21 +66,20 @@ The first time you run ``labcams`` it will create a folder in the user home dire
 
 |       |  command     | description |
 |-------|--------------|-------------|
-| ``-w``| ``--wait`` - start with software trigger off |
+| ``-w``| ``--wait``   | start with software trigger OFF |
 | ``-t``| ``--triggered`` |  start with hardware trigger ON |
 | ``-c X Y`` | ``--cam-select X Y``     |  start only some cameras ``-c 0 1`` |
 | ``-d PATH`` | ``--make-config PATH``  |  create a configuration file |
 | | ``--no-server`` | do not start the ZMQ nor the UDP server |
 
 
-
 ## Configuration files:
 
 Configuration files ensure you always use the same parameters during your experiments.
 
-
-
-
+The configuration files are simple ``json`` files. There are 2 parts to the files.
+1) ``cams`` - **camera descriptions** - each camera has a section to store acquisition and recording parameters.
+2) **genera parameters** to control the remote communication ports and general gui or recording parameters.
 
 ### UDP and ZMQ:
 
