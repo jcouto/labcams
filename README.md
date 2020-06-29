@@ -1,26 +1,26 @@
+                                             MMM
+                                           MMMMMM
+    MMM:               .MMMM             MMMM MMMMMMMM
+    MMM:               .MMMM            MMMMM MMMMMMMM      
+    MMM:               .MMMM             MMMM  MMMMMM        MM 
+    MMM:  :MMMMMMMMM.  .MMMMOMMMMMM       MN     MMM      MMMMM 
+    MMM:  :M     MMMM  .MMMMM?+MMMMM    MMMMMMMMMMMMMMM7MMMMMMM  
+    MMM:         OMMM  .MMMM    MMMM    MMMMMMMMMMMMMMMMMMMMMMM 
+    MMM:  .MMMMMMMMMM  .MMMM    ?MMM    MMMMMMMMMMMMMMMMMMMMMMM 
+    MMM:  MMMM  .8MMM  .MMMM    ZMMM    MMMMMMMMMMMMMMMMMMMMMMM 
+    MMM:  MMM=...8MMM  .MMMM    MMMM    MMMMMMMMMMMMMMM.MMMMMMM  
+    MMM:  MMMMMMMMMMM  .MMMMMMMMMMM                        MMMM 
+    MMM:   MMMMM 8MMM  .MMMM:MMMMZ                            M 
 
-                                            MMM                
-                                          MMMMMM               
-   MMM:               .MMMM             MMMM MMMMMMMM          
-   MMM:               .MMMM            MMMMM MMMMMMMM          
-   MMM:               .MMMM             MMMM  MMMMMM        MM 
-   MMM:  :MMMMMMMMM.  .MMMMOMMMMMM       MN     MMM      MMMMM 
-   MMM:  :M     MMMM  .MMMMM?+MMMMM    MMMMMMMMMMMMMMM7MMMMMMM 
-   MMM:         OMMM  .MMMM    MMMM    MMMMMMMMMMMMMMMMMMMMMMM 
-   MMM:  .MMMMMMMMMM  .MMMM    ?MMM    MMMMMMMMMMMMMMMMMMMMMMM 
-   MMM:  MMMM  .8MMM  .MMMM    ZMMM    MMMMMMMMMMMMMMMMMMMMMMM 
-   MMM:  MMM=...8MMM  .MMMM    MMMM    MMMMMMMMMMMMMMM.MMMMMMM 
-   MMM:  MMMMMMMMMMM  .MMMMMMMMMMM                        MMMM 
-   MMM:   MMMMM 8MMM  .MMMM:MMMMZ                            M  
-   
-      MMMMMMN  =MMMMMMMM     MMMM.MMMM$ .+MMMM      MMMMMMM:   
-    MMMMMMMMM  +MMMMMMMMM$   MMMMMMMMMMMMMMMMMM   MMMMMMMMM8   
-   MMMM               MMMM   MMMM   MMMM    MMM+  MMM8         
-   MMMZ          OMMMMMMMM   MMMM   NMMM    MMM?  MMMMMMM$     
-   MMMI        MMMMM  MMMM   MMMM   NMMM    MMM?   ZMMMMMMMM   
-   MMMM       7MMM    MMMM   MMMM   NMMM    MMM?        MMMM   
-    MMMMD+7MM  MMMN   MMMM   MMMM   NMMM    MMM?  MM$:.7MMMM   
-     MMMMMMMM  ZMMMMMOMMMM   MMMM   NMMM    MMM?  MMMMMMMM+                                                              
+         MMMMMMN  =MMMMMMMM     MMMM.MMMM$ .+MMMM      MMMMMMM: 
+       MMMMMMMMM  +MMMMMMMMM$   MMMMMMMMMMMMMMMMMM   MMMMMMMMM8 
+      MMMM               MMMM   MMMM   MMMM    MMM+  MMM8       
+      MMMZ          OMMMMMMMM   MMMM   NMMM    MMM?  MMMMMMM$   
+      MMMI        MMMMM  MMMM   MMMM   NMMM    MMM?   ZMMMMMMMM 
+      MMMM       7MMM    MMMM   MMMM   NMMM    MMM?        MMMM 
+       MMMMD+7MM  MMMN   MMMM   MMMM   NMMM    MMM?  MM$:.7MMMM   
+        MMMMMMMM  ZMMMMMOMMMM   MMMM   NMMM    MMM?  MMMMMMMM+                                                              
+                          https://bitbucket.org/jpcouto/labcams                  
 
 Multicamera control and acquisition.
 
@@ -50,11 +50,11 @@ It is better to install with anaconda, if you are in a hurry you can try simply 
 **Note:** On windows I suggest getting the [ git bash terminal ](https://git-scm.com/downloads).
 
 1. Get [ anaconda ](https://conda.io/anaconda.html) 
-2. ``conda install pyqt pyzmq pyserial future tqdm natsort pyqtgraph``
-3. ``conda install -c conda-forge opencv tifffile scikit-video ``
-4. Follow the [camera specific instalation](./camera_instructions.md)  and syncronization instructions.
-5. Clone the repositoty: ``git clone git@bitbucket.org:jpcouto/labcams.git``
-6. Go into that folder``cd labcams`` and finally ``python setup.py develop``. The develop instalation makes that changes to the code take effect immediately.
+2. Open a terminal (use git bash if on windows) and clone the repositoty: ``git clone git@bitbucket.org:jpcouto/labcams.git``
+3. Go into the cloned ``cd labcams`` folder.
+4. Install the required packages, use e.g. ``pip install -r requirements.txt`` or conda install... 
+5. Install ``labcams`` with ``python setup.py develop``
+6. Follow the [camera specific instalation](./camera_instructions.md) and instructions for syncronization. Each camera must have a section in the ``~/labcams/default.json`` file that is created the first time you try to run the software with the command ``labcams`` from the terminal. Use a text editor to add the correct options. There are examples in the examples folder.
 
 
 ## Usage:
@@ -83,12 +83,10 @@ Configuration files ensure you always use the same parameters during your experi
 
 
 
-**Please let me know whether this works for you and acknowledge if you use it in a publication.**
 
-UDP and ZMQ:
-------------
+### UDP and ZMQ:
 
-labcams can listen for UDP or ZMQ commands.
+``labcams`` can listen for UDP or ZMQ commands.
 
 
 To configure use the command ``"server":"udp"`` in the end of the config file.
@@ -103,6 +101,7 @@ The UDP commands are:
     - Add a message to the log ``log=MESSAGE``
     - Quit ``quit``
 
+**Please drop me a line for feedback and acknowledge if you use labcams in your work.**
 Joao Couto - jpcouto@gmail.com
 May 2017
 
