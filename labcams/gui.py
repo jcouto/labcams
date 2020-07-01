@@ -186,11 +186,14 @@ class LabCamsGUI(QMainWindow):
                     self.camstim_widget = CamStimTriggerWidget(
                         port = cam['CamStimTrigger']['port'],
                         outQ = self.camQueues[-1])
+                    camstim = self.camstim_widget.ino,
+                else:
+                    camstim = None
                 self.cams.append(PCOCam(camId=cam['id'],
                                         binning = cam['binning'],
                                         exposure = cam['exposure'],
                                         outQ = self.camQueues[-1],
-                                        acquisition_stim_trigger = self.camstim_widget.ino, 
+                                        acquisition_stim_trigger = camstim,
                                         triggered = self.triggered,
                                         recorderpar = recorderpar))
             elif cam['driver'] == 'ximea':
