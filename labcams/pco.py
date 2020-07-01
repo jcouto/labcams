@@ -17,13 +17,19 @@ class PCOCam(GenericCam):
         self.drivername = 'PCO'
         if dllpath is None:
             dllpath = ['C:\\Program Files (x86)\\pco\\pco.sdk\\bin64\\SC2_Cam.dll',
-                       'C:\\Program Files (x86)\\Digital Camera Toolbox\\pco.sdk\\bin64\\SC2_Cam.dll']
+                       'C:\\Program Files (x86)\\Digital Camera Toolbox\\pco.sdk\\bin64\\SC2_Cam.dll',
+                       'C:\\Program Files (x86)\\PCO Digital Camera Toolbox\\pco.sdk\\bin64\\SC2_Cam.dll']
+        self._dll = None
         for path in dllpath:
             if os.path.isfile(path):
                 self._dll = ctypes.WinDLL(path)
                 self.dllpath = path
+                break
+        if self._dll is None:
+            print('Please install PCO.sdk in one of these locations:')
+            print(dllpath)
+            raise OSError
         self.poll_timeout=1
-                
         self.trigerMode = 0
         self.exposure = exposure
         self.binning = binning

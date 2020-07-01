@@ -186,7 +186,7 @@ class LabCamsGUI(QMainWindow):
                     self.camstim_widget = CamStimTriggerWidget(
                         port = cam['CamStimTrigger']['port'],
                         outQ = self.camQueues[-1])
-                    camstim = self.camstim_widget.ino,
+                    camstim = self.camstim_widget.ino
                 else:
                     camstim = None
                 self.cams.append(PCOCam(camId=cam['id'],
