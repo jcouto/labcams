@@ -1,10 +1,32 @@
-labcams
-=======
+                                             MMM
+                                           MMMMMM
+    MMM:               .MMMM             MMMM MMMMMMMM
+    MMM:               .MMMM            MMMMM MMMMMMMM      
+    MMM:               .MMMM             MMMM  MMMMMM        MM 
+    MMM:  :MMMMMMMMM.  .MMMMOMMMMMM       MN     MMM      MMMMM 
+    MMM:  :M     MMMM  .MMMMM?+MMMMM    MMMMMMMMMMMMMMM7MMMMMMM  
+    MMM:         OMMM  .MMMM    MMMM    MMMMMMMMMMMMMMMMMMMMMMM 
+    MMM:  .MMMMMMMMMM  .MMMM    ?MMM    MMMMMMMMMMMMMMMMMMMMMMM 
+    MMM:  MMMM  .8MMM  .MMMM    ZMMM    MMMMMMMMMMMMMMMMMMMMMMM 
+    MMM:  MMM=...8MMM  .MMMM    MMMM    MMMMMMMMMMMMMMM.MMMMMMM  
+    MMM:  MMMMMMMMMMM  .MMMMMMMMMMM                        MMMM 
+    MMM:   MMMMM 8MMM  .MMMM:MMMMZ                            M 
 
-Multicamera control and acquisition. Uses separate processes to record from multiple cameras at high speed.
+         MMMMMMN  =MMMMMMMM     MMMM.MMMM$ .+MMMM      MMMMMMM: 
+       MMMMMMMMM  +MMMMMMMMM$   MMMMMMMMMMMMMMMMMM   MMMMMMMMM8 
+      MMMM               MMMM   MMMM   MMMM    MMM+  MMM8       
+      MMMZ          OMMMMMMMM   MMMM   NMMM    MMM?  MMMMMMM$   
+      MMMI        MMMMM  MMMM   MMMM   NMMM    MMM?   ZMMMMMMMM 
+      MMMM       7MMM    MMMM   MMMM   NMMM    MMM?        MMMM 
+       MMMMD+7MM  MMMN   MMMM   MMMM   NMMM    MMM?  MM$:.7MMMM   
+        MMMMMMMM  ZMMMMMOMMMM   MMMM   NMMM    MMM?  MMMMMMMM+  
+                          https://bitbucket.org/jpcouto/labcams   
 
-Supported cameras:
-------------------
+Multicamera control and acquisition.
+
+This aims to facilitate video acquisition and automation of experimens, uses separate processes to record and store data.
+
+### Supported cameras:
 
  * Allied Vision Technologies (via pymba)
  * PointGrey cameras (via PySpin)
@@ -12,8 +34,7 @@ Supported cameras:
  * PCO cameras (only windows)
  * Ximea cameras
 
-Features:
----------
+### Features:
 
  *  Separates viewer, camera control/acquisition and file writer in different processes.
  *  Data from camera acquisition process placed on a cue.
@@ -22,52 +43,48 @@ Features:
  * Online compression using ffmpeg (supports hardware acceleration)
 
 
-Instalation:
-------------
+## Instalation:
 
-**Note:** On windows I suggest getting the [ git bash terminal ](https://git-scm.com/downloads).
+**Note:** On windows get the [ git bash terminal ](https://git-scm.com/downloads). I had issues running from cmd.exe when installed with conda.
 
-1. Get [ miniconda ](https://conda.io/miniconda.html) (I suggest Python 2.7 x64) 
-2. ``conda install pyqt pyzmq scipy numpy matplotlib future tqdm``
-3. ``conda install -c menpo opencv3``
-3. ``conda install -c conda-forge tifffile``
-4. Follow the [camera specific instalation](./camera_instructions.md)  and syncronization instructions.
-5. Clone the repositoty: ``git clone git@bitbucket.org:jpcouto/labcams.git``
-6. Go into that folder``cd labcams`` and finally ``python setup.py develop``. The develop instalation makes that changes to the code take effect immediately.
+1. Get [ anaconda ](https://conda.io/anaconda.html). Add conda to system PATH when asked. Open a terminal (use git bash if on windows) and type ``conda init bash``.
+2. Clone the repository: ``git clone git@bitbucket.org:jpcouto/labcams.git``
+3. Go into the cloned ``cd labcams`` folder.
+4. Install the required packages, use e.g. ``pip install -r requirements.txt`` or conda install... 
+5. Install ``labcams`` with ``python setup.py develop``
+6. Follow the [camera specific instalation](./camera_instructions.md) and instructions for syncronization. Each camera must have a section in the ``~/labcams/default.json`` file that is created the first time you try to run the software with the command ``labcams`` from the terminal. Use a text editor to add the correct options. There are examples in the examples folder.
 
+You can run ``labcams`` from the command terminal. Install *FFMPEG* if you need to save in compressed video formats.
 
-Another way is to install conda and do ``pip install -r requirements.txt`` followed by ``python setup.py develop``
+## Usage:
 
-Usage:
-------
 Open a terminal and type ``labcams -h`` for help.
 
 The first time you run ``labcams`` it will create a folder in the user home directory where the default preference file is stored.
 
-Command line options:
-+++++++++++++++++++++
+### Command line options:
 
-| Short | Long command | Function |
-|-------|--------------|----------|
-| ``-w``| ``--wait`` - start with software trigger off |
+|       |  command     | description |
+|-------|--------------|-------------|
+| ``-w``| ``--wait``   | start with software trigger OFF |
 | ``-t``| ``--triggered`` |  start with hardware trigger ON |
 | ``-c X Y`` | ``--cam-select X Y``     |  start only some cameras ``-c 0 1`` |
 | ``-d PATH`` | ``--make-config PATH``  |  create a configuration file |
 | | ``--no-server`` | do not start the ZMQ nor the UDP server |
- 
 
-Configuration files:
---------------------
+
+## Configuration files:
+
 Configuration files ensure you always use the same parameters during your experiments.
 
+The configuration files are simple ``json`` files. There are 2 parts to the files.
 
+1. ``cams`` - **camera descriptions** - each camera has a section to store acquisition and recording parameters.
+2. **general parameters** to control the remote communication ports and general gui or recording parameters.
 
-**Please let me know whether this works for you and acknowledge if you use it in a publication.**
+### UDP and ZMQ:
 
-UDP and ZMQ:
-------------
-
-labcams can listen for UDP or ZMQ commands.
+``labcams`` can listen for UDP or ZMQ commands.
 
 
 To configure use the command ``"server":"udp"`` in the end of the config file.
@@ -82,6 +99,9 @@ The UDP commands are:
     - Add a message to the log ``log=MESSAGE``
     - Quit ``quit``
 
+**Please drop me a line for feedback and acknowledge if you use labcams in your work.**
+
 Joao Couto - jpcouto@gmail.com
+
 May 2017
 
