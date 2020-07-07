@@ -80,7 +80,9 @@ class GenericWriter(object):
 
         filename = (self.path_format+'{extension}').format(**self.path_keys)
         folder = os.path.dirname(filename)
-        
+        if folder == '':
+            filename = pjoin(os.path.abspath(os.path.curdir),filename)
+            folder = os.path.dirname(filename)
         if not os.path.exists(folder):
             os.makedirs(folder)
         if not self.fd is None:
@@ -104,6 +106,9 @@ class GenericWriter(object):
         logfname = filename.replace('{extension}'.format(
             **self.path_keys),'.camlog')
         folder = os.path.dirname(logfname)
+        if folder == '':
+            logfname = pjoin(os.path.abspath(os.path.curdir),logfname)
+            folder = os.path.dirname(logfname)
         if not os.path.exists(folder):
             os.makedirs(folder)
         self.logfile = open(logfname,'w')

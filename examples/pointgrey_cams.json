@@ -40,9 +40,6 @@
         "analysispaths": "analysis",
         "dataserverpaths": [
             "I:\\data",
-            "P:\\",
-            "/quadraraid/data",
-            "/mnt/nerffs01/mouselab/data"
         ],
         "eyecampaths": "eyecam",
         "facecampaths": "facecam",
