@@ -1,0 +1,58 @@
+{
+    "cams": [
+        {
+            "Save": true,
+            "description": "cam0",
+            "driver": "PointGrey",
+            "frameRate": 100.0,
+            "gain": 1,
+	    "exposure":5000,
+	    "gamma":2.3,
+	    "pxformat":"Mono8",
+	    "id": 0,
+	    "serial":20073107,
+            "name": "pointgrey0",
+	    "hwaccel":"nvidia",
+	    "recorder":"ffmpeg",
+	    "hardware_trigger":"out_line3",
+	    "roi": [264,230,752,566]
+        },
+	{
+            "Save": true,
+            "description": "cam1",
+            "driver": "PointGrey",
+            "frameRate": 100.0,
+            "gain": 1,
+	    "exposure":5000,
+	    "gamma":2.3,
+	    "pxformat":"Mono8",
+	    "id": 1,
+	    "serial":20073110,
+            "name": "pointgrey0",
+	    "hwaccel":"nvidia",
+	    "recorder":"ffmpeg",
+	    "hardware_trigger":"in_line3",
+	    "roi": [0,280,1040,512]
+	}
+    ],
+    "compress": 17,
+    "datapaths": {
+        "analysispaths": "analysis",
+        "dataserverpaths": [
+            "I:\\data",
+            "P:\\",
+            "/quadraraid/data",
+            "/mnt/nerffs01/mouselab/data"
+        ],
+        "eyecampaths": "eyecam",
+        "facecampaths": "facecam",
+        "logpaths": "presentation",
+        "onephotonpaths": "1photon/raw"
+    },
+    "recorder_frames_per_file": 256,
+    "recorder_path": "C:\\data",
+    "recorder_path_format":"{filename}_{dataname}_{nfiles}",
+    "recorder_sleep_time": 0.05,
+    "server":"udp",
+    "server_port": 9999
+}
