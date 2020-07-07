@@ -189,6 +189,8 @@ class LabCamsGUI(QMainWindow):
                     camstim = self.camstim_widget.ino
                 else:
                     camstim = None
+                if not 'binning' in cam.keys():
+                    cam['binning'] = None
                 self.cams.append(PCOCam(camId=cam['id'],
                                         binning = cam['binning'],
                                         exposure = cam['exposure'],

@@ -110,10 +110,11 @@ Could not open teensy on port {0}
         self.inQ.put(DISARM)
 
     def set_mode(self, mode = None):
-        if mode is None:
-            mode = self.mode.value
-        self.mode.value = mode
-        self.inQ.put(SET_MODE + SEP + str(mode))
+        if len(self.modes):
+            if mode is None:
+                mode = self.mode.value
+            self.mode.value = mode
+            self.inQ.put(SET_MODE + SEP + str(mode))
         
     def process_message(self, tread, msg):
         #treceived = long((tread - self.expStartTime.value)*1000)

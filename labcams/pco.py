@@ -3,7 +3,7 @@ from datetime import datetime
 class PCOCam(GenericCam):
     time_modes = {0:"ns", 1: "us", 2: "ms"}
     def __init__(self, camId = None, outQ = None,
-                 binning = 2,
+                 binning = None,
                  exposure = 100,
                  dtype = np.uint16,
                  useCameraParameters = True,
@@ -42,8 +42,9 @@ class PCOCam(GenericCam):
         assert ret == 0, "PCO: Could not open camera {0}".format(camId)
         self.useCameraParameters = useCameraParameters
         if self.useCameraParameters:
-            ret = self.set_binning(binning,binning)
-            display('PCO - Binning: {0}'.format(ret))
+            if not self.binning is None:
+                ret = self.set_binning(self.binning,self.binning)
+                display('PCO - Binning: {0}'.format(ret))
         ret = self.set_exposure_time(self.exposure)
         display('PCO - Exposure: {0} {1}'.format(*ret))
         self.set_trigger_mode(0)
@@ -404,8 +405,9 @@ class PCOCam(GenericCam):
         self.lastframeid = -1
         ret = self.camopen(self.camId)
         if self.useCameraParameters:
-            ret = self.set_binning(self.binning,self.binning)
-            display('PCO - Binning: {0}'.format(ret))
+            if not self.binning is None:
+                ret = self.set_binning(self.binning,self.binning)
+                display('PCO - Binning: {0}'.format(ret))
             ret = self.set_exposure_time(self.exposure)
             display('PCO - Exposure: {0} {1}'.format(*ret))
         if self.triggered.is_set():
@@ -415,11 +417,13 @@ class PCOCam(GenericCam):
             self.set_trigger_mode(0)
         display('PCO - Trigger mode: {0}'.format(self.get_trigger_mode()))
         display('PCO - size: {0} x {1}'.format(self.h,self.w))
+        # need to handle cams that don't support this?
         self._dll.PCO_SetTimestampMode(self.hCam,ctypes.c_uint16(1))
         self.camera_ready.set()
         self.nframes.value = 0
         self.stop_trigger.clear()
-        self.datestart = datetime.now() 
+        self.datestart = datetime.now()
+        
     def _cam_startacquisition(self):
         display('PCO [{0}] - Started acquisition.'.format(self.camId))
         self.arm()        
@@ -427,7 +431,7 @@ class PCOCam(GenericCam):
         (self.dw1stImage, self.dwLastImage, self.wBitsPerPixel, self.dwStatusDll,
          self.dwStatusDrv, bytes_per_pixel,
          pixels_per_image, self.added_buffers, self.ArrayType) = self._prepared
-        assert bytes_per_pixel.value == 2
+        assert bytes_per_pixel.value == 2 # uint16
         self.out = np.zeros((self.wYResAct.value, self.wXResAct.value),
                             dtype=np.uint16)
         self.acquisitionstart()
@@ -535,12 +539,16 @@ class PCOCam(GenericCam):
                     self.buffer_numbers[which_buf], self.wXResAct, self.wYResAct,
                     self.wBitsPerPixel)
                 self.added_buffers.append(which_buf)
+            frameID = 0
+            timestamp = 0
             frameID = int(''.join([hex(((a >> 8*0) & 0xFF))[-2:] for a in self.out[0,:4]]).replace('x','0'))
             datestr = ('{0}{1}-{2}-{3} {4}:{5}:{6}.{7}{8}{9}'.format(
                 *[hex(((a >> 8*0) & 0xFF)
                 )[-2:] for a in self.out[0,4:14]]).replace('x','0'))
+            
             timestam = datetime.strptime(datestr,'%Y-%m-%d %H:%M:%S.%f')
             timestamp = (timestam - self.datestart).total_seconds()
+            # Handle failed string decoding.
             self.nframes.value = frameID
             return self.out.copy(),(frameID,timestamp)
         return None,(None,None)

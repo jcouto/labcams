@@ -665,6 +665,7 @@ class CamStimTriggerWidget(QWidget):
             if len(self.ino.modes):
                 wcombo = QComboBox()
                 wcombo.addItems(self.ino.modes)
+                wcombo.setCurrentIndex(len(self.ino.modes)-1)
                 wcombo.currentIndexChanged.connect(self.setMode)
                 form.addRow(wcombo)
 
@@ -683,8 +684,6 @@ class CamStimTriggerWidget(QWidget):
             self.t.timeout.connect(update_count)
             self.t.start(100)
         self.setLayout(form)
-        if len(self.ino.modes):
-            wcombo.setCurrentIndex(len(self.ino.modes))
             
     def setMode(self,i):
         self.ino.set_mode(i+1)
