@@ -167,6 +167,10 @@ class GenericWriter(object):
     
     def close_run(self):
         if not self.logfile is None:
+            # Check if there are comments on the queue
+            while not self.inQ.empty():
+                buff = self.inQ.get()
+                frameid,frame = self._handle_frame(buff)
             self.close_file()
             self.logfile.write('# [' +
                                datetime.today().strftime(
@@ -661,12 +665,14 @@ class BinaryCamWriter(GenericWriter):
                  pathformat = pjoin('{datafolder}','{dataname}','{filename}',
                                     '{today}_{run}_{nfiles}'),
                  framesperfile=0,
+                 inQ = None,
                  incrementruns=True):
         self.extension = '_{H}_{W}_{dtype}.dat'
         self.cam = cam
         super(BinaryCamWriter,self).__init__(filename=filename,
                                              datafolder=datafolder,
                                              dataname=dataname,
+                                             inQ = inQ,
                                              pathformat = pathformat,
                                              framesperfile=framesperfile,
                                              incrementruns=incrementruns)

@@ -8,8 +8,7 @@
             "id": 0, 
             "name": "pco.edge", 
             "triggerType": 0,
-	    "saveMethod": "binary",
-	    "ignore_NoQueue":true,
+	    "recorder": "binary",
 	    "CamStimTrigger": {"port":"COM3"}
         }
     ],

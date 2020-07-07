@@ -40,6 +40,7 @@ class GenericCam(Process):
         self.cam_is_running = False
         self.was_saving=False
         self.recorderpar = recorderpar
+        self.recorder = None
         self.refresh_period = refreshperiod
         self._tupdate = time.time()
         self.daemon = True
@@ -67,15 +68,19 @@ class GenericCam(Process):
             dtype = cdtype).reshape([self.h,self.w,self.nchan])
 
     def _start_recorder(self):
-        if self.queue is None and not self.recorderpar is None:
-            from .io import BinaryCamWriter
-            self.recorder = BinaryCamWriter(self,
-                                            filename = self.recorderpar['filename'],
-                                            dataname = self.recorderpar['dataname'],
-                                            datafolder = self.recorderpar['datafolder'],
-                                            framesperfile = 0,
-                                            incrementruns = True)
-
+        if not self.recorderpar is None:
+            if 'binary' in self.recorderpar['recorder']:
+                from .io import BinaryCamWriter
+                self.recorder = BinaryCamWriter(self,
+                                                inQ = self.queue,
+                                                filename = self.recorderpar['filename'],
+                                                dataname = self.recorderpar['dataname'],
+                                                datafolder = self.recorderpar['datafolder'],
+                                                framesperfile = 0,
+                                                incrementruns = True)
+            else:
+                display('Recorder {0} not implemented'.format(
+                    self.recorderpar['recorder']))
     def run(self):
         self._init_ctrevents()
         self.buf = np.frombuffer(self.frame.get_obj(),
@@ -122,16 +127,16 @@ class GenericCam(Process):
             self.was_saving = True
             if not frame is None:
                 if not metadata[0] == self.lastframeid :
-                    if self.queue is None:
+                    if not self.recorder is None:
                         self.recorder.save(frame,metadata)
                     else:
                         self.queue.put((frame,metadata))
         elif self.was_saving:
             self.was_saving = False
-            if not self.queue is None:
+            if self.queue is None:
                 display('Sending stop signal to the recorder.')
                 self.queue.put(['STOP'])
-            else:
+            if not self.recorder is None:
                 self.recorder.close_run()
         if not frame is None:
             frameID,timestamp = metadata[:2]

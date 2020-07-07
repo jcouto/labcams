@@ -104,25 +104,20 @@ class LabCamsGUI(QMainWindow):
             if not 'Save' in cam.keys():
                 cam['Save'] = True
             self.saveflags.append(cam['Save'])
-            if 'NoQueue' in cam.keys():
-                if cam['NoQueue']:
-                    self.camQueues.append(None)
-                else:
-                    self.camQueues.append(Queue())
-            else:
-                self.camQueues.append(Queue())
-
             if not 'recorder' in cam.keys():
-                cam['recorder'] = dict(type='binary')
-            
-            recorderpar = dict(cam['recorder'],
-                               datafolder=self.parameters['recorder_path'],
-                               
-                               framesperfile=self.parameters['recorder_frames_per_file'],
-                               compression = self.parameters['compress'],
-                               filename = expName,
-                               dataname = cam['description'])
-
+                # defaults tiff
+                cam['recorder'] = 'tiff'
+            self.camQueues.append(Queue())
+            if 'noqueue' in cam['recorder']:
+                recorderpar = dict(
+                    recorder = cam['recorder'],
+                    datafolder = self.parameters['recorder_path'],
+                    framesperfile = self.parameters['recorder_frames_per_file'],
+                    compression = self.parameters['compress'],
+                    filename = expName,
+                    dataname = cam['description'])
+            else:
+                recorderpar = None # Use a queue recorder
             if cam['driver'] == 'AVT':
                 from .avt import AVTCam
                 camids = [(camid,name) for (camid,name) in zip(avtids,avtnames) 
@@ -241,12 +236,13 @@ class LabCamsGUI(QMainWindow):
                         cam['driver'])
                 self.camQueues.pop()
                 self.saveflags.pop()
-            if not self.camQueues[-1] is None:
-                if not 'saveMethod' in cam.keys():
-                    cam['saveMethod'] = 'tiff'
+            if 'SaveMethod' in cam.keys():
+                cam['recorder'] = cam['SaveMethod']
+                display('SaveMethod is deprecated, use recorder instead.')
+            if not 'noqueue' in cam['recorder']:
                 if not 'recorder_path_format' in self.parameters.keys():
                     self.parameters['recorder_path_format'] = pjoin('{datafolder}','{dataname}','{filename}','{today}_{run}_{nfiles}')
-                if  cam['saveMethod'] == 'tiff':
+                if  cam['recorder'] == 'tiff':
                     self.writers.append(TiffWriter(
                         inQ = self.camQueues[-1],
                         datafolder=self.parameters['recorder_path'],
@@ -256,7 +252,7 @@ class LabCamsGUI(QMainWindow):
                         compression = self.parameters['compress'],
                         filename = expName,
                         dataname = cam['description']))
-                elif cam['saveMethod'] == 'ffmpeg':
+                elif cam['recorder'] == 'ffmpeg':
                     if not 'hwaccel' in cam.keys():
                         cam['hwaccel'] = None                        
                     self.writers.append(FFMPEGWriter(
@@ -268,7 +264,7 @@ class LabCamsGUI(QMainWindow):
                         filename = expName,
                         hwaccel = cam['hwaccel'],
                         dataname = cam['description']))
-                elif cam['saveMethod'] == 'binary':
+                elif cam['recorder'] == 'binary':
                     self.writers.append(BinaryWriter(
                         inQ = self.camQueues[-1],
                         datafolder=self.parameters['recorder_path'],
@@ -276,7 +272,7 @@ class LabCamsGUI(QMainWindow):
                         sleeptime = self.parameters['recorder_sleep_time'],
                         filename = expName,
                         dataname = cam['description']))
-                else:
+                elif cam['recorder'] == 'opencv':
                     self.writers.append(OpenCVWriter(
                         inQ = self.camQueues[-1],
                         datafolder=self.parameters['recorder_path'],
@@ -286,11 +282,14 @@ class LabCamsGUI(QMainWindow):
                         frame_rate = cam['frameRate'],
                         filename = expName,
                         dataname = cam['description']))
+                else:
+                    raise ValueError('Unknown recorder {0} '.format(cam['recorder']))
             else:
+                print('No writer')
                 self.writers.append(None)
+                
             if 'CamStimTrigger' in cam.keys():
-                if not self.writers[-1] is None:
-                    self.camstim_widget.outQ = self.writers[-1].inQ
+                self.camstim_widget.outQ = self.camQueues[-1]
             # Print parameters
             display('\t Camera: {0}'.format(cam['name']))
             for k in np.sort(list(cam.keys())):
