@@ -22,6 +22,7 @@ if sys.version_info >= (3, 0):
 # SERIAL MESSAGES
 ERROR='E'
 ARM = 'N'
+QUERY_CAP = 'Q'
 STX='@'
 SEP = '_'
 ETX=serial.LF.decode()
@@ -57,6 +58,22 @@ Could not open teensy on port {0}
             Try logging out and back in to clear the port.'''.format(self.port)))
         self.ino.write((STX + DISARM + ETX).encode())
         self.ino.flushInput()
+        tread,message = self.ino_read()
+        self.ino.write((STX + QUERY_CAP + ETX).encode())
+        tread,message = self.ino_read()
+        msg = message.split('_')
+        self.nchannels = 1
+        self.modes = []
+        if STX+QUERY_CAP in msg:
+            if "NCHANNELS" in message:
+                arg = msg.index("NCHANNELS")
+                if not arg is None:
+                    self.nchannels = int(msg[arg+1].strip('\n'))
+                    print('Got {0} channels from capabilities.'.format(self.nchannels))
+            if "MODES" in message:         
+                arg = msg.index("MODES")
+                if not arg is None:
+                    self.modes = msg[arg+1].strip('\n').split(":")
         self.ino.close()
         display('Probed port {0}.'.format(port))
 

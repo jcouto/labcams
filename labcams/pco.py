@@ -57,12 +57,12 @@ class PCOCam(GenericCam):
         display('PCO - size: {0} x {1}'.format(self.h,self.w))
         # TODO: interface with the excitation stim trigger
         if not acquisition_stim_trigger is None:
-            self.acquisition_stim_trigger = dict(mode = acquisition_stim_trigger.mode)
+            
+            self.acquisition_stim_trigger = True
             acquisition_stim_trigger.is_saving = self.saving
             self.refresh_period = -1
             # refresh every frame
-            self.nchan = 2 #frame.shape[2] (do mod)
-
+            self.nchan = acquisition_stim_trigger.nchannels
         else:
             self.acquisition_stim_trigger = None
             self.nchan = 1 #frame.shape[2]
@@ -547,13 +547,12 @@ class PCOCam(GenericCam):
 
     def _update_buffer(self,frame,frameID):
         if not self.acquisition_stim_trigger is None:
-            if self.acquisition_stim_trigger['mode'].value == 3:
-                if np.mod(frameID,2) == 0:
-                    self.buf[:,:,1] = frame[:]
-                else:
-                    self.buf[:,:,0] = frame[:] # because frame ids start in one
+            if self.nchan > 1:
+                tmpid = np.mod(frameID,self.nchan)
+                # because frame ids start in one
+                self.buf[:,:,(tmpid + 1)%self.nchan] = frame[:]
             else:
-                self.buf[:,:,self.acquisition_stim_trigger['mode'].value - 1] = frame[:]
+                self.buf[:,:,0] = frame[:]
         else:
             self.buf[:] = np.reshape(frame,self.buf.shape)[:]
     

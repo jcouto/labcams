@@ -26,7 +26,9 @@ volatile byte armed = 0;      // whether the triggers are armed
 #define STX '@'
 #define ETX '\n'
 #define SEP "_"
+#define CAP "NCHANNELS_2_MODES_405nm:470nm:both" // capabilities for interfacing with labcams
 
+#define QUERY_CAP 'Q'
 #define START_LEDS 'N'
 #define STOP_LEDS 'S'
 #define FRAME 'F' // signal the frame time
@@ -59,11 +61,13 @@ void camera_triggered() {
           pin = PIN_LED1_TRIGGER;
           break;
       case 3:
+      {
         int tmp = pulse_count % 2;
         if (tmp == 0)
           pin = PIN_LED1_TRIGGER;
         else
           pin = PIN_LED0_TRIGGER;
+      }
         break;
       default:
           pin = PIN_LED0_TRIGGER;
@@ -101,7 +105,7 @@ void setup() {
 
 void loop() {
   current_time = millis() - start_time;
-  if ((last_rise > 0) & abs(current_time - last_rise)> 10) { // this is limited to 10ms
+  if ((last_rise > 0) & (abs(current_time - last_rise)> 10)) { // this is limited to 10ms
     Serial.print(STX);
     Serial.print(FRAME);
     Serial.print(SEP);
@@ -165,6 +169,14 @@ void serialEvent()
             Serial.print(reply);
             Serial.print(SEP);
             Serial.print(current_time);
+            Serial.print(ETX);
+            break;
+        case QUERY_CAP:
+            // @Q
+            reply += QUERY_CAP;
+            Serial.print(reply);
+            Serial.print(SEP);
+            Serial.print(CAP);
             Serial.print(ETX);
             break;
         case SET_MODE:

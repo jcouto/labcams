@@ -662,11 +662,11 @@ class CamStimTriggerWidget(QWidget):
             armButton.clicked.connect(arm)
             form.addRow(armButton)
 
-            wcombo = QComboBox()
-            # TODO: make this general/ access from the json file.
-            wcombo.addItems(['470nm','405nm','both'])
-            wcombo.currentIndexChanged.connect(self.setMode)
-            form.addRow(wcombo)
+            if len(self.ino.modes):
+                wcombo = QComboBox()
+                wcombo.addItems(self.ino.modes)
+                wcombo.currentIndexChanged.connect(self.setMode)
+                form.addRow(wcombo)
 
             wsync = QLabel()
             wsyncstr = 'sync {0} - frame {1}'
@@ -683,7 +683,9 @@ class CamStimTriggerWidget(QWidget):
             self.t.timeout.connect(update_count)
             self.t.start(100)
         self.setLayout(form)
-        wcombo.setCurrentIndex(2)
+        if len(self.ino.modes):
+            wcombo.setCurrentIndex(len(self.ino.modes))
+            
     def setMode(self,i):
         self.ino.set_mode(i+1)
         
