@@ -360,12 +360,12 @@ class CamWidget(QWidget):
         self.etrackercheck.link(self.toggleEyeTracker)
         self.addAction(self.etrackercheck)
         # autorange
-        tar = QActionCheckBox(self,'Auto range',self.autoRange)
-        def toggleAutoRange():
-            self.autoRange = not self.autoRange
-            tar.checkbox.setChecked(self.autoRange)
-        tar.link(toggleAutoRange)
-        self.addAction(tar)
+        
+        self.autorange_toggle = QActionCheckBox(self,'Auto range',self.autoRange)
+            
+        self.autorange_toggle.link(self.toggleAutoRange)
+        self.addAction(self.autorange_toggle)
+        
         # histogram
         tEt = QAction('Histogram',self)
         tEt.triggered.connect(self.histogramWin)
@@ -403,35 +403,41 @@ class CamWidget(QWidget):
         tr.link(toggleReference)
         self.addAction(tr)
 
+    def toggleAutoRange(self,value):
+        self.autoRange = value #not self.autoRange
+        if not self.autorange_toggle.checkbox.isChecked == value:
+            self.autorange_toggle.checkbox.setChecked(self.autoRange)
         
     def histogramWin(self):
-        histTab = QDockWidget("histogram cam {0}".format(self.iCam), self)
-        widget = QWidget()
-        layout = QGridLayout()
-        widget.setLayout(layout)
-        win = pg.GraphicsLayoutWidget()
-        p1 = win.addPlot()
-        p1.getViewBox().invertY(True)
-        p1.hideAxis('left')
-        p1.hideAxis('bottom')
-
-        self.hist = pg.HistogramLUTItem()
-        self.hist.axis.setPen('k')
-        p1.addItem(self.hist)
-        self.hist.setImageItem(self.view)
-        layout.addWidget(win,0,0)
-        histTab.setWidget(widget)
-        histTab.setAllowedAreas(Qt.LeftDockWidgetArea |
-                                Qt.RightDockWidgetArea |
-                                Qt.BottomDockWidgetArea |
-                                Qt.TopDockWidgetArea)
-        histTab.setFeatures(QDockWidget.DockWidgetMovable |
-                           QDockWidget.DockWidgetFloatable |
-                           QDockWidget.DockWidgetClosable)
-        self.parent.addDockWidget(Qt.BottomDockWidgetArea
-                                  ,histTab)
-        histTab.setFloating(True)
-        histTab.resize(200,200)
+        if self.hist is None:
+            histTab = QDockWidget("histogram cam {0}".format(self.iCam), self)
+            widget = QWidget()
+            layout = QGridLayout()
+            widget.setLayout(layout)
+            win = pg.GraphicsLayoutWidget()
+            p1 = win.addPlot()
+            p1.getViewBox().invertY(True)
+            p1.hideAxis('left')
+            p1.hideAxis('bottom')
+            
+            self.hist = pg.HistogramLUTItem()
+            self.hist.axis.setPen('k')
+            p1.addItem(self.hist)
+            self.hist.setImageItem(self.view)
+            layout.addWidget(win,0,0)
+            histTab.setWidget(widget)
+            histTab.setAllowedAreas(Qt.LeftDockWidgetArea |
+                                    Qt.RightDockWidgetArea |
+                                    Qt.BottomDockWidgetArea |
+                                    Qt.TopDockWidgetArea)
+            histTab.setFeatures(QDockWidget.DockWidgetMovable |
+                                QDockWidget.DockWidgetFloatable |
+                                QDockWidget.DockWidgetClosable)
+            self.parent.addDockWidget(Qt.BottomDockWidgetArea
+                                      ,histTab)
+            histTab.setFloating(True)
+        
+            histTab.resize(200,200)
         try:
             histstate = self.hist.saveState()
         except Exception as err:
@@ -454,6 +460,10 @@ class CamWidget(QWidget):
             self.hist.gradient.addTick(0.751, color=pg.mkColor('#ff2d00'))
             self.hist.gradient.addTick(1, color=pg.mkColor('#ff2d00'))
             self.hist.gradient.addTick(0.75, color=pg.mkColor('#ffffff'))
+            self.toggleAutoRange(False)
+            dt = self.view.image.dtype
+            self.hist.setLevels(np.iinfo(dt).min,np.iinfo(dt).max)
+
         
     def addROI(self):
         roiTab = QDockWidget("roi cam {0}".format(self.iCam), self)
