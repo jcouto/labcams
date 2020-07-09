@@ -18,7 +18,7 @@ import pandas as pd
 from skvideo.io import FFmpegWriter
 import cv2
 
-VERSION = '0.5'
+VERSION = '0.6'
 
 class GenericWriter(object):
     def __init__(self,
@@ -138,7 +138,7 @@ class GenericWriter(object):
            # check message:
             msg = buff[0]
             if msg in ['STOP']:
-                display('Stopping writer.')
+                display('[Recorder] Stopping the recorder.')
                 self._stop_write()
             elif msg.startswith('#'):
                 if self.logfile is None:
@@ -171,6 +171,7 @@ class GenericWriter(object):
         return frameid,frame
     
     def close_run(self):
+        
         if not self.logfile is None:
             # Check if there are comments on the queue
             while not self.inQ.empty():
@@ -186,9 +187,10 @@ class GenericWriter(object):
                                    self.nFiles) + '\n')
             self.logfile.close()
             self.logfile = None
+            display('[Recorder] Closing the logfile {0}.'.format(self.dataname))
             self.runs += 1
         if not self.saved_frame_count == 0:
-            display("Wrote {0} frames on {1} ({2} files).".format(
+            display("[Recorder] Wrote {0} frames on {1} ({2} files).".format(
                 self.saved_frame_count,
                 self.dataname,
                 self.nFiles))

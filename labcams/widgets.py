@@ -184,11 +184,11 @@ This will can be differently configured for different cameras.'''
         if not self.saveOnStartToggle.isChecked():
             self.parent.setExperimentName(str(name))
         else:
-            display('[Critical message] Disable manual save to change the filename!')
+            display('[CRITICAL] Disable manual save to change the filename!')
 
     def toggleSaveOnStart(self,state):
         self.parent.saveOnStart = state
-        display('Warning: The save button is no longer restarting the cameras.')
+        display('[Controller] - Warning: The save button is no longer restarting the cameras.')
         #for cam in self.parent.cams:
         #    cam.stop_acquisition()
         #time.sleep(.5)
@@ -197,14 +197,14 @@ This will can be differently configured for different cameras.'''
                                                 self.parent.writers)):
             if flg:
                 if state:
+                    display('[Controller] Sending start saving command to camera [{0}].'.format(c))
                     cam.saving.set()
                     if not writer is None:
                         writer.write.set()
                 else:
-                    display('Manual stop saving.')
+                    display('[Controller] Sending stop command to camera [{0}].'.format(c))
                     cam.stop_saving()
                     #writer.write.clear()
-        display('Toggled ManualSave [{0}]'.format(state))
         
 class CamWidget(QWidget):
     def __init__(self,
