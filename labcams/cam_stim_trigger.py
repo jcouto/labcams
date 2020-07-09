@@ -138,18 +138,18 @@ Could not open teensy on port {0}
                     self.sync.value = 1
                 self.sync_count.value = sync_count
                 self.last_sync_time.value = float(tmp[3])
-                return(['#SYNC:{0},{1},{2}'.format(self.sync_frame_count.value,
-                                                   self.sync_count.value,
+                return(['#SYNC:{0},{1},{2}'.format(self.sync_count.value,
+                                                   self.sync_frame_count.value,
                                                    self.last_sync_time.value)])
                 
             elif msg[0] == FRAME:
                 tmp = msg.split(SEP)
-                self.frame_count.value = int(tmp[1])
-                self.last_led.value = int(tmp[2])
+                self.frame_count.value = int(tmp[2])
+                self.last_led.value = int(tmp[1])
                 self.last_time.value = float(tmp[3])
-                return(['#LED:{0},{1},{2}'.format(self.frame_count.value,
-                                            self.last_led.value,
-                                            self.last_time.value)])
+                return(['#LED:{0},{1},{2}'.format(self.last_led.value,
+                                                  self.frame_count.value,
+                                                  self.last_time.value)])
             else:
                 print('[CamStimTrigger] Unknown message: ' + msg)
         else:

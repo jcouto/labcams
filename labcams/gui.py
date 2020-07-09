@@ -119,7 +119,21 @@ class LabCamsGUI(QMainWindow):
             else:
                 recorderpar = None # Use a queue recorder
             if cam['driver'] == 'AVT':
-                from .avt import AVTCam
+                try:
+                    from .avt import AVTCam
+                except Exception as err:
+                    print(''' 
+
+                    Could not load the Allied Vision Technologies driver. 
+    
+    If you want to record from AVT cameras install the Vimba SDK and pimba.
+    If not you have the wrong config file.
+
+            Edit the file in USERHOME/labcams/default.json
+
+''')
+                    raise(err)
+                    
                 camids = [(camid,name) for (camid,name) in zip(avtids,avtnames) 
                           if cam['name'] in name]
                 camids = [camid for camid in camids
@@ -158,7 +172,20 @@ class LabCamsGUI(QMainWindow):
                                         recorderpar = recorderpar))
                 connected_avt_cams.append(camids[0][0])
             elif cam['driver'] == 'QImaging':
-                from .qimaging import QImagingCam
+                try:
+                    from .qimaging import QImagingCam
+                except Exception as err:
+                    print(''' 
+
+                    Could not load the QImaging driver. 
+    If you want to record from QImaging cameras install the QImaging driver.
+    If not you have the wrong config file.
+
+            Edit the file in USERHOME/labcams/default.json and delete the QImaging cam or use the -c option 
+
+''')
+                    raise(err)
+                    
                 if not 'binning' in cam.keys():
                     cam['binning'] = 2
                 self.cams.append(QImagingCam(camId=cam['id'],
@@ -169,6 +196,7 @@ class LabCamsGUI(QMainWindow):
                                              triggerType = cam['triggerType'],
                                              triggered = self.triggered,
                                              recorderpar = recorderpar))
+                                        
             elif cam['driver'] == 'OpenCV':
                 self.cams.append(OpenCVCam(camId=cam['id'],
                                            outQ = self.camQueues[-1],
@@ -176,7 +204,21 @@ class LabCamsGUI(QMainWindow):
                                            **cam,
                                            recorderpar = recorderpar))
             elif cam['driver'] == 'PCO':
-                from .pco import PCOCam
+                try:
+                    from .pco import PCOCam
+                except Exception as err:
+                    print(''' 
+
+                    Could not load the PCO driver. 
+
+    If you want to record from PCO cameras install the PCO.sdk driver.
+    If not you have the wrong config file.
+
+            Edit the file in USERHOME/labcams/default.json and delete the PCO cam or use the -c option
+
+''')
+                    raise(err)
+
                 if 'CamStimTrigger' in cam.keys(): 
                     self.camstim_widget = CamStimTriggerWidget(
                         port = cam['CamStimTrigger']['port'],
@@ -194,7 +236,20 @@ class LabCamsGUI(QMainWindow):
                                         triggered = self.triggered,
                                         recorderpar = recorderpar))
             elif cam['driver'] == 'ximea':
-                from .ximeacam import XimeaCam
+                try:
+                    from .ximeacam import XimeaCam
+                except Exception as err:
+                    print(''' 
+
+                    Could not load the Ximea driver. 
+
+    If you want to record from Ximea cameras install the Ximea driver.
+    If not you have the wrong config file.
+
+            Edit the file in USERHOME/labcams/default.json and delete the ximea cam or use the -c option
+
+''')
+                    raise(err)
                 self.cams.append(XimeaCam(camId=cam['id'],
                                           binning = cam['binning'],
                                           exposure = cam['exposure'],
@@ -202,7 +257,20 @@ class LabCamsGUI(QMainWindow):
                                           triggered = self.triggered,
                                           recorderpar = recorderpar))
             elif cam['driver'] == 'PointGrey':
-                from .pointgreycam import PointGreyCam
+                try:
+                    from .pointgreycam import PointGreyCam
+                except Exception as err:
+                    print(''' 
+
+                    Could not load the PointGrey driver.
+ 
+    If you want to record from PointGrey/FLIR cameras install the Spinaker SDK.
+    If not you have the wrong config file.
+
+            Edit the file in USERHOME/labcams/default.json and delete the PointGrey cam or use the -c option
+
+''')
+                    raise(err)
                 if not 'roi' in cam.keys():
                     cam['roi'] = []
                 if not 'pxformat' in cam.keys():
@@ -254,7 +322,7 @@ class LabCamsGUI(QMainWindow):
                         dataname = cam['description']))
                 elif cam['recorder'] == 'ffmpeg':
                     if not 'hwaccel' in cam.keys():
-                        cam['hwaccel'] = None                        
+                        cam['hwaccel'] = None
                     self.writers.append(FFMPEGWriter(
                         inQ = self.camQueues[-1],
                         datafolder=self.parameters['recorder_path'],
@@ -283,6 +351,16 @@ class LabCamsGUI(QMainWindow):
                         filename = expName,
                         dataname = cam['description']))
                 else:
+                    print(''' 
+
+The available recorders are:
+    - tiff (multiple tiffstacks - the default)   
+    - binary 
+    - ffmpeg  Records video format using ffmpeg (hwaccel options: intel, nvidia - remove for no hardware acceleration)
+    - opencv  Records video format using openCV
+
+The recorders can be specified with the '"recorder":"ffmpeg"' option in each camera setting of the config file.
+''')
                     raise ValueError('Unknown recorder {0} '.format(cam['recorder']))
             else:
                 print('No writer')
