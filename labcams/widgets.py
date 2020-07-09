@@ -221,7 +221,7 @@ class CamWidget(QWidget):
         self.w = w
         self.h = h
         self.nchan = frame.shape[-1]
-        self.displaychannel = -1
+        self.displaychannel = 0
         self.roiwidget = None
         self.layout = QGridLayout()
         self.setLayout(self.layout)
@@ -275,6 +275,7 @@ class CamWidget(QWidget):
         self.image(np.array(frame),-1)
         size = 600
         ratio = h/float(w)
+        self.hist = None
 ###        self.setFixedSize(size,int(size*ratio))
         self.resize(size,int(size*ratio))
         self.addActions()
@@ -369,6 +370,11 @@ class CamWidget(QWidget):
         tEt = QAction('Histogram',self)
         tEt.triggered.connect(self.histogramWin)
         self.addAction(tEt)
+
+        tEt = QAction('Saturation mode',self)
+        tEt.triggered.connect(self.saturationMode)
+        self.addAction(tEt)
+        
         # Save
         ts = QActionCheckBox(self,'Save camera',  self.parent.saveflags[self.iCam])
         def toggleSaveCam():
@@ -409,10 +415,10 @@ class CamWidget(QWidget):
         p1.hideAxis('left')
         p1.hideAxis('bottom')
 
-        hist = pg.HistogramLUTItem()
-        hist.axis.setPen('k')
-        p1.addItem(hist)
-        hist.setImageItem(self.view)
+        self.hist = pg.HistogramLUTItem()
+        self.hist.axis.setPen('k')
+        p1.addItem(self.hist)
+        self.hist.setImageItem(self.view)
         layout.addWidget(win,0,0)
         histTab.setWidget(widget)
         histTab.setAllowedAreas(Qt.LeftDockWidgetArea |
@@ -426,8 +432,21 @@ class CamWidget(QWidget):
                                   ,histTab)
         histTab.setFloating(True)
         histTab.resize(200,200)
+        histstate = self.hist.saveState()
+        def closefun(ev):
+            self.hist.restoreState(histstate)
+            self.hist = None
+            ev.accept()
+        histTab.closeEvent = closefun
         
-
+    def saturationMode(self):
+        if self.hist is None:
+            self.histogramWin()
+        if not self.hist.gradient is None:
+            self.hist.gradient.addTick(0.751, color=pg.mkColor('#ff2d00'))
+            self.hist.gradient.addTick(1, color=pg.mkColor('#ff2d00'))
+            self.hist.gradient.addTick(0.75, color=pg.mkColor('#ffffff'))
+        
     def addROI(self):
         roiTab = QDockWidget("roi cam {0}".format(self.iCam), self)
         if self.roiwidget is None:
