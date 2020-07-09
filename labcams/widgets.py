@@ -432,9 +432,17 @@ class CamWidget(QWidget):
                                   ,histTab)
         histTab.setFloating(True)
         histTab.resize(200,200)
-        histstate = self.hist.saveState()
+        try:
+            histstate = self.hist.saveState()
+        except Exception as err:
+            display('[ERROR] - could not save histogram state. "pip install pyqtgraph --upgrade" might solve it.')
+            print(err)
         def closefun(ev):
-            self.hist.restoreState(histstate)
+            try:
+                self.hist.restoreState(histstate)
+            except Exception as err:
+                print(err)
+                pass
             self.hist = None
             ev.accept()
         histTab.closeEvent = closefun
