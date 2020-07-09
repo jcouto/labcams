@@ -86,7 +86,7 @@ void loop() {
     Serial.print(ETX);
     last_rise = -1;
   }
-  if (last_sync_rise > 0){ // this is limited to 10ms
+  if (last_sync_rise > 0){ 
     Serial.print(STX);
     Serial.print(SYNC);
     Serial.print(SEP);
@@ -113,16 +113,14 @@ void serialEvent()
         switch (msg[1]) {
           case START_LEDS:
             // @N
-            pulse_count = 0;
+            last_rise = -1;
+            last_sync_rise = -1;
             start_time = millis();
             sync_count = 0;
             pulse_count = 0;
             sync_frame_count = 0;
-
             last_pulse_count = 0;
 
-            last_sync_rise = -1;
-            last_rise = -1;
             armed = 1;
             
             reply += START_LEDS;
