@@ -112,7 +112,7 @@ class GenericCam(Process):
             self.cam_is_running = False
             if self.was_saving:
                 self.was_saving = False
-                if not self.queue is None:
+                if self.recorder is None:
                     display('[Camera] Sending stop signal to the recorder.')
                     self.queue.put(['STOP'])
                 else:
@@ -132,11 +132,12 @@ class GenericCam(Process):
                     else:
                         self.queue.put((frame,metadata))
         elif self.was_saving:
-            if not self.queue is None:
+            if self.recorder is None:
                 self.was_saving = False            
                 display('[Camera] Sending stop signal to the recorder.')
                 self.queue.put(['STOP'])
-            if not self.recorder is None:
+            else:
+                self.was_saving = False            
                 self.recorder.close_run()
         if not frame is None:
             frameID,timestamp = metadata[:2]
@@ -160,15 +161,13 @@ class GenericCam(Process):
                 if hasattr(self,'ctrevents'):
                     self._call_event(cmd[0],cmd[1])
                 if cmd[0] == 'filename':
-                    if self.queue is None:
+                    if not self.recorder is None:
                         if hasattr(self,'recorder'):
                             self.recorder.set_filename(cmd[1])
                     self.recorderpar['filename'] = cmd[1]
                 elif cmd[0] == 'log':
-                    if not self.queue is None:
+                    if self.queue is None:
                         self.queue.put(['# {0},{1} - {2}'.format(self.lastframeid,self.lasttime,cmd[1])])
-                    else:
-                        display('Need to implement log: {0}'.format(cmd[1]))
 
     def _call_event(self,eventname,eventvalue):
         if eventname in self.ctrevents.keys():
