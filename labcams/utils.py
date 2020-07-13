@@ -1,6 +1,8 @@
 from __future__ import print_function
+import cv2
 import sys
 import os
+from functools import partial
 if sys.executable.endswith("pythonw.exe"):
     sys.stdout = sys.stdout = None
 from datetime import datetime
@@ -12,7 +14,10 @@ from os.path import join as pjoin
 from scipy.interpolate import interp1d
 from tqdm import tqdm
 import numpy as np
-import cv2
+import time
+
+tstart = [time.time()]
+
 
 def display(msg):
     try:

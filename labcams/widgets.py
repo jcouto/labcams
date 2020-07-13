@@ -1,4 +1,3 @@
-import time
 
 from PyQt5.QtWidgets import (QWidget,
                              QApplication,
@@ -37,8 +36,6 @@ pg.setConfigOptions(imageAxisOrder='row-major')
 pg.setConfigOption('crashWarning', True)
 
 from .utils import *
-from functools import partial
-import cv2
 cv2.setNumThreads(1)
 
 class QActionCheckBox(QWidgetAction):
@@ -155,14 +152,14 @@ This will can be differently configured for different cameras.'''
                 display('Cam stim trigger armed.')
             for cam in self.parent.cams:
                 cam.start_trigger.set()
-            
         else:
             for cam in self.parent.cams:
                 cam.start_trigger.clear()
             if hasattr(self.parent,'camstim_widget'):
                 self.parent.camstim_widget.ino.disarm()
                 display('Cam stim trigger disarmed.')
-                
+        tstart[0] = time.time()
+
     def toggleTriggered(self,value):
         display('Hardware trigger mode pressed [{0}]'.format(value))
         if value:
@@ -178,6 +175,7 @@ This will can be differently configured for different cameras.'''
             cam.stop_acquisition()
         time.sleep(.5)
         self.parent.triggerCams(save = self.parent.saveOnStart)
+        tstart[0] = time.time()
         
     def setExpName(self):
         name = self.experimentNameEdit.text()
@@ -330,6 +328,8 @@ class CamWidget(QWidget):
                                        vmax = self.nchan-1)
             def change_chan(value):
                 self.displaychannel = int(value)
+                if not self.roiwidget is None:
+                    self.roiwidget.reset()
             displaychan.link(change_chan) 
             self.addAction(displaychan)
         # Slider
@@ -341,6 +341,9 @@ class CamWidget(QWidget):
             'Nsubtract [{0:03d}]:'.format(int(x))))
         def vchanged(val):
             self.nAcum = float(np.floor(val))
+            if not self.roiwidget is None:
+                self.roiwidget.reset()
+
         toggleSubtract.link(vchanged) 
         # ROIs
         self.addAction(toggleSubtract)
@@ -468,7 +471,9 @@ class CamWidget(QWidget):
     def addROI(self):
         roiTab = QDockWidget("roi cam {0}".format(self.iCam), self)
         if self.roiwidget is None:
-            self.roiwidget = ROIPlotWidget(roi_target = self.p1, view = self.view)
+            self.roiwidget = ROIPlotWidget(roi_target = self.p1,
+                                           view = self.view,
+                                           parent = self)
             roiTab.setWidget(self.roiwidget)
             roiTab.setAllowedAreas(Qt.LeftDockWidgetArea |
                                    Qt.RightDockWidgetArea |
@@ -631,10 +636,11 @@ class ROIPlotWidget(QWidget):
           '#e377c2',
           '#7f7f7f',
           '#bcbd22']
-    penwidth = 1.5
-    def __init__(self, roi_target= None,view=None,npoints = 500):
+    penwidth = 1.
+    def __init__(self, roi_target= None,view=None,npoints = 1200,parent = None):
         super(ROIPlotWidget,self).__init__()	
         layout = QGridLayout()
+        self.parent=parent
         self.setLayout(layout)
         self.view = view
         self.roi_target = roi_target
@@ -655,12 +661,12 @@ class ROIPlotWidget(QWidget):
                                     size=100,
                                     pen=pencolor))
         self.plots.append(pg.PlotCurveItem(pen=pg.mkPen(
-            color=pencolor,width=self.penwidth)))
+            color=pencolor, width=self.penwidth)))
         self.p1.addItem(self.plots[-1])
         self.roi_target.addItem(self.rois[-1])
         buf = np.zeros([2,self.N],dtype=np.float32)
         buf[0,:] = np.nan
-        buf[1,:] = np.nan
+        buf[1,:] = 0
         self.buffers.append(buf)
     def items(self):
         return self.rois
@@ -668,15 +674,32 @@ class ROIPlotWidget(QWidget):
         for roi in self.rois:
             self.roi_target.removeItem(roi)
         ev.accept()
+
+    def reset(self):
+        for ib in range(len(self.buffers)):
+            self.buffers[ib][0,:] = np.nan
+        
     def update(self,img,iFrame):
+        ichan = -1
+        if not self.parent is None:
+            ichan = self.parent.displaychannel
+        ctime = time.time() - tstart[0]
+        if len(self.buffers):
+            if (ctime  - np.nanmax(self.buffers[0][0,:])) < 0:
+                print('resetting')
+                self.reset()
         for i,(roi,plot) in enumerate(zip(self.rois,self.plots)):
             r = roi.getArrayRegion(img, self.view)
             buf = np.roll(self.buffers[i], -1, axis = 1)
-            buf[1,-1] = np.nanmean(r)
-            buf[0,-1] = iFrame
+            if ichan == -1:
+                buf[1,:] = np.mean(r)
+            else:
+                buf[1,ichan] = np.mean(r) 
+            buf[0,-1] = ctime
             self.buffers[i] = buf
-            plot.setData(x = buf[0,:],
-                         y = buf[1,:])
+            ii = ~np.isnan(buf[0,:])
+            plot.setData(x = buf[0,ii],
+                         y = buf[1,ii])
 
 class CamStimTriggerWidget(QWidget):
     def __init__(self,port = None,ino=None, outQ = None):
