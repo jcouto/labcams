@@ -618,7 +618,7 @@ class BinaryCamWriter(GenericWriter):
 ################################################################################
 ################################################################################
 
-def parseCamLog(fname,convertToSeconds = True):
+def parseCamLog(fname, readTeensy = False):
     logheaderkey = '# Log header:'
     comments = []
     with open(fname,'r') as fd:
@@ -634,10 +634,29 @@ def parseCamLog(fname,convertToSeconds = True):
                           header=None,
                           comment='#',
                           engine='c')
-    if convertToSeconds or '1photon' in comments[0]:
-        logdata['timestamp'] /= 10000.
-    return logdata,comments
+    if readTeensy:
+        # get the sync pulses and frames along with the LED
+        def _convert(string):
+            try:
+                val = int(string)
+            except ValueError as err:
+                val = float(string)
+            return val
 
+        led = []
+        sync= []
+        ncomm = []
+        for l in comments:
+            if l.startswith('#LED:'):
+                led.append([_convert(f) for f in  l.strip('#LED:').split(',')])
+            elif l.startswith('#SYNC:'):
+                sync.append([_convert(f) for f in  l.strip('#SYNC:').split(',')])
+            else:
+                ncomm.append(l)
+        sync = pd.DataFrame(sync, columns=['count','frame','timestamp'])
+        led = pd.DataFrame(led, columns=['led','frame','timestamp'])
+        return logdata,led,sync,ncomm
+    return logdata,comments
 
 class TiffStack(object):
     def __init__(self,filenames):
