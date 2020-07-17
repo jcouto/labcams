@@ -608,8 +608,8 @@ def main():
     import os
     import json
     parser = ArgumentParser(description=LOGO + '\n\n  Multiple camera control and recording.',formatter_class=RawDescriptionHelpFormatter)
-    parser.add_argument('preffile',
-                        metavar='configfile',
+    parser.add_argument('file',
+                        metavar='file',
                         type=str,
                         default=None,
                         nargs="?")
@@ -630,13 +630,34 @@ def main():
     parser.add_argument('--no-server',
                         default=False,
                         action='store_true')
-
+    parser.add_argument('--bin-to-mj2',
+                        default=False,
+                        action='store_true')
+    parser.add_argument('--mj2-rate',
+                        default=30.,
+                        action='store')
+    
     opts = parser.parse_args()
+
+    if opts.bin_to_mj2:
+        from labcams.io import mmap_dat
+        
+        fname = opts.file
+        
+        assert not fname is None, "Need to supply a binary filename to compress."
+        assert os.path.isfile(fname), "File {0} not found".format(fname)
+        ext = os.path.splitext(fname)[-1]
+        assert ext in ['.dat','.bin'], "File {0} needs to be binary.".format(fname)  
+        stack = mmap_dat(fname)
+        stack_to_mj2_lossless(stack, fname, rate = opts.mj2_rate)
+        print('Converted {0}'.format(fname.replace(ext,'.mov')))
+        sys.exit(0)
+        
     if not opts.make_config is None:
         fname = opts.make_config
         getPreferences(fname, create=True)
         sys.exit()
-    parameters = getPreferences(opts.preffile)
+    parameters = getPreferences(opts.file)
     cams = parameters['cams']
     if not opts.cam_select is None:
         cams = [parameters['cams'][i] for i in opts.cam_select]

@@ -719,3 +719,88 @@ class TiffStack(object):
         return self.curstack[frameidx,:,:]
     def __len__(self):
         return self.nFrames
+
+def mmap_dat(filename,
+             mode = 'r',
+             nframes = None,
+             shape = None,
+             dtype='uint16'):
+    '''
+    Loads frames from a binary file as a memory map.
+    This is useful when the data does not fit to memory.
+    
+    Inputs:
+        filename (str)       : fileformat convention, file ends in _NCHANNELS_H_W_DTYPE.dat
+        mode (str)           : memory map access mode (default 'r')
+                'r'   | Open existing file for reading only.
+                'r+'  | Open existing file for reading and writing.                 
+        nframes (int)        : number of frames to read (default is None: the entire file)
+        shape (list|tuple)   : dimensions (NCHANNELS, HEIGHT, WIDTH) default is None
+        dtype (str)          : datatype (default uint16) 
+    Returns:
+        A memory mapped  array with size (NFRAMES,[NCHANNELS,] HEIGHT, WIDTH).
+
+    Example:
+        dat = mmap_dat(filename)
+
+    Joao Couto - from wfield
+    '''
+    
+    if not os.path.isfile(filename):
+        raise OSError('File {0} not found.'.format(filename))
+    if shape is None or dtype is None: # try to get it from the filename
+        meta = os.path.splitext(filename)[0].split('_')
+        if shape is None:
+            try: # Check if there are multiple channels
+                shape = [int(m) for m in meta[-4:-1]]
+            except ValueError:
+                shape = [int(m) for m in meta[-3:-1]]
+        if dtype is None:
+            dtype = meta[-1]
+    dt = np.dtype(dtype)
+    if nframes is None:
+        # Get the number of samples from the file size
+        nframes = int(os.path.getsize(filename)/(np.prod(shape)*dt.itemsize))
+    dt = np.dtype(dtype)
+    return np.memmap(filename,
+                     mode=mode,
+                     dtype=dt,
+                     shape = (int(nframes),*shape))
+
+
+def stack_to_mj2_lossless(stack,fname, rate = 30):
+    '''
+    Compresses a uint16 stack with FFMPEG and libopenjpeg
+    
+    Inputs:
+        stack                : array or memorymapped binary file
+        fname                : output filename (will change extension to .mov)
+        rate                 : rate of the mj2 movie [30 Hz default]
+
+    Example:
+       from labcams.io import * 
+       fname = '20200710_140729_2_540_640_uint16.dat'
+       stack = mmap_dat(fname)
+       stack_to_mj2_lossless(stack,fname, rate = 30)
+    '''
+    ext = os.path.splitext(fname)[1]
+    assert len(ext), "[mj2 conversion] Need to pass a filename {0}.".format(fname)
+    
+    if not ext == '.mov':
+        print('[mj2 conversion] Changing extension to .mov')
+        outfname = fname.replace(ext,'.mov')
+    else:
+        outfname = fname
+    assert stack.dtype == np.uint16, "[mj2 conversion] This only works for uint16 for now."
+
+    nstack = stack.reshape([-1,*stack.shape[2:]]) # flatten if needed    
+    sq = FFmpegWriter(outfname, inputdict={'-pix_fmt':'gray16le',
+                                              '-r':str(rate)}, # this is important
+                      outputdict={'-c:v':'libopenjpeg',
+                                  '-pix_fmt':'gray16le',
+                                  '-r':str(rate)})
+    from tqdm import tqdm
+    for i,f in tqdm(enumerate(stack),total=len(stack)):
+        sq.writeFrame(f)
+    sq.close()
+    

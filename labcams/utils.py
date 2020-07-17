@@ -108,6 +108,19 @@ def getPreferences(preffile = None,create = True):
     return pref
 
 
+def chunk_indices(nframes, chunksize = 512, min_chunk_size = 16):
+    '''
+    Gets chunk indices for iterating over an array in evenly sized chunks
+    Joao Couto - from wfield
+    '''
+    chunks = np.arange(0,nframes,chunksize,dtype = int)
+    if (nframes - chunks[-1]) < min_chunk_size:
+        chunks[-1] = nframes
+    if not chunks[-1] == nframes:
+        chunks = np.hstack([chunks,nframes])
+    return [[chunks[i],chunks[i+1]] for i in range(len(chunks)-1)]
+
+
 def cameraTimesFromVStimLog(logdata,plog,camidx = 3,nExcessFrames=10):
     '''
     Interpolate cameralog frames to those recorded by pyvstim
