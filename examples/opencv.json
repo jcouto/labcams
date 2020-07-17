@@ -1,0 +1,15 @@
+{
+    "cams": [
+        {
+	    "id":0,
+            "Save": true,
+            "description": "facecam",
+            "driver": "OpenCV",
+            "name": "webcam"
+        }
+    ],
+    "recorder_frames_per_file": 256,
+    "recorder_path": "I:\\data",
+    "recorder_sleep_time": 0.05,
+    "server_port": 100000
+}
