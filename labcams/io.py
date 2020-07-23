@@ -800,7 +800,7 @@ def stack_to_mj2_lossless(stack,fname, rate = 30):
                                   '-pix_fmt':'gray16le',
                                   '-r':str(rate)})
     from tqdm import tqdm
-    for i,f in tqdm(enumerate(stack),total=len(stack)):
+    for i,f in tqdm(enumerate(nstack),total=len(nstack)):
         sq.writeFrame(f)
     sq.close()
     
