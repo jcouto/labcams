@@ -29,6 +29,7 @@ ETX=serial.LF.decode()
 DISARM = 'S'
 SET_MODE = 'M'
 SYNC = 'T'
+SYNC1 = 'U'
 #SET_PARAMETERS = 'P'
 FRAME = 'F'
 # Class to talk to arduino  using a separate process.
@@ -141,7 +142,11 @@ Could not open teensy on port {0}
                 return(['#SYNC:{0},{1},{2}'.format(self.sync_count.value,
                                                    self.sync_frame_count.value,
                                                    self.last_sync_time.value)])
-                
+            elif msg[0] == SYNC1:
+                tmp = msg.split(SEP)
+                return(['#SYNC1:{0},{1},{2}'.format(int(tmp[2]),
+                                                   int(tmp[1]),
+                                                   float(tmp[3]))])    
             elif msg[0] == FRAME:
                 tmp = msg.split(SEP)
                 self.frame_count.value = int(tmp[2])
