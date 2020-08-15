@@ -22,7 +22,7 @@ volatile long gate_count = 0;
 volatile long gate_frame_count = 0;
 
 volatile long pulse_count = 0; // number of pulses to trigger
-volatile byte armed = 0;      // whether the triggers are armed  
+volatile byte armed = 1;      // whether the triggers are armed  
 volatile byte gating = 1;      // whether the gate is up
 
 // Serial communication
@@ -55,7 +55,7 @@ void camera_triggered() {
       pulse_count++;
       if (gating) {
         digitalWriteFast(PIN_LED0_TRIGGER, HIGH);
-        last_rise = millis() - start_time;
+        last_rise = micros() - start_time;
         last_led = PIN_LED0_TRIGGER;
         last_pulse_count = pulse_count;  
       }
@@ -67,7 +67,7 @@ void sync_received() {
   if (digitalReadFast(PIN_SYNC) == HIGH)
     sync_count++;
   sync_frame_count = pulse_count;
-  last_sync_rise = millis() - start_time;
+  last_sync_rise = micros() - start_time;
   }
 
 void gate_received() {
@@ -79,7 +79,7 @@ void gate_received() {
     gating = 1;
   }
   gate_frame_count = pulse_count;
-  last_gate_rise = millis() - start_time;
+  last_gate_rise = micros() - start_time;
   }
 
 void setup() {
@@ -95,12 +95,12 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(PIN_CAM_EXPOSURE), camera_triggered, CHANGE);
   attachInterrupt(digitalPinToInterrupt(PIN_SYNC), sync_received, CHANGE);
   attachInterrupt(digitalPinToInterrupt(PIN_GATE), gate_received, CHANGE);
-  start_time = millis(); // use micros if more precision needed
+  start_time = micros(); // use micros if more precision needed
 }
 
 void loop() {
-  current_time = millis() - start_time;
-  if ((last_rise > 0) & (abs(current_time - last_rise)> 10)) { // this is limited to 10ms
+  current_time = micros() - start_time;
+  if ((last_rise > 0) & (abs(current_time - last_rise)> 8000)) { // this is limited to 10ms
     Serial.print(STX);
     Serial.print(FRAME);
     Serial.print(SEP);
@@ -108,7 +108,7 @@ void loop() {
     Serial.print(SEP);
     Serial.print(last_pulse_count);
     Serial.print(SEP);
-    Serial.print(last_rise);
+    Serial.print(last_rise/1000.);
     Serial.print(ETX);
     last_rise = -1;
   }
@@ -120,7 +120,7 @@ void loop() {
     Serial.print(SEP);
     Serial.print(sync_count);
     Serial.print(SEP);
-    Serial.print(last_sync_rise);
+    Serial.print(last_sync_rise/1000.);
     Serial.print(ETX);
     last_sync_rise = -1;
 }
@@ -132,9 +132,9 @@ if (last_gate_rise > 0){
     Serial.print(SEP);
     Serial.print(gate_count);
     Serial.print(SEP);
-    Serial.print(last_gate_rise);
+    Serial.print(last_gate_rise/1000.);
     Serial.print(ETX);
-    last_sync_rise = -1;
+    last_gate_rise = -1;
 }
 }
 void serialEvent()
@@ -152,7 +152,7 @@ void serialEvent()
           case START_LEDS:
             // @N
             pulse_count = 0;
-            start_time = millis();
+            start_time = micros();
             sync_count = 0;
             pulse_count = 0;
             sync_frame_count = 0;
@@ -166,7 +166,7 @@ void serialEvent()
             reply += START_LEDS;
             Serial.print(reply);
             Serial.print(SEP);
-            Serial.print(current_time);
+            Serial.print(current_time/1000.);
             Serial.print(ETX);
             break;
         case STOP_LEDS:
@@ -175,7 +175,7 @@ void serialEvent()
             reply += STOP_LEDS;
             Serial.print(reply);
             Serial.print(SEP);
-            Serial.print(current_time);
+            Serial.print(current_time/1000.);
             Serial.print(ETX);
             break;
         case QUERY_CAP:
