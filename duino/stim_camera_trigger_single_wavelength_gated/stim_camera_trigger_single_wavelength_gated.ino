@@ -100,7 +100,7 @@ void setup() {
 
 void loop() {
   current_time = micros() - start_time;
-  if ((last_rise > 0) & (abs(current_time - last_rise)> 8000)) { // this is limited to 10ms
+  if ((last_rise > 0) & (abs(current_time - last_rise)> 9000)) { // this is limited to 10ms
     Serial.print(STX);
     Serial.print(FRAME);
     Serial.print(SEP);
@@ -111,6 +111,7 @@ void loop() {
     Serial.print(last_rise/1000.);
     Serial.print(ETX);
     last_rise = -1;
+    
   }
   if (last_sync_rise > 0){ 
     Serial.print(STX);

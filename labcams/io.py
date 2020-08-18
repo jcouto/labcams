@@ -650,10 +650,12 @@ def parseCamLog(fname, readTeensy = False):
             if l.startswith('#LED:'):
                 led.append([_convert(f) for f in  l.strip('#LED:').split(',')])
             elif l.startswith('#SYNC:'):
-                sync.append([_convert(f) for f in  l.strip('#SYNC:').split(',')])
+                sync.append([0.] + [_convert(f) for f in  l.strip('#SYNC:').split(',')])
+            elif l.startswith('#SYNC1:'):
+                sync.append([1.] + [_convert(f) for f in  l.strip('#SYNC1:').split(',')])
             else:
                 ncomm.append(l)
-        sync = pd.DataFrame(sync, columns=['count','frame','timestamp'])
+        sync = pd.DataFrame(sync, columns=['sync','count','frame','timestamp'])
         led = pd.DataFrame(led, columns=['led','frame','timestamp'])
         return logdata,led,sync,ncomm
     return logdata,comments
