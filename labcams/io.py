@@ -271,7 +271,7 @@ class TiffWriter(GenericWriterProcess):
                  inQ = None,
                  loggerQ = None,
                  filename = pjoin('dummy','run'),
-                 dataname = 'eyecam',
+                 dataname = 'cam',
                  pathformat = pjoin('{datafolder}','{dataname}','{filename}',
                                     '{today}_{run}_{nfiles}'),
                  datafolder=pjoin(os.path.expanduser('~'),'data'),
@@ -613,6 +613,47 @@ class BinaryCamWriter(GenericWriter):
     def _write(self,frame,frameid,timestamp):
         self.fd.write(frame)
         
+class TiffCamWriter(GenericWriter):
+    def __init__(self,
+                 cam,
+                 filename = pjoin('dummy','run'),
+                 dataname = 'cam',
+                 datafolder=pjoin(os.path.expanduser('~'),'data'),
+                 pathformat = pjoin('{datafolder}','{dataname}','{filename}',
+                                    '{today}_{run}_{nfiles}'),
+                 framesperfile=256,
+                 sleeptime = 1./300,
+                 inQ = None,
+                 incrementruns=True,
+                 compression = None):
+        self.extension = '.tif'
+        self.cam = cam
+        super(TiffCamWriter,self).__init__(datafolder=datafolder,
+                                           filename=filename,
+                                           inQ = inQ,
+                                           dataname=dataname,
+                                           pathformat=pathformat,
+                                           framesperfile=framesperfile,
+                                           sleeptime=sleeptime,
+                                           incrementruns=incrementruns)
+        self.compression = None
+        if not compression is None:
+            if compression > 0:
+                self.compression = compression
+
+    def close_file(self):
+        if not self.fd is None:
+            self.fd.close()
+            print("------->>> Closed file.")
+        self.fd = None
+
+    def _open_file(self,filename,frame = None):
+        self.fd = twriter(filename)
+
+    def _write(self,frame,frameid,timestamp):
+        self.fd.save(frame,
+                     compress=self.compression,
+                     description='id:{0};timestamp:{1}'.format(frameid,timestamp))
         
 ################################################################################
 ################################################################################

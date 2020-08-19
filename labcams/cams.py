@@ -78,6 +78,16 @@ class GenericCam(Process):
                                                 datafolder = self.recorderpar['datafolder'],
                                                 framesperfile = 0,
                                                 incrementruns = True)
+            elif 'tiff' in self.recorderpar['recorder']:
+                from .io import TiffCamWriter
+                self.recorder = TiffCamWriter(self,
+                                              inQ = self.queue,
+                                              filename = self.recorderpar['filename'],
+                                              dataname = self.recorderpar['dataname'],
+                                              datafolder = self.recorderpar['datafolder'],
+                                              framesperfile = self.recorderpar['framesperfile'],
+                                              incrementruns = True)
+
             else:
                 display('Recorder {0} not implemented'.format(
                     self.recorderpar['recorder']))
