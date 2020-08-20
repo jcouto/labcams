@@ -26,7 +26,7 @@ Multicamera control and acquisition.
 
 This aims to facilitate video acquisition and automation of experimens, uses separate processes to record and store data.
 
-### Supported cameras:
+### Supported cameras -  [see instructions here](./camera_instructions.md):
 
  * Allied Vision Technologies (via pymba)
  * PointGrey cameras (via PySpin)
@@ -92,12 +92,12 @@ To configure use the command ``"server":"udp"`` in the end of the config file.
 The port can be configured with ``"server_port":9999``
 
 The UDP commands are:
-    - Set the experiment name ``expname=EXPERIMENT_NAME``
-    - Software trigger the cameras ``softtrigger=1`` (multiple cameras are not in sync)        
-    - Hardware trigger mode and save ``trigger=1``
-    - Start/stop saving ``manualsave=1``
-    - Add a message to the log ``log=MESSAGE``
-    - Quit ``quit``
+ * Set the experiment name ``expname=EXPERIMENT_NAME``
+ * Software trigger the cameras ``softtrigger=1`` (multiple cameras are not in sync)        
+ * Hardware trigger mode and save ``trigger=1``
+ * Start/stop saving ``manualsave=1``
+ * Add a message to the log ``log=MESSAGE``
+ * Quit ``quit``
 
 **Please drop me a line for feedback and acknowledge if you use labcams in your work.**
 
