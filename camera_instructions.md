@@ -1,6 +1,6 @@
-# Camera specific instructions
+## Camera specific instructions
 
-## PCO Edge
+# PCO Edge
 
 ### Installing drivers and connecting the camera
 
@@ -23,7 +23,7 @@ For fast one photon imaging with the PCO camera you want to use the camera in ro
 You can use a teensy to record sync pulses from behavior or stimulus. There are a couple of examples in the duino folder.
 
 
-## FLIR cameras
+# FLIR cameras
 
 ### Installing drivers and connecting the camera
 
@@ -41,7 +41,7 @@ On the Chamaeleon 3 USB you can use the Purple wire (GPIO 2). The GPIO states ar
 
 Make sure the sync pulse is longer than the duration of an individual frame otherwise the camera might miss it.  
 
-## Allied Vision Technologies cameras (AVT):
+# Allied Vision Technologies cameras (AVT):
 
 ### Installing drivers and connecting cameras:
 
