@@ -104,7 +104,7 @@ The two main components of the board are the 74HCT14 (Hex Inverter with Schmitt 
 We only want the Hex Inverter to put the signals to 5V, without inverting, so we invert the signals twice.
 The LM7805 is used instead of a voltage divider because it will still supply 5V with a 24V input (it will overheat), allowing a potentially connected Arduino board to survive.
 
-![picture]('images/trigger_box_schematic.svg')
+![picture](images/trigger_box_schematic.svg)
 
 ##### Printed circuit board (PCB)
 
@@ -115,4 +115,4 @@ Schematics and PCB were done in KiCad ([Design files](pcb/)). The initial versio
 * Some pins are repeated (e.g. 12V, GND) to allow juxtaposition of several trigger boxes. This allows several boards to share the same power supply and trigger source.
 * The two holes are M6.
 
-![picture]('images/trigger_box_avt.png')
+![picture](images/trigger_box_avt.png)
