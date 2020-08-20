@@ -1,6 +1,6 @@
-# Camera specific instructions
+## Camera specific instructions
 
-## PCO Edge
+# PCO Edge
 
 ### Installing drivers and connecting the camera
 
@@ -8,11 +8,11 @@ This camera only works in windows.
 
 Install the PCO.sdk software; make sure to install the correct adapter for your camera (e.g. CameraLink if you have a frame grabber). Install to one of the locations below.
 
-``labcams`` searches for the drivers in:
+labcams searches for the drivers in:
 
- * ``C/Program Files (x86)/pco/pco.sdk/bin64/SC2_Cam.dll`` 
- * ``C/Program Files (x86)/Digital Camera Toolbox/pco.sdk/bin64/SC2_Cam.dll`` or
- * ``/C/Program Files (x86)/PCO Digital Camera Toolbox/pco.sdk/bin64/SC2_Cam.dll``
+ * C:\Program Files (x86)\pco\pco.sdk\bin64\SC2_Cam.dll
+ * C:\Program Files (x86)\Digital Camera Toolbox\pco.sdk\bin64\SC2_Cam.dll or
+ * C:\Program Files (x86)\PCO Digital Camera Toolbox\pco.sdk\bin64\SC2_Cam.dll
 
 Because the camera needs to be initialized, you need to open the camera with Camware before opening with ``labcams``. This needs to be done everytime you restart the computer or change the size of the sensor.
 
@@ -23,21 +23,25 @@ For fast one photon imaging with the PCO camera you want to use the camera in ro
 You can use a teensy to record sync pulses from behavior or stimulus. There are a couple of examples in the duino folder.
 
 
-## FLIR cameras
+# FLIR cameras
 
 ### Installing drivers and connecting the camera
 
 Download SpinView **both the instalation .exe and the python files**. 
 
 * Install the exe
-* To install for python you need to download the correct  version for your python instalation (from the FLIR SpinView website). Then extract the zip and run ``pip install spinnaker_python-2.0.0.147-cp38-cp38-win_amd64.whl`` from the extracted folder (assuming you are using python 3.8).
+* To install for python you need to download the correct  version for your python instalation (from the FLIR SpinView website).
+* Extract the zip and run ``pip install spinnaker_python-2.0.0.147-cp38-cp38-win_amd64.whl`` from the extracted folder (assuming you are using python 3.8).
 
 ### Connections for syncronization
 
-To record in sync with behavior you need to connect a sync TTL (this from behavior or stimulation hardware) to the pins of the camera. On the Chamaeleon 3 USB you can use the Purple wire (GPIO 2). The GPIO states are recorded to the log file and you can use those to sync. Make sure the sync pulse is longer than the duration of an individual frame otherwise the camera might miss it.  
+To record in sync with behavior you need to connect a **sync TTL** (this from behavior or stimulation hardware) to the pins of the camera. 
 
-## Allied Vision Technologies cameras (AVT):
+On the Chamaeleon 3 USB you can use the Purple wire (GPIO 2). The GPIO states are recorded to the log file and you can use those to sync. 
 
+Make sure the sync pulse is longer than the duration of an individual frame otherwise the camera might miss it.  
+
+# Allied Vision Technologies cameras (AVT):
 
 ### Installing drivers and connecting cameras:
 
@@ -49,7 +53,7 @@ To record in sync with behavior you need to connect a sync TTL (this from behavi
 Connect the Ethernet cable to your computer.
 Typically, Vimba Viewer recognizes the camera, but you can not record.
 If this is the case then you have to change your IP address. 
-On Windows: Control Panel -> Network & Internet -> Network connections -> right-click Ethernet -> Properties -> Networking: Select IPv4 -> Properties -> Use the following IP address. Then change it to a value close to the one of the camera (accessible in the Vimba Viewer in the “information” tab on the right). In my case I used 168.254.100.0 for the IP address and 255.255.0.0 for the subnet mask.
+On Windows: Control Panel -> Network & Internet -> Network connections -> right-click Ethernet -> Properties -> Networking: Select IPv4 -> Properties -> Use the following IP address. Then change it to a value close to the one of the camera (accessible in the Vimba Viewer in the ï¿½informationï¿½ tab on the right). In my case I used 168.254.100.0 for the IP address and 255.255.0.0 for the subnet mask.
 
 
 ##### Connections for the GC camera
@@ -100,7 +104,7 @@ The two main components of the board are the 74HCT14 (Hex Inverter with Schmitt 
 We only want the Hex Inverter to put the signals to 5V, without inverting, so we invert the signals twice.
 The LM7805 is used instead of a voltage divider because it will still supply 5V with a 24V input (it will overheat), allowing a potentially connected Arduino board to survive.
 
-![picture](images/trigger_box_schematic.svg)
+![picture]('images/trigger_box_schematic.svg')
 
 ##### Printed circuit board (PCB)
 
@@ -111,6 +115,4 @@ Schematics and PCB were done in KiCad ([Design files](pcb/)). The initial versio
 * Some pins are repeated (e.g. 12V, GND) to allow juxtaposition of several trigger boxes. This allows several boards to share the same power supply and trigger source.
 * The two holes are M6.
 
-![picture](images/trigger_box_avt.png)
-
-
+![picture]('images/trigger_box_avt.png')
