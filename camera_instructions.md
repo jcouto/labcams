@@ -1,5 +1,41 @@
 # Camera specific instructions
 
+## PCO Edge
+
+### Installing drivers and connecting the camera
+
+This camera only works in windows.
+
+Install the PCO.sdk software; make sure to install the correct adapter for your camera (e.g. CameraLink if you have a frame grabber). Install to one of the locations below.
+
+``labcams`` searches for the drivers in:
+
+ * ``C:\\Program Files (x86)\\pco\\pco.sdk\\bin64\\SC2_Cam.dll`` 
+ * ``C:\\Program Files (x86)\\Digital Camera Toolbox\\pco.sdk\\bin64\\SC2_Cam.dll`` or
+ * ``C:\\Program Files (x86)\\PCO Digital Camera Toolbox\\pco.sdk\\bin64\\SC2_Cam.dll``
+
+Because the camera needs to be initialized, you need to open the camera with Camware before opening with ``labcams``. This needs to be done everytime you restart the computer or change the size of the sensor.
+
+### Connections for widefield imaging using a teensy for sync and alternate illumination
+
+For fast one photon imaging with the PCO camera you want to use the camera in rolling shutter mode. To do this light needs to be ON only during the exposure time common to all lines. These options need to be set in camware.
+
+You can use a teensy to record sync pulses from behavior or stimulus. There are a couple of examples in the duino folder.
+
+
+## FLIR cameras
+
+### Installing drivers and connecting the camera
+
+Download SpinView **both the instalation .exe and the python files**. 
+
+* Install the exe
+* To install for python you need to download the correct  version for your python instalation (from the FLIR SpinView website). Then extract the zip and run ``pip install spinnaker_python-2.0.0.147-cp38-cp38-win_amd64.whl`` from the extracted folder (assuming you are using python 3.8).
+
+### Connections for syncronization
+
+To record in sync with behavior you need to connect a sync TTL (this from behavior or stimulation hardware) to the pins of the camera. On the Chamaeleon 3 USB you can use the Purple wire (GPIO 2). The GPIO states are recorded to the log file and you can use those to sync. Make sure the sync pulse is longer than the duration of an individual frame otherwise the camera might miss it.  
+
 ## Allied Vision Technologies cameras (AVT):
 
 
