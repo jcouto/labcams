@@ -10,9 +10,9 @@ Install the PCO.sdk software; make sure to install the correct adapter for your 
 
 ``labcams`` searches for the drivers in:
 
- * ``C:\\Program Files (x86)\\pco\\pco.sdk\\bin64\\SC2_Cam.dll`` 
- * ``C:\\Program Files (x86)\\Digital Camera Toolbox\\pco.sdk\\bin64\\SC2_Cam.dll`` or
- * ``C:\\Program Files (x86)\\PCO Digital Camera Toolbox\\pco.sdk\\bin64\\SC2_Cam.dll``
+ * ``C/Program Files (x86)/pco/pco.sdk/bin64/SC2_Cam.dll`` 
+ * ``C/Program Files (x86)/Digital Camera Toolbox/pco.sdk/bin64/SC2_Cam.dll`` or
+ * ``/C/Program Files (x86)/PCO Digital Camera Toolbox/pco.sdk/bin64/SC2_Cam.dll``
 
 Because the camera needs to be initialized, you need to open the camera with Camware before opening with ``labcams``. This needs to be done everytime you restart the computer or change the size of the sensor.
 
