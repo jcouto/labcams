@@ -72,12 +72,11 @@ class GenericWriter(object):
     def get_filename(self):
         return str(self.filename[:]).strip(' ')
 
-    def open_file(self,nfiles = None,frame = None):
+    def get_filename_path(self):
         self.path_keys['run'] = 'run{0:03d}'.format(self.runs)
         nfiles = self.nFiles
         self.path_keys['nfiles'] = '{0:08d}'.format(nfiles)
         self.path_keys['filename'] = self.get_filename()
-
         filename = (self.path_format+'{extension}').format(**self.path_keys)
         folder = os.path.dirname(filename)
         if folder == '':
@@ -85,6 +84,10 @@ class GenericWriter(object):
             folder = os.path.dirname(filename)
         if not os.path.exists(folder):
             os.makedirs(folder)
+        return filename
+
+    def open_file(self,nfiles = None,frame = None):
+        filename = self.get_filename_path()
         if not self.fd is None:
             self.close_file()
         self._open_file(filename,frame)
@@ -96,21 +99,16 @@ class GenericWriter(object):
         self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - ' + filename + '\n')
 
     def _open_logfile(self):
-        self.path_keys['run'] = 'run{0:03d}'.format(self.runs)
-        nfiles = self.nFiles
-        self.path_keys['nfiles'] = '{0:08d}'.format(nfiles)
-        self.path_keys['filename'] = self.get_filename()
+        #self.path_keys['run'] = 'run{0:03d}'.format(self.runs)
+        #nfiles = self.nFiles
+        #self.path_keys['nfiles'] = '{0:08d}'.format(nfiles)
+        #self.path_keys['filename'] = self.get_filename()
 
-        filename = (self.path_format+'{extension}').format(**self.path_keys)
-
+        #filename = (self.path_format+'{extension}').format(**self.path_keys)
+        filename = self.get_filename_path()
         logfname = filename.replace('{extension}'.format(
             **self.path_keys),'.camlog')
-        folder = os.path.dirname(logfname)
-        if folder == '':
-            logfname = pjoin(os.path.abspath(os.path.curdir),logfname)
-            folder = os.path.dirname(logfname)
-        if not os.path.exists(folder):
-            os.makedirs(folder)
+
         self.logfile = open(logfname,'w')
         self.logfile.write('# Camera: {0} log file'.format(
             self.dataname) + '\n')

@@ -105,12 +105,19 @@ class RecordingControlWidget(QWidget):
         Datapath is relative to the folder specified in the preferences.
         Can be set via UDP (expname=my_experiment/name) or ZMQ (dict(action='expname',value='my_experiment/name'))
 '''
+        self.expname = ''
+        w2 = QWidget()
+        l2 = QFormLayout()
+        w2.setLayout(l2)
         self.experimentNameEdit = QLineEdit(' ')
-        self.experimentNameEdit.returnPressed.connect(self.setExpName)
+        #self.experimentNameEdit.textChanged.connect(self.setExpName)
         label = QLabel('Name:')
         label.setToolTip(info)
         self.experimentNameEdit.setToolTip(info)
-        form.addRow(label,self.experimentNameEdit)
+        l2.addRow(label,self.experimentNameEdit)
+        w = QGroupBox('Triggers and acquisition')
+        l = QFormLayout()
+        w.setLayout(l)
         self.camTriggerToggle = QCheckBox()
         self.camTriggerToggle.setChecked(self.parent.triggered.is_set())
         self.camTriggerToggle.stateChanged.connect(self.toggleTriggered)
@@ -119,21 +126,63 @@ class RecordingControlWidget(QWidget):
         info = '''Toggle the hardware trigger mode on cameras that support it.
 This will can be differently configured for different cameras.'''
         self.camTriggerToggle.setToolTip(info)
-        form.addRow(label,self.camTriggerToggle)
-        
+        l.addRow(label,self.camTriggerToggle)
+        self.saveButton = QPushButton('Acquire')
+        self.snapshotButton = QPushButton('Snapshot')
+        def snapshot():
+            self.checkUpdateFilename()
+            for cam,writer,wid in zip(self.parent.cams,
+                                      self.parent.writers,
+                                      self.parent.camwidgets):
+                if not writer is None:
+                    fname = writer.get_filename_path()
+                    dataname = writer.dataname
+                elif not cam.recorder is None:
+                    fname = cam.recorder.get_filename_path()
+                    dataname = cam.recorder.dataname
+                else:
+                    fname = None
+                    dataname = 'snapshot'
+                fname = pjoin(os.path.dirname(fname),'snapshots',
+                              datetime.today().strftime('%Y%m%d_%H%M%S_{0}.tif'.format(dataname)))
+                display('[Snapshot] - {0}'.format(fname))
+                wid.saveImageFromCamera(filename=fname)
+        self.snapshotButton.clicked.connect(snapshot)
         self.saveOnStartToggle = QCheckBox()
+        self.softTriggerToggle = QCheckBox()
+        def saveButton():
+            if not self.saveOnStartToggle.isChecked():
+                self.softTriggerToggle.setChecked(False)
+                time.sleep(0.1)
+                self.saveOnStartToggle.setChecked(True)
+                time.sleep(0.1)
+                self.softTriggerToggle.setChecked(True)
+                self.saveButton.setText('Stop')                
+            else:
+                self.saveOnStartToggle.setChecked(False)
+                self.saveButton.setText('Acquire')
+        self.saveButton.clicked.connect(saveButton)
+        #self.saveButton
         self.saveOnStartToggle.setChecked(self.parent.saveOnStart)
         self.saveOnStartToggle.stateChanged.connect(self.toggleSaveOnStart)
-        form.addRow(QLabel("Manual save: "),self.saveOnStartToggle)
-        self.softTriggerToggle = QCheckBox()
+        label = QLabel("Manual save: ")
+        info = '''Acquire data to disk. The checkbox starts and stops acquisition. 
+The button turns off the camera, starts saving and starts the camera. 
+This is the same as pressing the software trigger checkbox, then manual save then the software trigger again.
+If the camera is saving this stops the camera.
+'''
+        label.setToolTip(info)
+        self.saveOnStartToggle.setToolTip(info)
+        l.addRow(label,self.saveOnStartToggle)
+        self.saveButton.setFixedWidth(100)
         self.softTriggerToggle.setChecked(self.parent.software_trigger)
         self.softTriggerToggle.stateChanged.connect(
             self.toggleSoftwareTriggered)
         label = QLabel("Software trigger: ")
-        label.setToolTip(info)
         info = '''Toggle the software trigger to start or stop acquisition via software.'''
+        label.setToolTip(info)
         self.softTriggerToggle.setToolTip(info)
-        form.addRow(label,self.softTriggerToggle)
+        l.addRow(label,self.softTriggerToggle)
         self.udpmessages = QLabel('')
         b1=QFont()
         b1.setPixelSize(16)
@@ -142,8 +191,20 @@ This will can be differently configured for different cameras.'''
         self.udpmessages.setFont(b1)
         self.udpmessages.setStyleSheet("color: rgb(255,165,0)")
         form.addRow(self.udpmessages)
-        
         self.setLayout(form)
+        self.layout = form
+        l.addRow(self.saveButton,self.snapshotButton)
+        l2.addRow(self.udpmessages)
+        form.addRow(w,w2)
+
+    def checkUpdateFilename(self,filename=None):
+        if filename is None:
+            filename = str(self.experimentNameEdit.text())
+        if not self.expname == filename:
+            self.parent.setExperimentName(filename)
+            self.expname = filename
+
+        
     def toggleSoftwareTriggered(self,value):
         display('Software trigger pressed [{0}]'.format(value))
         if value:
@@ -173,23 +234,24 @@ This will can be differently configured for different cameras.'''
             self.parent.triggered.clear()
         for cam in self.parent.cams:
             cam.stop_acquisition()
+        if self.parent.saveOnStart:
+            self.checkUpdateFilename()
         time.sleep(.5)
         self.parent.triggerCams(save = self.parent.saveOnStart)
         tstart[0] = time.time()
         
-    def setExpName(self):
-        name = self.experimentNameEdit.text()
-        if not self.saveOnStartToggle.isChecked():
-            self.parent.setExperimentName(str(name))
-        else:
-            display('[CRITICAL] Disable manual save to change the filename!')
+    #def setExpName(self):
+    #    expname = self.experimentNameEdit.text()
+        #self.parent.setExperimentName(str(name))
 
     def toggleSaveOnStart(self,state):
         self.parent.saveOnStart = state
-        display('[Controller] - Warning: The save button is no longer restarting the cameras.')
+        #display('[Controller] - Warning: The save button is no longer restarting the cameras.')
         #for cam in self.parent.cams:
         #    cam.stop_acquisition()
         #time.sleep(.5)
+        # Set the experiment name
+        self.checkUpdateFilename()
         for c,(cam,flg,writer) in enumerate(zip(self.parent.cams,
                                                 self.parent.saveflags,
                                                 self.parent.writers)):
@@ -199,9 +261,11 @@ This will can be differently configured for different cameras.'''
                     cam.saving.set()
                     if not writer is None:
                         writer.write.set()
+                    self.experimentNameEdit.setDisabled(True)
                 else:
                     display('[Controller] Sending stop command to camera [{0}].'.format(c))
                     cam.stop_saving()
+                    self.experimentNameEdit.setDisabled(False)
                     #writer.write.clear()
         
 class CamWidget(QWidget):
@@ -512,14 +576,19 @@ class CamWidget(QWidget):
         self.parameters['TrackEye'] = not self.parameters['TrackEye']
         self.etrackercheck.checkbox.setChecked(self.parameters['TrackEye'])
 
-    def saveImageFromCamera(self):
-        self.parent.timer.stop()
+    def saveImageFromCamera(self,filename=None):
         frame = self.parent.camframes[self.iCam]
-        filename = QFileDialog.getSaveFileName(self,
+        if filename is None:
+            self.parent.timer.stop()
+            filename = QFileDialog.getSaveFileName(self,
                                                'Select filename to save.')
+            self.parent.timer.start()
         if type(filename) is tuple:
             filename = filename[0]
         if filename:
+            folder = os.path.dirname(filename)
+            if not os.path.isdir(folder):
+                os.makedirs(folder)
             from tifffile import imsave
             imsave(str(filename),
                    frame.transpose([2,0,1]).squeeze(),
@@ -527,8 +596,7 @@ class CamWidget(QWidget):
                        'Camera':str(self.iCam)})
             display('Saved camera frame for cam: {0}'.format(self.iCam))
         else:
-            display('Aborted.')
-        self.parent.timer.start()
+            display('Snapshot aborted.')
         
     def _open_mptracker(self,image):
         try:

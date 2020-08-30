@@ -363,7 +363,6 @@ The recorders can be specified with the '"recorder":"ffmpeg"' option in each cam
 ''')
                     raise ValueError('Unknown recorder {0} '.format(cam['recorder']))
             else:
-                print('No writer')
                 self.writers.append(None)
                 
             if 'CamStimTrigger' in cam.keys():
@@ -401,7 +400,8 @@ The recorders can be specified with the '"recorder":"ffmpeg"' option in each cam
     def setExperimentName(self,expname):
         # Makes sure that the experiment name has the right slashes.
         if os.path.sep == '/':
-            expname = expname.replace('\\',os.path.sep).strip(' ')
+            expname = expname.replace('\\',os.path.sep)
+        expname = expname.strip(' ')
         for flg,writer,cam in zip(self.saveflags,self.writers,self.cams):
             if flg:
                 if not writer is None:
@@ -409,7 +409,7 @@ The recorders can be specified with the '"recorder":"ffmpeg"' option in each cam
                 else:
                     display('Setting serial recorder filename.')
                     cam.eventsQ.put('filename='+expname)
-        time.sleep(0.15)
+        #time.sleep(0.15)
         self.recController.experimentNameEdit.setText(expname)
         
     def serverActions(self):
@@ -520,8 +520,13 @@ The recorders can be specified with the '"recorder":"ffmpeg"' option in each cam
         self.tabs = []
         self.camwidgets = []
         self.recController = RecordingControlWidget(self)
-        self.setCentralWidget(self.recController)
-        
+        #self.setCentralWidget(self.recController)
+        self.recControllerTab = QDockWidget("",self)
+        self.recControllerTab.setWidget(self.recController)
+        self.addDockWidget(
+            Qt.TopDockWidgetArea,
+            self.recControllerTab)
+        self.recController.setFixedHeight(self.recController.layout.sizeHint().height())
         for c,cam in enumerate(self.cams):
             tt = ''
             if self.saveflags[c]:
@@ -543,23 +548,22 @@ The recorders can be specified with the '"recorder":"ffmpeg"' option in each cam
             self.addDockWidget(
                 Qt.BottomDockWidgetArea,
                 self.tabs[-1])
-            self.tabs[-1].setMinimumHeight(200)
+            self.tabs[-1].setMinimumHeight(300)
+            # there can only be one of these for now?
+            if hasattr(self,'camstim_widget'):
+                self.camstim_tab = QDockWidget("Camera excitation control",self)
+                self.camstim_tab.setWidget(self.camstim_widget)
+                self.addDockWidget(
+                    Qt.LeftDockWidgetArea,
+                self.camstim_tab)
             display('Init view: ' + str(c))
-        if hasattr(self,'camstim_widget'):
-            self.camstim_tab = QDockWidget("Camera excitation control",self)
-            self.camstim_tab.setWidget(self.camstim_widget)
-            self.addDockWidget(
-                Qt.LeftDockWidgetArea,
-            self.camstim_tab)
-
-            
         self.timer = QTimer()
         self.timer.timeout.connect(self.timerUpdate)
         self.timer.start(self.updateFrequency)
         self.camframes = []
         for c,cam in enumerate(self.cams):
             self.camframes.append(cam.img)
-        self.move(0, 0)
+        #self.move(0, 0)
         self.show()
             	
     def timerUpdate(self):
