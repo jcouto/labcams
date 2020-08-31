@@ -29,6 +29,8 @@ You can use a teensy to record sync pulses from behavior or stimulus. There are 
 
 Download SpinView **both the instalation .exe and the python files**. 
 
+**WARNING** Do not do ``pip install pyspin`` the pyspin package in the PyPi project is not the same as the SpinView Python drivers.
+
 * Install the exe
 * To install for python you need to download the correct  version for your python instalation (from the FLIR SpinView website).
 * Extract the zip and run ``pip install spinnaker_python-2.0.0.147-cp38-cp38-win_amd64.whl`` from the extracted folder (assuming you are using python 3.8).

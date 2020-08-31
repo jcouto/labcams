@@ -127,7 +127,12 @@ class RecordingControlWidget(QWidget):
 This will can be differently configured for different cameras.'''
         self.camTriggerToggle.setToolTip(info)
         l.addRow(label,self.camTriggerToggle)
+
         self.saveButton = QPushButton('Acquire')
+        info = '''The button turns off the camera, starts saving and starts the camera. 
+This is the same as pressing the software trigger checkbox, then manual save then the software trigger again.
+If the camera is saving this stops the camera.'''
+        self.saveButton.setToolTip(info)
         self.snapshotButton = QPushButton('Snapshot')
         def snapshot():
             self.checkUpdateFilename()
@@ -163,26 +168,25 @@ This will can be differently configured for different cameras.'''
                 self.saveButton.setText('Acquire')
         self.saveButton.clicked.connect(saveButton)
         #self.saveButton
-        self.saveOnStartToggle.setChecked(self.parent.saveOnStart)
-        self.saveOnStartToggle.stateChanged.connect(self.toggleSaveOnStart)
-        label = QLabel("Manual save: ")
-        info = '''Acquire data to disk. The checkbox starts and stops acquisition. 
-The button turns off the camera, starts saving and starts the camera. 
-This is the same as pressing the software trigger checkbox, then manual save then the software trigger again.
-If the camera is saving this stops the camera.
-'''
-        label.setToolTip(info)
-        self.saveOnStartToggle.setToolTip(info)
-        l.addRow(label,self.saveOnStartToggle)
-        self.saveButton.setFixedWidth(100)
         self.softTriggerToggle.setChecked(self.parent.software_trigger)
         self.softTriggerToggle.stateChanged.connect(
             self.toggleSoftwareTriggered)
         label = QLabel("Software trigger: ")
-        info = '''Toggle the software trigger to start or stop acquisition via software.'''
+        info = '''Toggle the software trigger to start or stop acquisition using the camera control software.'''
         label.setToolTip(info)
         self.softTriggerToggle.setToolTip(info)
         l.addRow(label,self.softTriggerToggle)
+
+        self.saveOnStartToggle.setChecked(self.parent.saveOnStart)
+        self.saveOnStartToggle.stateChanged.connect(self.toggleSaveOnStart)
+
+        label = QLabel("Manual save: ")
+        info = '''Stream data to disk. The checkbox starts and stops acquisition.'''
+        label.setToolTip(info)
+        self.saveOnStartToggle.setToolTip(info)
+        self.saveButton.setFixedWidth(100)
+        l.addRow(label,self.saveOnStartToggle)
+
         self.udpmessages = QLabel('')
         b1=QFont()
         b1.setPixelSize(16)
