@@ -417,6 +417,7 @@ class FFMPEGWriter(GenericWriterProcess):
                 self.doutputs = {'-vcodec':'h264_nvenc',
                                  '-pix_fmt':'yuv420p',
                                  '-cq:v':'19',
+                                 '-threads':str(1),
                                  '-preset':'fast'}
         self.doutputs['-r'] =str(self.frame_rate)
         self.hwaccel = hwaccel
@@ -429,12 +430,23 @@ class FFMPEGWriter(GenericWriterProcess):
         self.fd = None
 
     def _open_file(self,filename,frame = None):
+        if frame is None:
+            raise ValueError('[Recorder] Need to pass frame to open a file.')
         self.w = frame.shape[1]
         self.h = frame.shape[0]
-        self.fd = FFmpegWriter(filename,
-                               inputdict=self.dinputs,
-                               outputdict=self.doutputs)
-
+        # does a check for the datatype, if uint16 then save compressed lossless
+        if frame.dtype in [np.uint16] and len(frame.shape) == 2:
+            self.fd = FFmpegWriter(filename.replace(self.extension,'.mov'),
+                                   inputdict={'-pix_fmt':'gray16le',
+                                              '-r':str(self.frame_rate)}, # this is important
+                                   outputdict={'-c:v':'libopenjpeg',
+                                               '-pix_fmt':'gray16le',
+                                               '-r':str(self.frame_rate)})
+        else:
+            self.fd = FFmpegWriter(filename,
+                                   inputdict=self.dinputs,
+                                   outputdict=self.doutputs)
+            
     def _write(self,frame,frameid,timestamp):
         self.fd.writeFrame(frame)
 
@@ -636,9 +648,8 @@ class TiffCamWriter(GenericWriter):
                                            incrementruns=incrementruns)
         self.compression = None
         if not compression is None:
-            if compression > 0:
-                self.compression = compression
-
+            self.compression = np.clip(compression,0,9)
+            
     def close_file(self):
         if not self.fd is None:
             self.fd.close()
