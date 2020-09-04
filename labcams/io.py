@@ -60,6 +60,10 @@ class GenericWriter(object):
                                run = runname,
                                nfiles = '{0:08d}'.format(0),
                                extension = self.extension)
+        if self.framesperfile > 0:
+            if not '{nfiles}' in self.path_format:
+                self.path_format += '_{nfiles}'
+                
     def _stop_write(self):
         self.write = False
     def stop(self):

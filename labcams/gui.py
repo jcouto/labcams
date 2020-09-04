@@ -47,8 +47,10 @@ class LabCamsGUI(QMainWindow):
         '''
         super(LabCamsGUI,self).__init__()
         self.parameters = parameters
-        if not 'compress' in self.parameters:
+        if not 'compress' in self.parameters.keys():
             self.parameters['compress'] = 0
+        if not 'recorder_frames_per_file' in self.parameters.keys():
+            self.parameters['recorder_frames_per_file'] = 0
         self.app = app
         self.updateFrequency=updateFrequency
         self.saveOnStart = saveOnStart
@@ -331,6 +333,7 @@ class LabCamsGUI(QMainWindow):
                         frame_rate = cam['frameRate'],
                         filename = expName,
                         hwaccel = cam['hwaccel'],
+                        framesperfile=self.parameters['recorder_frames_per_file'],
                         dataname = cam['description']))
                 elif cam['recorder'] == 'binary':
                     self.writers.append(BinaryWriter(
@@ -338,6 +341,7 @@ class LabCamsGUI(QMainWindow):
                         datafolder=self.parameters['recorder_path'],
                         pathformat = self.parameters['recorder_path_format'],
                         sleeptime = self.parameters['recorder_sleep_time'],
+                        framesperfile=self.parameters['recorder_frames_per_file'],
                         filename = expName,
                         dataname = cam['description']))
                 elif cam['recorder'] == 'opencv':
@@ -345,8 +349,9 @@ class LabCamsGUI(QMainWindow):
                         inQ = self.camQueues[-1],
                         datafolder=self.parameters['recorder_path'],
                         pathformat = self.parameters['recorder_path_format'],
+                        framesperfile=self.parameters['recorder_frames_per_file'],
                         sleeptime = self.parameters['recorder_sleep_time'],
-                        compression = 17,
+                        compression = self.parameters['compress'],
                         frame_rate = cam['frameRate'],
                         filename = expName,
                         dataname = cam['description']))

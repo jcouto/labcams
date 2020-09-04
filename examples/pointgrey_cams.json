@@ -35,7 +35,6 @@
 	    "roi": [0,280,1040,512]
 	}
     ],
-    "compress": 17,
     "datapaths": {
         "analysispaths": "analysis",
         "dataserverpaths": [
@@ -46,7 +45,7 @@
         "logpaths": "presentation",
         "onephotonpaths": "1photon/raw"
     },
-    "recorder_frames_per_file": 256,
+    "recorder_frames_per_file": 0,
     "recorder_path": "C:\\data",
     "recorder_path_format":"{filename}_{dataname}_{nfiles}",
     "recorder_sleep_time": 0.05,
