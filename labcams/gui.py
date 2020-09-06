@@ -560,16 +560,16 @@ The recorders can be specified with the '"recorder":"ffmpeg"' option in each cam
         self.timer = QTimer()
         self.timer.timeout.connect(self.timerUpdate)
         self.timer.start(self.updateFrequency)
-        self.camframes = []
-        for c,cam in enumerate(self.cams):
-            self.camframes.append(cam.img)
         #self.move(0, 0)
         self.show()
             	
     def timerUpdate(self):
-        for c,(cam,frame) in enumerate(zip(self.cams,self.camframes)):
+        for c,cam in enumerate(self.cams):
             try:
-                self.camwidgets[c].image(frame,cam.nframes.value)
+                #self.camwidgets[c].image(frame,cam.nframes.value)
+                frame = cam.get_img()
+                if not frame is None:
+                    self.camwidgets[c].image(frame,cam.nframes.value) #frame
             except Exception as e:
                 display('Could not draw cam: {0}'.format(c))
                 exc_type, exc_obj, exc_tb = sys.exc_info()
