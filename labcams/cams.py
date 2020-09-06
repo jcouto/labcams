@@ -44,13 +44,13 @@ class GenericCam(Process):
         self.refresh_period = refreshperiod
         self._tupdate = time.time()
         self.daemon = True
-        self.memmanager = Manager()
-        self.memlist = self.memmanager.list()
-        self.memlist.append(None)
+        #self.memmanager = Manager()
+        #self.memlist = self.memmanager.list()
+        #self.memlist.append(None)
         self.lasttime = 0
 
     def get_img(self):
-        return self.memlist[0]
+        return self.img#self.memlist[0]
     
     def stop_saving(self):
         # This will send a stop to stop saving and close the writer.
@@ -100,8 +100,8 @@ class GenericCam(Process):
                     self.recorderpar['recorder']))
     def run(self):
         self._init_ctrevents()
-        #self.buf = np.frombuffer(self.frame.get_obj(),
-        #                    dtype = self.dtype).reshape([self.h,self.w,self.nchan])
+        self.img = np.frombuffer(self.frame.get_obj(),
+                                 dtype = self.dtype).reshape([self.h,self.w,self.nchan])
         self.close_event.clear()
         self._start_recorder()
         while not self.close_event.is_set():
