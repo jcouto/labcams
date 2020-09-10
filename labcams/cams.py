@@ -168,8 +168,8 @@ class GenericCam(Process):
             self.lasttime = timestamp
         
     def _update_buffer(self,frame,frameID):
-        #self.buf[:] = np.reshape(frame,self.buf.shape)[:]
-        self.memlist[0] = np.reshape(frame,[self.h,self.w,self.nchan])
+        self.img[:] = np.reshape(frame,self.buf.shape)[:]
+        #self.memlist[0] = np.reshape(frame,[self.h,self.w,self.nchan])
     def _parse_command_queue(self):
         if not self.eventsQ.empty():
             cmd = self.eventsQ.get()
