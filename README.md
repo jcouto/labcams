@@ -82,6 +82,7 @@ The configuration files are simple ``json`` files. There are 2 parts to the file
 1. ``cams`` - **camera descriptions** - each camera has a section to store acquisition and recording parameters.
 
 Available camera drivers:
+
  * `PCO` - install pco.sdk
  * `AVT` - install Vimba SDK and pymba
  * `QImaging` 
@@ -89,7 +90,8 @@ Available camera drivers:
  * `openCV` - webcams and so on
 
 Each camera has its own parameters, there are some parameters that are common to all:
- * `recorder` - the type of recorder `tiff` `ffmpeg` `opencv` `binary`
+
+* `recorder` - the type of recorder `tiff` `ffmpeg` `opencv` `binary`
  * `haccel` - `nvidia` or `intel` for use with ffmpeg for compression.
 
 **NOTE:** You need to get ffmpeg compiled with `NVENC` from [here](https://developer.nvidia.com/ffmpeg) - precompiled versions are avaliable. Make sure to have python recognize it in the path (using for example `which ffmpeg` to confirm from git bash)/
@@ -99,11 +101,13 @@ Each camera has its own parameters, there are some parameters that are common to
 
 
 2. **general parameters** to control the remote communication ports and general gui or recording parameters.
+
  * `recorder_frames_per_file` number of frames per file
  * `recorder_path` the path of the recorder, how to handle substitutions - needs more info.
  
 
 3. Aditional parameters:
+
  * 'CamStimTrigger' - controls the arduino camera trigger, see the duino examples folder.
 
 
@@ -128,6 +132,11 @@ The UDP commands are:
 **Please drop me a line for feedback and acknowledge if you use labcams in your work.**
 
 
+Joao Couto - jpcouto@gmail.com
+
+May 2017
+
+
 
 ## Debugging:
 
@@ -142,7 +151,4 @@ If you have the error:
 Make sure you have the version with NVENC, check with ``which ffmpeg`` which version is running
 
 
-Joao Couto - jpcouto@gmail.com
-
-May 2017
 
