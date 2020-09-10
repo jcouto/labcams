@@ -55,14 +55,13 @@ class QImagingCam(GenericCam):
         cam.StopStreaming()
         cam.CloseCamera()
         ReleaseDriver()
-        self.img[:] = np.reshape(buf,self.img.shape)[:]
         display("Got info from camera (name: {0})".format(camId))
         self.camera_ready = Event()
 
     def run(self):
-        buf = np.frombuffer(self.frame.get_obj(),
-                            dtype = self.dtype).reshape([
-                                self.w,self.h,self.nchan])
+        #buf = np.frombuffer(self.frame.get_obj(),
+        #                    dtype = self.dtype).reshape([
+        #                        self.w,self.h,self.nchan])
         ReleaseDriver()
         self.close_event.clear()
         while not self.close_event.is_set():
@@ -127,7 +126,7 @@ class QImagingCam(GenericCam):
                 elif self.was_saving:
                     self.was_saving = False
                     self.queue.put(['STOP'])
-                buf[:] = np.reshape(frame,buf.shape)[:]
+                self.img[:] = np.reshape(frame,self.img.shape)[:]
 
                 queue.put(f)
 
