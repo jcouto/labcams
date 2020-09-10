@@ -496,12 +496,13 @@ class PointGreyCam(GenericCam):
     def _cam_close(self):
         if not self.cam is None:
             try:
-                self.cam.EndAcquisition()
-                display('PointGrey [{0}] - Stopped acquitition.'.format(self.cam_id))            
+                self._cam_stopacquisition()
+                display('PointGrey [{0}] - Stopped acquitition.'.format(self.cam_id))          
             except:
                 pass
             self.cam.DeInit()
             del self.cam
+            
         if not self.drv is None:
             del self.nodemap_tldevice
             del self.nodemap
