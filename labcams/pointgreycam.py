@@ -439,12 +439,7 @@ class PointGreyCam(GenericCam):
         # Set GPIO lines and strobe # these should go in the config
         # Line 2 and Line 3
         if not self.hardware_trigger is None:
-            if self.hardware_trigger == 'out_line3':
-                display('Setting the output line for line 3')
-                self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
-                self.cam.LineMode.SetValue(PySpin.LineMode_Output)
-                self.cam.LineSource.SetValue(PySpin.LineSource_ExposureActive)
-                # This is not doing what i would like it to do.
+            # This is not doing what i would like it to do.
             self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
             if self.hardware_trigger == 'in_line3':
                 self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
@@ -455,10 +450,22 @@ class PointGreyCam(GenericCam):
                 display('PointGrey [{0}] - External trigger mode ON .'.format(self.cam_id))      
 
         self.cam.BeginAcquisition()
+        if not self.hardware_trigger is None:
+            if self.hardware_trigger == 'out_line3':
+                display('Setting the output line for line 3')
+                self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
+                self.cam.LineMode.SetValue(PySpin.LineMode_Output)
+                self.cam.LineSource.SetValue(PySpin.LineSource_ExposureActive)
+                # This is not doing what i would like it to do.
         display('PointGrey [{0}] - Started acquitition.'.format(self.cam_id))            
     def _cam_stopacquisition(self):
         '''stop camera acq'''
         self.cam.EndAcquisition()
+        if not self.hardware_trigger is None:
+            if self.hardware_trigger == 'out_line3':
+                display('Setting the output line for line 3')
+                self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
+                self.cam.LineMode.SetValue(PySpin.LineMode_Input) # stop output
 
 
     def _cam_loop(self):
@@ -489,12 +496,13 @@ class PointGreyCam(GenericCam):
     def _cam_close(self):
         if not self.cam is None:
             try:
-                self.cam.EndAcquisition()
-                display('PointGrey [{0}] - Stopped acquitition.'.format(self.cam_id))            
+                self._cam_stopacquisition()
+                display('PointGrey [{0}] - Stopped acquitition.'.format(self.cam_id))          
             except:
                 pass
             self.cam.DeInit()
             del self.cam
+            
         if not self.drv is None:
             del self.nodemap_tldevice
             del self.nodemap

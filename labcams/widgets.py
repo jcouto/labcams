@@ -338,7 +338,7 @@ class CamWidget(QWidget):
         self.string = '{0}'
         if not self.parameters['Save']:
             self.string = 'no save -{0}'
-        self.image(np.array(frame),-1)
+        #self.image(np.array(frame),-1)
         size = 600
         ratio = h/float(w)
         self.hist = None
@@ -581,7 +581,7 @@ class CamWidget(QWidget):
         self.etrackercheck.checkbox.setChecked(self.parameters['TrackEye'])
 
     def saveImageFromCamera(self,filename=None):
-        frame = self.parent.camframes[self.iCam]
+        frame = self.parent.cams[self.iCam].get_img()
         if filename is None:
             self.parent.timer.stop()
             filename = QFileDialog.getSaveFileName(self,
@@ -617,7 +617,6 @@ class CamWidget(QWidget):
         self.eyeTracker.parameters['sequentialPupilMode'] = False
         self.tracker_roi = EyeROIWidget()
         [self.p1.addItem(c) for c in  self.tracker_roi.items()]
-        
         self.trackerpar = MptrackerParameters(self.eyeTracker,image,eyewidget=self.tracker_roi)
         if self.parent.saveflags[self.iCam]:
             self.trackerToggle = QCheckBox()
@@ -668,11 +667,12 @@ class CamWidget(QWidget):
                 self.roiwidget.update(frame,iFrame=nframe)
             if bool(self.parameters['TrackEye']):
                 if self.eyeTracker is None:
-                    self._open_mptracker(image.squeeze())
-                img = self.eyeTracker.apply(image.squeeze())
+                    self._open_mptracker(image[:,:,0])
+                self.eyeTracker.apply(image[:,:,0])
                 if not self.eyeTracker.concatenateBinaryImage:
                     (x1,y1,w,h) = self.eyeTracker.parameters['imagecropidx']
-                    frame = cv2.cvtColor(frame,cv2.COLOR_GRAY2RGB)
+                    if frame.shape[2] != 3:
+                        frame = cv2.cvtColor(frame[:,:,0],cv2.COLOR_GRAY2RGB)
                     frame[y1:y1+h,x1:x1+w] = self.eyeTracker.img
                 else:
                     frame = self.eyeTracker.img

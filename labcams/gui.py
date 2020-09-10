@@ -119,6 +119,7 @@ class LabCamsGUI(QMainWindow):
                     filename = expName,
                     dataname = cam['description'])
             else:
+                display('Using the queue for recording.')
                 recorderpar = None # Use a queue recorder
             if cam['driver'] == 'AVT':
                 try:
@@ -313,6 +314,7 @@ class LabCamsGUI(QMainWindow):
                 if not 'recorder_path_format' in self.parameters.keys():
                     self.parameters['recorder_path_format'] = pjoin('{datafolder}','{dataname}','{filename}','{today}_{run}_{nfiles}')
                 if  cam['recorder'] == 'tiff':
+                    display('Recording TIF')
                     self.writers.append(TiffWriter(
                         inQ = self.camQueues[-1],
                         datafolder=self.parameters['recorder_path'],
@@ -323,6 +325,7 @@ class LabCamsGUI(QMainWindow):
                         filename = expName,
                         dataname = cam['description']))
                 elif cam['recorder'] == 'ffmpeg':
+                    display('Recording ffmpeg')
                     if not 'hwaccel' in cam.keys():
                         cam['hwaccel'] = None
                     self.writers.append(FFMPEGWriter(
@@ -336,6 +339,7 @@ class LabCamsGUI(QMainWindow):
                         framesperfile=self.parameters['recorder_frames_per_file'],
                         dataname = cam['description']))
                 elif cam['recorder'] == 'binary':
+                    display('Recording binary')
                     self.writers.append(BinaryWriter(
                         inQ = self.camQueues[-1],
                         datafolder=self.parameters['recorder_path'],
@@ -345,6 +349,7 @@ class LabCamsGUI(QMainWindow):
                         filename = expName,
                         dataname = cam['description']))
                 elif cam['recorder'] == 'opencv':
+                    display('Recording opencv')
                     self.writers.append(OpenCVWriter(
                         inQ = self.camQueues[-1],
                         datafolder=self.parameters['recorder_path'],
@@ -565,16 +570,16 @@ The recorders can be specified with the '"recorder":"ffmpeg"' option in each cam
         self.timer = QTimer()
         self.timer.timeout.connect(self.timerUpdate)
         self.timer.start(self.updateFrequency)
-        self.camframes = []
-        for c,cam in enumerate(self.cams):
-            self.camframes.append(cam.img)
         #self.move(0, 0)
         self.show()
             	
     def timerUpdate(self):
-        for c,(cam,frame) in enumerate(zip(self.cams,self.camframes)):
+        for c,cam in enumerate(self.cams):
             try:
-                self.camwidgets[c].image(frame,cam.nframes.value)
+                #self.camwidgets[c].image(frame,cam.nframes.value)
+                frame = cam.get_img()
+                if not frame is None:
+                    self.camwidgets[c].image(frame,cam.nframes.value) #frame
             except Exception as e:
                 display('Could not draw cam: {0}'.format(c))
                 exc_type, exc_obj, exc_tb = sys.exc_info()

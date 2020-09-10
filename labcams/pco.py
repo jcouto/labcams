@@ -558,11 +558,11 @@ class PCOCam(GenericCam):
             if self.nchan > 1:
                 tmpid = np.mod(frameID,self.nchan)
                 # because frame ids start in one
-                self.buf[:,:,(tmpid + 1)%self.nchan] = frame[:]
+                self.img[:,:,(tmpid + 1)%self.nchan] = frame[:]
             else:
-                self.buf[:,:,0] = frame[:]
+                self.img[:,:,0] = frame[:]
         else:
-            self.buf[:] = np.reshape(frame,self.buf.shape)[:]
+            self.img[:] = np.reshape(frame,self.img.shape)[:]
     
     def _cam_close(self):
         display('PCO [{0}] - Stopping acquisition.'.format(self.camId))
