@@ -466,7 +466,6 @@ class PointGreyCam(GenericCam):
                 display('Setting the output line for line 3')
                 self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
                 self.cam.LineMode.SetValue(PySpin.LineMode_Input) # stop output
-                self.cam.LineSource.SetValue(PySpin.LineSource_ExposureActive)
 
 
     def _cam_loop(self):
