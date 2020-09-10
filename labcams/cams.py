@@ -76,7 +76,7 @@ class GenericCam(Process):
 
     def _start_recorder(self):
         if not self.recorderpar is None:
-            if 'binary' in self.recorderpar['recorder']:
+            if 'binary' in self.recorderpar['recorder'].lower():
                 from .io import BinaryCamWriter
                 self.recorder = BinaryCamWriter(self,
                                                 inQ = self.queue,
@@ -85,7 +85,7 @@ class GenericCam(Process):
                                                 datafolder = self.recorderpar['datafolder'],
                                                 framesperfile = 0,
                                                 incrementruns = True)
-            elif 'tiff' in self.recorderpar['recorder']:
+            elif 'tiff' in self.recorderpar['recorder'].lower():
                 from .io import TiffCamWriter
                 self.recorder = TiffCamWriter(self,
                                               inQ = self.queue,
@@ -283,7 +283,7 @@ class OpenCVCam(GenericCam):
         '''Set frame rate in seconds'''
         self.frame_rate = float(framerate)
         if not self.cam is None:
-            if not self.frame_rate == float(0):
+            if not float(self.frame_rate) == float(0):
                 res = self.cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
                 res = self.cam.set(cv2.CAP_PROP_EXPOSURE,1./self.frame_rate)
                 res = self.cam.set(cv2.CAP_PROP_FPS,self.frame_rate)

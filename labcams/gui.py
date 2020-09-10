@@ -89,8 +89,8 @@ class LabCamsGUI(QMainWindow):
 
 
         # Init cameras
-        camdrivers = [cam['driver'] for cam in camDescriptions]
-        if 'AVT' in camdrivers:
+        camdrivers = [cam['driver'].lower() for cam in camDescriptions]
+        if 'avt' in camdrivers:
             from .avt import AVT_get_ids
             try:
                 avtids,avtnames = AVT_get_ids()
@@ -109,6 +109,8 @@ class LabCamsGUI(QMainWindow):
             if not 'recorder' in cam.keys():
                 # defaults tiff
                 cam['recorder'] = 'tiff'
+                if 'saveMethod' in cam.keys():
+                    cam['recorder'] = cam['saveMethod']
             self.camQueues.append(Queue())
             if 'noqueue' in cam['recorder']:
                 recorderpar = dict(
@@ -121,7 +123,7 @@ class LabCamsGUI(QMainWindow):
             else:
                 display('Using the queue for recording.')
                 recorderpar = None # Use a queue recorder
-            if cam['driver'] == 'AVT':
+            if cam['driver'].lower() == 'avt':
                 try:
                     from .avt import AVTCam
                 except Exception as err:
@@ -174,7 +176,7 @@ class LabCamsGUI(QMainWindow):
                                         nFrameBuffers = cam['nFrameBuffers'],
                                         recorderpar = recorderpar))
                 connected_avt_cams.append(camids[0][0])
-            elif cam['driver'] == 'QImaging':
+            elif cam['driver'].lower() == 'qimaging':
                 try:
                     from .qimaging import QImagingCam
                 except Exception as err:
@@ -200,13 +202,13 @@ class LabCamsGUI(QMainWindow):
                                              triggered = self.triggered,
                                              recorderpar = recorderpar))
                                         
-            elif cam['driver'] == 'OpenCV':
+            elif cam['driver'].lower() == 'opencv':
                 self.cams.append(OpenCVCam(camId=cam['id'],
                                            outQ = self.camQueues[-1],
                                            triggered = self.triggered,
                                            **cam,
                                            recorderpar = recorderpar))
-            elif cam['driver'] == 'PCO':
+            elif cam['driver'].lower() == 'pco':
                 try:
                     from .pco import PCOCam
                 except Exception as err:
@@ -238,7 +240,7 @@ class LabCamsGUI(QMainWindow):
                                         acquisition_stim_trigger = camstim,
                                         triggered = self.triggered,
                                         recorderpar = recorderpar))
-            elif cam['driver'] == 'ximea':
+            elif cam['driver'].lower() == 'ximea':
                 try:
                     from .ximeacam import XimeaCam
                 except Exception as err:
@@ -259,7 +261,7 @@ class LabCamsGUI(QMainWindow):
                                           outQ = self.camQueues[-1],
                                           triggered = self.triggered,
                                           recorderpar = recorderpar))
-            elif cam['driver'] == 'PointGrey':
+            elif cam['driver'].lower() == 'pointgrey':
                 try:
                     from .pointgreycam import PointGreyCam
                 except Exception as err:
@@ -314,7 +316,7 @@ class LabCamsGUI(QMainWindow):
                 if not 'recorder_path_format' in self.parameters.keys():
                     self.parameters['recorder_path_format'] = pjoin('{datafolder}','{dataname}','{filename}','{today}_{run}_{nfiles}')
                 if  cam['recorder'] == 'tiff':
-                    display('Recording TIF')
+                    display('Recording to TIFF')
                     self.writers.append(TiffWriter(
                         inQ = self.camQueues[-1],
                         datafolder=self.parameters['recorder_path'],
@@ -325,7 +327,7 @@ class LabCamsGUI(QMainWindow):
                         filename = expName,
                         dataname = cam['description']))
                 elif cam['recorder'] == 'ffmpeg':
-                    display('Recording ffmpeg')
+                    display('Recording with ffmpeg')
                     if not 'hwaccel' in cam.keys():
                         cam['hwaccel'] = None
                     self.writers.append(FFMPEGWriter(
