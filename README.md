@@ -127,6 +127,21 @@ The UDP commands are:
 
 **Please drop me a line for feedback and acknowledge if you use labcams in your work.**
 
+
+
+## Debugging:
+
+### FFMPEG recordings with (realtime) nvidia encoding.
+
+To do this you need to have a version of ffmpeg compile with NVENC.
+
+If you have the error:
+
+   ``Unrecognized option 'cq:v'.``
+
+Make sure you have the version with NVENC, check with ``which ffmpeg`` which version is running
+
+
 Joao Couto - jpcouto@gmail.com
 
 May 2017
