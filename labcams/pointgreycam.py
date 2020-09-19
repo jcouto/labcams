@@ -278,10 +278,11 @@ class PointGreyCam(GenericCam):
             self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off) # Need to have the trigger off to set the rate.
             self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
             framerate_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionFrameRateAuto'))
-            if not PySpin.IsAvailable(framerate_mode) or not PySpin.IsWritable(framerate_mode):
+
+            try:
                 autooff = framerate_mode.GetEntryByName('Off')
                 framerate_mode.SetIntValue(autooff.GetValue())
-            try:
+                self.cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
                 self.cam.AcquisitionFrameRateEnable.SetValue(True)
             except:
                 display('[PointGrey] - Could not set frame rate enable.')
