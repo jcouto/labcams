@@ -15,6 +15,7 @@ from scipy.interpolate import interp1d
 from tqdm import tqdm
 import numpy as np
 import time
+import pandas as pd
 
 tstart = [time.time()]
 
@@ -272,3 +273,30 @@ def binFramesToLaps(laps,time,position,frames, lapspace = None,
                 tmp = (tmp -  baseline)/baseline
             lapX[i-1,:,:] += method(tmp)/float(laps.shape[0])
     return lapX
+
+def unpackbits(x,num_bits = 16,output_binary = False):
+    '''
+    unpacks numbers in bits.
+    '''
+    if type(x) == pd.core.series.Series:
+        x = np.array(x)
+    
+    xshape = list(x.shape)
+    x = x.reshape([-1,1])
+    to_and = 2**np.arange(num_bits).reshape([1,num_bits])
+    bits = (x & to_and).astype(bool).astype(int).reshape(xshape + [num_bits])
+    if output_binary:
+        return bits.T
+    mult = 1
+    sync_idx_onset = np.where(mult*np.diff(bits,axis = 0)>0)
+    sync_idx_offset = np.where(mult*np.diff(bits,axis = 0)<0)
+    onsets = {}
+    offsets = {}
+    for ichan in np.unique(sync_idx_onset[1]):
+        onsets[ichan] = sync_idx_onset[0][
+            sync_idx_onset[1] == ichan]
+    for ichan in np.unique(sync_idx_offset[1]):
+        offsets[ichan] = sync_idx_offset[0][
+            sync_idx_offset[1] == ichan]
+    return onsets,offsets
+

@@ -87,7 +87,11 @@ class GenericWriter(object):
             filename = pjoin(os.path.abspath(os.path.curdir),filename)
             folder = os.path.dirname(filename)
         if not os.path.exists(folder):
-            os.makedirs(folder)
+            try:
+                os.makedirs(folder)
+            except Exception as e:
+                print("Could not create folder {0}".format(folder))
+                print(e)
         return filename
 
     def open_file(self,nfiles = None,frame = None):
@@ -420,9 +424,9 @@ class FFMPEGWriter(GenericWriterProcess):
             elif hwaccel == 'nvidia':
                 self.doutputs = {'-vcodec':'h264_nvenc',
                                  '-pix_fmt':'yuv420p',
-                                 '-cq:v':'19',
+                                 '-cq:v':'25',
                                  '-threads':str(1),
-                                 '-preset':'fast'}
+                                 '-preset':'medium'}
         self.doutputs['-r'] =str(self.frame_rate)
         self.hwaccel = hwaccel
         
@@ -683,11 +687,18 @@ def parseCamLog(fname, readTeensy = False):
                 if line.startswith(logheaderkey):
                     columns = line.strip(logheaderkey).strip(' ').split(',')
 
-    logdata = pd.read_csv(fname,names = columns, 
+    logdata = pd.read_csv(fname, 
                           delimiter=',',
                           header=None,
                           comment='#',
                           engine='c')
+    col = [c for c in logdata.columns]
+    for icol in range(len(col)):
+        if icol <= len(columns)-1:
+            col[icol] = columns[icol]
+        else:
+            col[icol] = 'var{0}'.format(icol)
+    logdata.columns = col
     if readTeensy:
         # get the sync pulses and frames along with the LED
         def _convert(string):
@@ -713,6 +724,8 @@ def parseCamLog(fname, readTeensy = False):
         led = pd.DataFrame(led, columns=['led','frame','timestamp'])
         return logdata,led,sync,ncomm
     return logdata,comments
+
+parse_cam_log = parseCamLog
 
 class TiffStack(object):
     def __init__(self,filenames):
