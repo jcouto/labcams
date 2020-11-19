@@ -399,6 +399,8 @@ class FFMPEGWriter(GenericWriterProcess):
                                           sleeptime=sleeptime,
                                           incrementruns=incrementruns)
         self.compression = compression
+        if frame_rate is None:
+            frame_rate = 0
         if frame_rate <= 0:
             frame_rate = 30.
             display('Using frame rate 30 (this value can be set with the frame_rate argument).')

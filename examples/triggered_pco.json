@@ -1,30 +1,19 @@
 {
     "cams": [
 	{
-            "binning": 4, 
             "description": "1photon", 
             "driver": "PCO", 
             "exposure": 33, 
             "id": 0, 
             "name": "pco.edge", 
             "triggerType": 0,
-	    "recorder": "binary",
+	    "recorder": "tiff",
 	    "CamStimTrigger": {"port":"COM3"}
         }
     ],
-    "compress": 0,
-    "datapaths": {
-        "analysispaths": "analysis",
-        "dataserverpaths": [
-            "Z:\\data"
-        ],
-        "onephotonpaths": "1photon/raw"
-    },
     "recorder_frames_per_file": 1024,
     "recorder_path": "C:\\data",
     "recorder_path_format":"{datafolder}\\{filename}",
-    "recorder_sleep_time": 0.05,
     "server":"udp",
     "server_port": 9998
-    
 }

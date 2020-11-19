@@ -50,6 +50,7 @@ class PCOCam(GenericCam):
         self.set_trigger_mode(0)
         display('PCO - Trigger mode: {0}'.format(self.get_trigger_mode()))
         frame = self.get_one()
+        self.disarm()
         self.camclose()
         self.hCam = None
         self._prepared = []
@@ -89,7 +90,7 @@ class PCOCam(GenericCam):
                 max = 100000,
                 step = 10))
 
-    def camopen(self,camid,reset = True):
+    def camopen(self,camid,reset = False):
         '''Open PCO camera'''
         opencamera = self._dll.PCO_OpenCamera
         # PCO_OpenCamera(HANDLE *hCam, int board_num), return int
@@ -97,8 +98,8 @@ class PCOCam(GenericCam):
         opencamera.restype = ctypes.c_int
         self.hCam = ctypes.c_void_p()
         ret = opencamera(self.hCam, camid)
-        #if ret == 0 and reset:
-            #self._dll.PCO_ResetSettingsToDefault(self.hCam)
+        if ret == 0 and reset:
+            self._dll.PCO_ResetSettingsToDefault(self.hCam)
         return ret
     
     def camclose(self):
@@ -159,13 +160,41 @@ class PCOCam(GenericCam):
                           dwStatusDll, dwStatusDrv,
                           bytes_per_pixel, pixels_per_image,
                           added_buffers, ArrayType)
-    
+
+    def set_transfer_parameters_auto(self):
+        buffer = (ctypes.c_uint8 * 80)(0)
+        self._dll.PCO_SetTransferParametersAuto.argtypes = [ctypes.c_void_p,
+                                                            ctypes.c_void_p,
+                                                            ctypes.c_int]
+
+        p_buffer = ctypes.cast(buffer, ctypes.POINTER(ctypes.c_void_p))
+        ilen = ctypes.c_int(len(buffer))
+
+        error = self._dll.PCO_SetTransferParametersAuto(self.hCam,
+                                                        p_buffer,
+                                                        ilen)
+
     def allocate_buffers(self, num_buffers=5):
         """
         Allocate buffers for image grabbing
         :param num_buffers:
         :return:
         """
+        # Get the actual image resolution-needed for buffers
+        self.wXResAct=ctypes.c_uint16()
+        self.wYResAct=ctypes.c_uint16()
+        wXResMax=ctypes.c_uint16()
+        wYResMax = ctypes.c_uint16()
+        self._dll.PCO_GetSizes(self.hCam, ctypes.byref(self.wXResAct),
+                               ctypes.byref(self.wYResAct), ctypes.byref(wXResMax),
+                               ctypes.byref(wYResMax))
+        self.h,self.w = [self.wXResAct.value,
+                         self.wYResAct.value]
+    
+        self.wXResAct.value = int(self.wXResAct.value)
+        self.wYResAct.value = int(self.wYResAct.value)
+
+        
         dwSize = ctypes.c_uint32(self.wXResAct.value*self.wYResAct.value*2)  # 2 bytes per pixel
         # set buffer variable to []
         self.buffer_numbers, self.buffer_pointers, self.buffer_events = ([], [], [])
@@ -181,9 +210,14 @@ class PCOCam(GenericCam):
                                          ctypes.byref(self.buffer_events[i]))
 
         # Tell camera link what actual resolution to expect
+        #print('Setting size - {0}, {1}'.format(self.wXResAct,self.wYResAct))
+        self._dll.PCO_SetImageParameters(self.hCam,
+                                         self.wXResAct,
+                                         self.wYResAct)
         self._dll.PCO_CamLinkSetImageParameters(self.hCam,
                                                 self.wXResAct,
                                                 self.wYResAct)
+        self.set_transfer_parameters_auto()
     
     #def get_one(self, poll_timeout=5e7):
     #    iRet = PCO_GetImageEx(cam, 1, 0, 0, BufNum, XResAct, YResAct, 16)
@@ -217,12 +251,37 @@ class PCOCam(GenericCam):
         :return: None
         """
         allowed = [1, 2, 4]
+
+        self._dll.PCO_SetBinning.argtypes = [ctypes.c_void_p,
+                                             ctypes.c_uint16,
+                                             ctypes.c_uint16]
+
         wBinHorz = ctypes.c_uint16(np.uint16(h_bin))
         wBinVert = ctypes.c_uint16(np.uint16(v_bin))
         if (h_bin in allowed) and (v_bin in allowed):
             self._dll.PCO_SetBinning(self.hCam, wBinHorz, wBinVert)
             self._dll.PCO_GetBinning(self.hCam, ctypes.byref(wBinHorz),
                                           ctypes.byref(wBinVert))
+            wXResAct=ctypes.c_uint16()
+            wYResAct=ctypes.c_uint16()
+            wXResMax=ctypes.c_uint16()
+            wYResMax = ctypes.c_uint16()
+            self._dll.PCO_GetSizes(self.hCam,
+                                   ctypes.byref(wXResAct),
+                                   ctypes.byref(wYResAct),
+                                   ctypes.byref(wXResMax),
+                                   ctypes.byref(wYResMax))
+            
+            wRoiX0 = ctypes.c_uint16(0)
+            wRoiY0 = ctypes.c_uint16(0)
+            wRoiX1 = ctypes.c_uint16(int(100))
+            wRoiY1 = ctypes.c_uint16(int(100))
+            self._dll.PCO_SetROI(self.hCam,
+                                    wRoiX0,
+                                    wRoiY0,
+                                    wRoiX1,
+                                    wRoiY1)
+
             return [wBinHorz.value, wBinVert.value]
         else:
             raise ValueError("Not allowed binning value pair " + str(h_bin)
@@ -289,18 +348,9 @@ class PCOCam(GenericCam):
         """
         if self.armed:
             raise UserWarning("PCO - Camera already armed?")
-
         # Arm camera
         self._dll.PCO_ArmCamera(self.hCam)
-        # Get the actual image resolution-needed for buffers
-        self.wXResAct, self.wYResAct, wXResMax, wYResMax = (
-            ctypes.c_uint16(), ctypes.c_uint16(), ctypes.c_uint16(),
-            ctypes.c_uint16())
-        self._dll.PCO_GetSizes(self.hCam, ctypes.byref(self.wXResAct),
-                               ctypes.byref(self.wYResAct), ctypes.byref(wXResMax),
-                               ctypes.byref(wYResMax))
-        self.h,self.w = [self.wXResAct.value,
-                         self.wYResAct.value]
+        
         self.armed = True
         self.allocate_buffers()
         return self.armed
@@ -331,7 +381,6 @@ class PCOCam(GenericCam):
         self.arm()
         self.acquisitionstart()
         self._prepare_to_mem()
-
         message = 0
         (dw1stImage, dwLastImage, wBitsPerPixel, dwStatusDll,
          dwStatusDrv, bytes_per_pixel,
@@ -340,7 +389,6 @@ class PCOCam(GenericCam):
         assert bytes_per_pixel.value == 2
         out = np.zeros((self.wYResAct.value, self.wXResAct.value),
                        dtype=np.uint16)
-        
         num_acquired = 0
         num_images = 1
         for which_im in range(num_images):
@@ -351,6 +399,7 @@ class PCOCam(GenericCam):
                 message = self._dll.PCO_GetBufferStatus(
                     self.hCam, self.buffer_numbers[added_buffers[0]],
                     ctypes.byref(dwStatusDll), ctypes.byref(dwStatusDrv))
+                #print(hex(dwStatusDll.value))
                 if dwStatusDll.value == 0xc0008000:
                     which_buf = added_buffers.pop(0)  # Buffer exits the queue
                     #print("After", num_polls, "polls, buffer")

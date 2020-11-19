@@ -309,6 +309,8 @@ class LabCamsGUI(QMainWindow):
                         cam['driver'])
                 self.camQueues.pop()
                 self.saveflags.pop()
+            if not 'recorder_sleep_time' in self.parameters.keys():
+                self.parameters['recorder_sleep_time'] = 0.3
             if 'SaveMethod' in cam.keys():
                 cam['recorder'] = cam['SaveMethod']
                 display('SaveMethod is deprecated, use recorder instead.')
@@ -330,6 +332,9 @@ class LabCamsGUI(QMainWindow):
                     display('Recording with ffmpeg')
                     if not 'hwaccel' in cam.keys():
                         cam['hwaccel'] = None
+                    if not 'frameRate' in cam.keys():
+                        cam['frameRate'] = 1000./cam['exposure']
+                        print('Using the exposure in ms to estimate the sampling rate.')
                     self.writers.append(FFMPEGWriter(
                         inQ = self.camQueues[-1],
                         datafolder=self.parameters['recorder_path'],
