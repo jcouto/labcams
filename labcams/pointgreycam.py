@@ -127,7 +127,7 @@ class PointGreyCam(GenericCam):
                  roi = [],
                  pxformat = 'Mono8',
                  triggerSource = np.uint16(0),
-                 outputs = ['XI_GPO_EXPOSURE_ACTIVE'],
+                 outputs = [],
                  triggered = Event(),
                  hardware_trigger = None,
                  recorderpar=None,
@@ -444,19 +444,25 @@ class PointGreyCam(GenericCam):
             self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
             if self.hardware_trigger == 'in_line3':
                 self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
-                self.cam.TriggerActivation.SetValue(PySpin.TriggerActivation_RisingEdge)
+                self.cam.TriggerActivation.SetValue(
+                    PySpin.TriggerActivation_RisingEdge)
                 self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed) #PySpin.ExposureMode_TriggerWidth)
+                self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
                 self.cam.TriggerSelector.SetValue(1) # this is exposure active in CM3
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
+                self.cam.TriggerOverlap.SetValue(PySpin.TriggerOverlap_ReadOut)
+                
                 display('PointGrey [{0}] - External trigger mode ON .'.format(self.cam_id))      
 
-        self.cam.BeginAcquisition()
-        if not self.hardware_trigger is None:
             if self.hardware_trigger == 'out_line3':
                 display('Setting the output line for line 3')
+                display('This is a master camera, sleeping .5 sec.')
+                time.sleep(0.5)
                 self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
                 self.cam.LineMode.SetValue(PySpin.LineMode_Output)
                 self.cam.LineSource.SetValue(PySpin.LineSource_ExposureActive)
+
+        self.cam.BeginAcquisition()
                 # This is not doing what i would like it to do.
         display('PointGrey [{0}] - Started acquitition.'.format(self.cam_id))            
     def _cam_stopacquisition(self):

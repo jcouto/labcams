@@ -398,7 +398,7 @@ The recorders can be specified with the '"recorder":"ffmpeg"' option in each cam
             self.camstim_widget.ino.start()
             self.camstim_widget.ino.disarm()
 
-        for cam,writer in zip(self.cams,self.writers):
+        for cam,writer in zip(self.cams[::-1],self.writers[::-1]):
             cam.start()
             if not writer is None:
                 writer.start()
