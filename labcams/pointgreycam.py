@@ -259,7 +259,9 @@ class PointGreyCam(GenericCam):
         self.cam = None
         self.cam_list = []
         self.cambuf = None
-        self.drv = None
+        if not self.drv is None:
+            self.drv.ReleaseInstance()
+            self.drv = None
         self.nodemap = None
         self.nodemap_tldevice = None
         return frame
@@ -351,7 +353,7 @@ class PointGreyCam(GenericCam):
             self.cam.GainAuto.SetValue(PySpin.GainAuto_Off)
             self.cam.Gain.SetValue(self.gain)
             
-    def _cam_init(self,set_gpio=True):
+    def _cam_init(self, set_gpio=True):
         self.drv = PySpin.System.GetInstance()
         version = self.drv.GetLibraryVersion()
         display('[PointGrey] - Library version: %d.%d.%d.%d' % (version.major,
@@ -427,16 +429,15 @@ class PointGreyCam(GenericCam):
         # Set integer value from entry node as new value of enumeration node
         node_acquisition_mode.SetIntValue(node_acquisition_mode_continuous.GetValue())
 
+        self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
         if self.triggered.is_set():
-            self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
             # Line 3 for triggering (hardcoded for now)
             self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
             self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
             display('PointGrey [{0}] - Triggered mode ON.'.format(self.cam_id))            
         else:
-            display('PointGrey [{0}] - Triggered mode OFF.'.format(self.cam_id))            
-            self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
-
+            display('PointGrey [{0}] - Triggered mode OFF.'.format(self.cam_id))
+            
         # Set GPIO lines and strobe # these should go in the config
         # Line 2 and Line 3
         if not self.hardware_trigger is None:
@@ -445,7 +446,7 @@ class PointGreyCam(GenericCam):
             if self.hardware_trigger == 'in_line3':
                 self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
                 self.cam.TriggerActivation.SetValue(
-                    PySpin.TriggerActivation_RisingEdge)
+                    PySpin.TriggerActivation_FallingEdge) # Exposure line is inversed
                 self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed) #PySpin.ExposureMode_TriggerWidth)
                 self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
                 self.cam.TriggerSelector.SetValue(1) # this is exposure active in CM3

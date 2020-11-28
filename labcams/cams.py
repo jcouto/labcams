@@ -3,7 +3,12 @@
 # Creates separate processes for acquisition and queues frames
 import time
 import sys
-from multiprocessing import Process,Queue,Event,Array,Value,Manager
+import multiprocessing
+try:
+    multiprocessing.set_start_method('spawn')
+except:
+    pass
+from multiprocessing import Process,Queue,Event,Array,Value
 import numpy as np
 from datetime import datetime
 import time
@@ -21,7 +26,7 @@ import cv2
 # 
 class GenericCam(Process):
     def __init__(self, outQ = None, recorderpar = None, refreshperiod = 1/20.):
-        Process.__init__(self)
+        super(GenericCam,self).__init__()
         self.name = ''
         self.cam_id = None
         self.h = None
@@ -48,7 +53,6 @@ class GenericCam(Process):
         #self.memlist = self.memmanager.list()
         #self.memlist.append(None)
         self.lasttime = 0
-
     def get_img(self):
         return self.img#self.memlist[0]
     
@@ -64,15 +68,16 @@ class GenericCam(Process):
         if hasattr(self,'ctrevents'):
             for c in self.ctrevents.keys():
                 self.ctrevents[c]['call'] ='self.'+self.ctrevents[c]['function']    
-    def _init_variables(self,dtype=np.uint8):
+    def _init_variables(self, dtype=np.uint8):
         if dtype == np.uint8:
             cdtype = ctypes.c_ubyte
         else:
             cdtype = ctypes.c_ushort
-        self.frame = Array(cdtype,np.zeros([self.h,self.w,self.nchan],dtype = dtype).flatten())
+        self.frame = Array(cdtype,np.zeros([self.h,self.w,self.nchan],
+                                           dtype = dtype).flatten())
         self.img = np.frombuffer(
             self.frame.get_obj(),
-            dtype = cdtype).reshape([self.h,self.w,self.nchan])
+            dtype = cdtype).reshape([self.h, self.w, self.nchan])
 
     def _start_recorder(self):
         if not self.recorderpar is None:
@@ -101,7 +106,8 @@ class GenericCam(Process):
     def run(self):
         self._init_ctrevents()
         self.img = np.frombuffer(self.frame.get_obj(),
-                                 dtype = self.dtype).reshape([self.h,self.w,self.nchan])
+                                 dtype = self.dtype).reshape(
+                                     [self.h,self.w,self.nchan])
         self.close_event.clear()
         self._start_recorder()
         while not self.close_event.is_set():
