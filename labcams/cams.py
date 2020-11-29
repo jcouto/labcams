@@ -250,7 +250,7 @@ class OpenCVCam(GenericCam):
     def __init__(self,
                  camId = None,
                  outQ = None,
-                 frameRate = 30.,
+                 frameRate = 0.,
                  triggered = Event(),
                  recorderpar = None,
                  **kwargs):

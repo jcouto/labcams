@@ -47,8 +47,6 @@ class LabCamsGUI(QMainWindow):
         '''
         super(LabCamsGUI,self).__init__()
         self.parameters = parameters
-        if not 'compress' in self.parameters.keys():
-            self.parameters['compress'] = 0
         if not 'recorder_frames_per_file' in self.parameters.keys():
             self.parameters['recorder_frames_per_file'] = 0
         self.app = app
@@ -109,15 +107,17 @@ class LabCamsGUI(QMainWindow):
             if not 'recorder' in cam.keys():
                 # defaults tiff
                 cam['recorder'] = 'tiff'
-                if 'saveMethod' in cam.keys():
-                    cam['recorder'] = cam['saveMethod']
+            if 'saveMethod' in cam.keys():
+                cam['recorder'] = cam['saveMethod']
+            if not 'compress' in cam.keys():
+                cam['compress'] = 0
             self.camQueues.append(Queue())
             if 'noqueue' in cam['recorder']:
                 recorderpar = dict(
                     recorder = cam['recorder'],
                     datafolder = self.parameters['recorder_path'],
                     framesperfile = self.parameters['recorder_frames_per_file'],
-                    compression = self.parameters['compress'],
+                    compression = cam['compress'],
                     filename = expName,
                     dataname = cam['description'])
             else:
@@ -127,6 +127,7 @@ class LabCamsGUI(QMainWindow):
                 try:
                     from .avt import AVTCam
                 except Exception as err:
+                    print(err)
                     print(''' 
 
                     Could not load the Allied Vision Technologies driver. 
@@ -137,7 +138,7 @@ class LabCamsGUI(QMainWindow):
             Edit the file in USERHOME/labcams/default.json
 
 ''')
-                    raise(err)
+                    sys.exit(1)
                     
                 camids = [(camid,name) for (camid,name) in zip(avtids,avtnames) 
                           if cam['name'] in name]
@@ -180,6 +181,7 @@ class LabCamsGUI(QMainWindow):
                 try:
                     from .qimaging import QImagingCam
                 except Exception as err:
+                    print(err)
                     print(''' 
 
                     Could not load the QImaging driver. 
@@ -189,7 +191,7 @@ class LabCamsGUI(QMainWindow):
             Edit the file in USERHOME/labcams/default.json and delete the QImaging cam or use the -c option 
 
 ''')
-                    raise(err)
+                    sys.exit(1)
                     
                 if not 'binning' in cam.keys():
                     cam['binning'] = 2
@@ -212,6 +214,7 @@ class LabCamsGUI(QMainWindow):
                 try:
                     from .pco import PCOCam
                 except Exception as err:
+                    print(err)
                     print(''' 
 
                     Could not load the PCO driver. 
@@ -222,13 +225,15 @@ class LabCamsGUI(QMainWindow):
             Edit the file in USERHOME/labcams/default.json and delete the PCO cam or use the -c option
 
 ''')
-                    raise(err)
 
-                if 'CamStimTrigger' in cam.keys(): 
-                    self.camstim_widget = CamStimTriggerWidget(
-                        port = cam['CamStimTrigger']['port'],
-                        outQ = self.camQueues[-1])
-                    camstim = self.camstim_widget.ino
+                    sys.exit(1)
+                    
+                if 'CamStimTrigger' in cam.keys():
+                    if not cam['CamStimTrigger'] is None:
+                        self.camstim_widget = CamStimTriggerWidget(
+                            port = cam['CamStimTrigger']['port'],
+                            outQ = self.camQueues[-1])
+                        camstim = self.camstim_widget.ino
                 else:
                     camstim = None
                 if not 'binning' in cam.keys():
@@ -265,6 +270,8 @@ class LabCamsGUI(QMainWindow):
                 try:
                     from .pointgreycam import PointGreyCam
                 except Exception as err:
+                    print(err)
+
                     print(''' 
 
                     Could not load the PointGrey driver.
@@ -275,7 +282,7 @@ class LabCamsGUI(QMainWindow):
             Edit the file in USERHOME/labcams/default.json and delete the PointGrey cam or use the -c option
 
 ''')
-                    raise(err)
+                    sys.exit()
                 if not 'roi' in cam.keys():
                     cam['roi'] = []
                 if not 'pxformat' in cam.keys():
@@ -291,6 +298,11 @@ class LabCamsGUI(QMainWindow):
                     cam['gamma'] = None
                 if not 'hardware_trigger' in cam.keys():
                     cam['hardware_trigger'] = None
+                if cam['roi'] is str:
+                    if ',' in cam['roi']:
+                        cam['roi'] = [int(c.strip('[').strip(']')) for c in cam['roi'].split(',')]
+                    else:
+                        cam['roi'] = []
                 self.cams.append(PointGreyCam(camId=cam['id'],
                                               serial = cam['serial'],
                                               gain = cam['gain'],
@@ -325,7 +337,7 @@ class LabCamsGUI(QMainWindow):
                         pathformat = self.parameters['recorder_path_format'],
                         framesperfile=self.parameters['recorder_frames_per_file'],
                         sleeptime = self.parameters['recorder_sleep_time'],
-                        compression = self.parameters['compress'],
+                        compression = cam['compress'],
                         filename = expName,
                         dataname = cam['description']))
                 elif cam['recorder'] == 'ffmpeg':
@@ -343,6 +355,7 @@ class LabCamsGUI(QMainWindow):
                         frame_rate = cam['frameRate'],
                         filename = expName,
                         hwaccel = cam['hwaccel'],
+                        compression = cam['compress'],
                         framesperfile=self.parameters['recorder_frames_per_file'],
                         dataname = cam['description']))
                 elif cam['recorder'] == 'binary':
@@ -363,7 +376,7 @@ class LabCamsGUI(QMainWindow):
                         pathformat = self.parameters['recorder_path_format'],
                         framesperfile=self.parameters['recorder_frames_per_file'],
                         sleeptime = self.parameters['recorder_sleep_time'],
-                        compression = self.parameters['compress'],
+                        compression = cam['compress'],
                         frame_rate = cam['frameRate'],
                         filename = expName,
                         dataname = cam['description']))

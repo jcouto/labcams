@@ -297,9 +297,10 @@ class TiffWriter(GenericWriterProcess):
                                         incrementruns=incrementruns)
         self.compression = None
         if not compression is None:
-            if compression > 0:
+            if compression > 9:
+                display('Can not use compression over 9 for the TiffWriter')
+            elif compression > 0:
                 self.compression = compression
-
         self.tracker = None
         self.trackerfile = None
         self.trackerFlag = Event()
@@ -415,6 +416,9 @@ class FFMPEGWriter(GenericWriterProcess):
                              '-crf':str(self.compression)}
         else:            
             if hwaccel == 'intel':
+                if self.compression == 0:
+                    display('Using compression 17 for the intel Media SDK encoder')
+                    self.compression = 17
                 self.doutputs = {'-format':'h264',
                                  '-pix_fmt':'yuv420p',#'gray',
                                  '-vcodec':'h264_qsv',#'libx264',
@@ -424,14 +428,16 @@ class FFMPEGWriter(GenericWriterProcess):
                                  '-threads':str(1),
                                  '-crf':str(self.compression)}
             elif hwaccel == 'nvidia':
+                if self.compression == 0:
+                    display('Using compression 25 for the NVIDIA encoder')
+                    self.compression = 25
                 self.doutputs = {'-vcodec':'h264_nvenc',
                                  '-pix_fmt':'yuv420p',
-                                 '-cq:v':'25',
+                                 '-cq:v':str(self.compression),
                                  '-threads':str(1),
                                  '-preset':'medium'}
         self.doutputs['-r'] =str(self.frame_rate)
         self.hwaccel = hwaccel
-        
         self.dinputs = {'-r':str(self.frame_rate)}
         
     def close_file(self):
