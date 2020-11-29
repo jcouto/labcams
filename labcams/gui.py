@@ -689,9 +689,13 @@ def main():
         sys.exit(0)
         
     if not opts.make_config is None:
+        from .widgets import SettingsDialog
+        app = QApplication(sys.argv)
+        s = SettingsDialog()
+        sys.exit(app.exec_())
         fname = opts.make_config
         getPreferences(fname, create=True)
-        sys.exit()
+        sys.exit(s.exec_())
     parameters = getPreferences(opts.file)
     cams = parameters['cams']
     if not opts.cam_select is None:

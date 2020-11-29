@@ -29,7 +29,7 @@ def display(msg):
 preferencepath = pjoin(os.path.expanduser('~'), 'labcams')
 
 # This has the cameras and properties
-_RECORDER_SETTINGS = {'recorder':['tiff','binary','ffmpeg'],
+_RECORDER_SETTINGS = {'recorder':['tiff','ffmpeg','binary'],
                       'recorder_help':'Different recorders allow saving data in different formats or using compresssion. Note that the realtime compression enabled by the ffmpeg video recorder can require specific hardware.',
                       'recording_queue':True,
                       'recording_queue_help':'Whether to use an intermediate queue for copying data from the camera, can assure that all data are stored regardless of disk usage; do not use this when recording at very high rates (1kHz) because it may introduce an overhead)'}

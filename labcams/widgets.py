@@ -1,4 +1,3 @@
-
 from PyQt5.QtWidgets import (QWidget,
                              QApplication,
                              QGridLayout,
@@ -26,6 +25,7 @@ from PyQt5.QtWidgets import (QWidget,
                              QMainWindow,
                              QDockWidget,
                              QFileDialog,
+                             QDialog,
                              QInputDialog)
 from PyQt5.QtGui import QImage, QPixmap,QBrush,QPen,QColor,QFont
 from PyQt5.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
@@ -823,3 +823,40 @@ class CamStimTriggerWidget(QWidget):
     def close(self):
         self.ino.close()
         self.ino.join()
+
+
+class SettingsDialog(QDialog):
+    def __init__(self, settings = None):
+        super(SettingsDialog,self).__init__()
+        from .utils import _SERVER_SETTINGS,_RECORDER_SETTINGS,_OTHER_SETTINGS
+        if settings is None:
+            settings = dict(cams = [],
+                            **_SERVER_SETTINGS,
+                            **_OTHER_SETTINGS)
+        self.settings = settings
+        layout = QFormLayout()
+        self.setLayout(layout)
+
+        from PyQt5.QtWidgets import QListWidget,QTabWidget
+        
+        self.cams_list = QListWidget()
+
+        b1 = QGroupBox()
+        b1.setTitle('Remote (network) access settings')
+        lay = QFormLayout(b1)
+        for k in _SERVER_SETTINGS.keys():
+            par = QLineEdit()
+            par.setText(str(self.settings[k]))
+            lay.addRow(QLabel(k),par)
+        layout.addRow(b1)
+
+        b2 = QGroupBox()
+        b2.setTitle('General settings')
+        lay = QFormLayout(b2)
+        for k in _OTHER_SETTINGS.keys():
+            par = QLineEdit()
+            par.setText(str(self.settings[k]))
+            lay.addRow(QLabel(k),par)
+        layout.addRow(b2)
+
+        self.show()
