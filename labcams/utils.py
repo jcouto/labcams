@@ -3,8 +3,6 @@ import cv2
 import sys
 import os
 from functools import partial
-if sys.executable.endswith("pythonw.exe"):
-    sys.stdout = sys.stdout = None
 from datetime import datetime
 from glob import glob
 import os
@@ -29,6 +27,24 @@ def display(msg):
 
 
 preferencepath = pjoin(os.path.expanduser('~'), 'labcams')
+
+# This has the cameras and properties
+_RECORDER_SETTINGS = {'recorder':['tiff','binary','ffmpeg'],
+                      'recorder_help':'Different recorders allow saving data in different formats or using compresssion. Note that the realtime compression enabled by the ffmpeg video recorder can require specific hardware.',
+                      'recording_queue':True,
+                      'recording_queue_help':'Whether to use an intermediate queue for copying data from the camera, can assure that all data are stored regardless of disk usage; do not use this when recording at very high rates (1kHz) because it may introduce an overhead)'}
+
+_SERVER_SETTINGS = {'server':['udp','zmq','none'],
+                    'server_help':'These option allow setting servers to enable controlling the cameras and adding information to the log during recording. ',
+                    'server_refresh_time':30,
+                    'server_refresh_time_help':'How often to listen to messages (in ms)',
+                    'server_port':9999}
+
+_OTHER_SETTINGS = dict(recorder_path = 'I:\\data',
+                       recorder_frames_per_file = 0,
+                       recorder_frames_per_file_help = 'number of frames per file (0 is for a single large file)',
+                       recorder_sleep_time = 0.03)
+
 
 DEFAULTS = dict(cams = [{'description':'facecam',
                          'name':'Mako G-030B',
@@ -63,16 +79,7 @@ DEFAULTS = dict(cams = [{'description':'facecam',
                 recorder_frames_per_file = 256,
                 recorder_sleep_time = 0.05,
                 server_port = 100000,
-                compress = 0,
-                datapaths = dict(dataserverpaths = ['I:\\data',
-                                                    'P:\\',
-                                                    '/quadraraid/data',
-                                                    '/mnt/nerffs01/mouselab/data'],
-                                 onephotonpaths = '1photon/raw',
-                                 logpaths = 'presentation',
-                                 facecampaths = 'facecam',
-                                 eyecampaths = 'eyecam',
-                                 analysispaths = 'analysis'))
+                compress = 0)
 
 
 defaultPreferences = DEFAULTS
@@ -149,130 +156,6 @@ Interpolating on the first and last frames.
             fill_value="extrapolate")(logdata['frame_id'])
     return logdata
 
-
-
-def findVStimLog(expname):
-    prefs = getPreferences()
-    datapaths = prefs['datapaths']
-    logfile = None
-    for server in datapaths['dataserverpaths']:
-        logpath = pjoin(server,datapaths['logpaths'],*expname)
-        logfile = glob(logpath + '.log')
-        if len(logfile):
-            logfile = logfile[0]
-            break
-    assert not logfile is None, "Could not find log for:{0}".format(expname)
-    return logfile
-
-
-
-def triggeredTrials(camdata,
-                    camtime,
-                    stimtimes,
-                    tpre = 2,
-                    global_baseline = False,
-                    do_df_f = True,
-                    display_progress = True):
-    dt = np.mean(np.diff(camtime))
-    stimavgs = []
-    wpre = int(int(np.ceil(tpre/dt)))
-    for iStim in np.unique(stimtimes[:,0]):
-        (_,iTrials,starttimes,endtimes) = stimtimes[stimtimes[:,0]==iStim,:].T
-        duration =  np.max(np.round(endtimes - starttimes))
-        wdur = int(np.ceil(duration/dt))
-        wpost = int(wdur+wpre)
-        ntrials = len(iTrials)
-        stimavg = np.zeros([ntrials,wpre+wpost,
-                            camdata.shape[1],
-                            camdata.shape[2]],dtype=np.float32)
-        for i,(iTrial,time) in tqdm(enumerate(
-            zip(iTrials,starttimes))) if display_progress else enumerate(
-            zip(iTrials,starttimes)):
-            ii = np.where(camtime < time)[0][-1]
-            F = camdata[ii-wpre:ii+wpost:1,:,:].astype(np.float32)
-            if global_baseline:
-                baseline = F[:].min(axis = 0)
-            else:
-                baseline = F[:wpre].mean(axis = 0)
-            if do_df_f:
-                stimavg[i] = (F - baseline)/baseline
-            else:
-                stimavg[i] = F - baseline
-        stimavg[:,:,:10,:10] = np.min(stimavg)
-        stimavg[:,wpre:wpost,:10,:10] = np.max(stimavg)
-        stimavgs.append(stimavg)
-    return stimavgs
-
-def triggeredAverage(camdata,
-                     camtime,
-                     stimtimes,
-                     tpre = 2.,
-                     global_baseline = False,
-                     do_df_f = True,display_progress = True):
-    dt = np.mean(np.diff(camtime))
-    stimavgs = []
-    wpre = int(int(np.ceil(tpre/dt)))
-    for iStim in np.unique(stimtimes[:,0]):
-        (_,iTrials,starttimes,endtimes) = stimtimes[stimtimes[:,0]==iStim,:].T
-        duration =  np.max(np.round(endtimes - starttimes))
-        wdur = int(np.ceil(duration/dt))
-        wpost = int(wdur+wpre)
-        ntrials = len(iTrials)
-        stimavg = np.zeros([wpre+wpost,
-                            camdata.shape[1],
-                            camdata.shape[2]],dtype=np.float32)
-        for i,(iTrial,time) in tqdm(enumerate(
-                zip(iTrials,starttimes)),total = ntrials) if display_progress else enumerate(
-            zip(iTrials,starttimes)):
-            ii = np.where(camtime < time)[0][-1]
-            F = camdata[ii-wpre:ii+wpost:1,:,:].astype(np.float32)
-            if global_baseline:
-                baseline = F[:].min(axis = 0)
-            else:
-                baseline = F[:wpre].mean(axis = 0)
-            if do_df_f:
-                stimavg += (F - baseline)/baseline
-            else:
-                stimavg += F - baseline
-        stimavg /= float(ntrials)
-        stimavg[:,:10,:10] = np.min(stimavg)
-        stimavg[wpre:wpost,:10,:10] = np.max(stimavg)
-        stimavgs.append(stimavg)
-    return stimavgs
-
-
-def binFramesToLaps(laps,time,position,frames, lapspace = None,
-                    velocity = None,
-                    velocityThreshold = 1., beltLength=150.,baseline = None,
-                    method=lambda x : np.nanmean(x,axis=0)):
-    '''
-    Bins a set of frames to lap position.
-        - laps is [numberOfLaps,2] the start and stop time of each lap
-    
-    '''
-    if lapspace is None:
-        lapspace = np.arange(0,beltLength,1.)
-    lapX = np.zeros((lapspace.shape[0]-1,frames.shape[1],frames.shape[2],),
-                    dtype=np.float32)
-    #lapX[:] = np.nan
-    for k,l in tqdm(enumerate(range(laps.shape[0]))):
-        s,e = laps[l,:]
-        
-        if not velocity is None:
-            idx = np.where((time>=s) & (time<e) &
-                          (velocity > velocityThreshold))[0].astype(int)
-        else:
-            idx = np.where((time>=s) & (time<e))[0].astype(int)
-        x = frames[idx,:,:]
-        pos = position[idx]
-        inds = np.digitize(pos, lapspace)
-        
-        for i in np.unique(inds)[:-1]: 
-            tmp = x[(inds==i),:,:].astype(np.float32)
-            if not baseline is None:
-                tmp = (tmp -  baseline)/baseline
-            lapX[i-1,:,:] += method(tmp)/float(laps.shape[0])
-    return lapX
 
 def unpackbits(x,num_bits = 16,output_binary = False):
     '''
