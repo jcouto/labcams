@@ -691,7 +691,7 @@ def main():
     if not opts.make_config is None:
         from .widgets import SettingsDialog
         app = QApplication(sys.argv)
-        s = SettingsDialog()
+        s = SettingsDialog(getPreferences())
         sys.exit(app.exec_())
         fname = opts.make_config
         getPreferences(fname, create=True)

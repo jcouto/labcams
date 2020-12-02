@@ -828,35 +828,63 @@ class CamStimTriggerWidget(QWidget):
 class SettingsDialog(QDialog):
     def __init__(self, settings = None):
         super(SettingsDialog,self).__init__()
+        self.setWindowTitle('labcams')
         from .utils import _SERVER_SETTINGS,_RECORDER_SETTINGS,_OTHER_SETTINGS
         if settings is None:
-            settings = dict(cams = [],
-                            **_SERVER_SETTINGS,
-                            **_OTHER_SETTINGS)
+            settings = {}
+            for s in _SERVER_SETTINGS.keys():
+                if not s.endswith('_help'):
+                    if type(_SERVER_SETTINGS[s]) is list:
+                        settings[s] = _SERVER_SETTINGS[s][0]
+                    else:
+                        settings[s] = _SERVER_SETTINGS[s]
+                for s in _OTHER_SETTINGS.keys():
+                    if not s.endswith('_help'):
+                        settings[s] = _OTHER_SETTINGS[s]
+
+            settings['cams'] = []
+            
         self.settings = settings
         layout = QFormLayout()
         self.setLayout(layout)
 
         from PyQt5.QtWidgets import QListWidget,QTabWidget
         
-        self.cams_list = QListWidget()
-
+        self.cams_listw = QListWidget()
+        btadd = QPushButton('Add')
+        layout.addRow('Cameras',btadd)
+        layout.addRow(self.cams_listw)
         b1 = QGroupBox()
         b1.setTitle('Remote (network) access settings')
         lay = QFormLayout(b1)
         for k in _SERVER_SETTINGS.keys():
-            par = QLineEdit()
-            par.setText(str(self.settings[k]))
-            lay.addRow(QLabel(k),par)
+            if not k.endswith('_help'):
+                if not k in self.settings.keys():
+                    self.settings[k] = _SERVER_SETTINGS[k]
+                if type(_SERVER_SETTINGS[k]) is list:
+                    # then it is an option menu
+                    par = QComboBox()
+                    for i in _SERVER_SETTINGS[k]:
+                        par.addItem(i)
+                    index = par.findText(self.settings[k])
+                    if index >= 0:
+                        par.setCurrentIndex(index)
+                else:
+                    par = QLineEdit()
+                    par.setText(str(self.settings[k]))
+                lay.addRow(QLabel(k),par)
         layout.addRow(b1)
 
         b2 = QGroupBox()
         b2.setTitle('General settings')
         lay = QFormLayout(b2)
         for k in _OTHER_SETTINGS.keys():
-            par = QLineEdit()
-            par.setText(str(self.settings[k]))
-            lay.addRow(QLabel(k),par)
+            if not k.endswith('_help'):
+                par = QLineEdit()
+                if not k in self.settings.keys():
+                    self.settings[k] = _OTHER_SETTINGS[k]
+                par.setText(str(self.settings[k]))
+                lay.addRow(QLabel(k),par)
         layout.addRow(b2)
-
+        
         self.show()
