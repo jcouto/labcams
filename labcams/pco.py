@@ -71,7 +71,7 @@ class PCOCam(GenericCam):
         self._init_variables(dtype)
         self.triggered = triggered
         self.triggerSource = triggerSource
-            
+        self.frame_rate = 1000.0/float(self.exposure)
         self._dll = None
         for c in range(self.nchan):
             self.img[:,:,c] = frame[:]

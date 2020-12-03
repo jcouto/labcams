@@ -63,7 +63,16 @@ class GenericWriter(object):
         if self.framesperfile > 0:
             if not '{nfiles}' in self.path_format:
                 self.path_format += '_{nfiles}'
-                
+
+    def init(self,cam):
+        ''' Sets camera specific variables - happens after camera load'''
+        self.frame_rate = None
+        if hasattr(cam,'frame_rate'):
+            self.frame_rate = cam.frame_rate
+        self.nchannels = 1
+        if hasattr(cam,'nchan'):
+            self.nchannels = cam.nchan
+
     def _stop_write(self):
         self.write = False
     def stop(self):
@@ -103,6 +112,8 @@ class GenericWriter(object):
         if self.logfile is None:
             self._open_logfile()
         self.nFiles += 1
+        if hasattr(self,'parsed_filename'):
+            filename = self.parsed_filename
         display('Opened: '+ filename)        
         self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - ' + filename + '\n')
 
@@ -335,7 +346,7 @@ class BinaryWriter(GenericWriterProcess):
                  framesperfile=0,
                  sleeptime = 1./300,
                  incrementruns=True):
-        self.extension = '_{H}_{W}_{dtype}.dat'
+        self.extension = '_{nchannels}_{H}_{W}_{dtype}.dat'
         super(BinaryWriter,self).__init__(inQ = inQ,
                                           loggerQ=loggerQ,
                                           filename=filename,
@@ -364,8 +375,13 @@ class BinaryWriter(GenericWriterProcess):
             dtype='uint8'
         else:
             dtype='uint16'
-        filename = filename.format(W=self.w, H=self.h, dtype=dtype) 
+        filename = filename.format(nchannels = self.nchannels,
+                                   W=self.w,
+                                   H=self.h,
+                                   dtype=dtype) 
+        self.parsed_filename = filename
         self.fd = open(filename,'wb')
+        
     def _write(self,frame,frameid,timestamp):
         self.fd.write(frame)
         if np.mod(frameid,5000) == 0: 
@@ -385,9 +401,9 @@ class FFMPEGWriter(GenericWriterProcess):
                                     '{today}_{run}_{nfiles}'),
                  framesperfile=0,
                  sleeptime = 1./30,
-                 frame_rate = 30.,
                  incrementruns=True,
                  hwaccel = None,
+                 frame_rate = None,
                  compression=17):
         self.extension = '.avi'
         super(FFMPEGWriter,self).__init__(inQ = inQ,
@@ -404,7 +420,6 @@ class FFMPEGWriter(GenericWriterProcess):
             frame_rate = 0
         if frame_rate <= 0:
             frame_rate = 30.
-            display('Using frame rate 30 (this value can be set with the frame_rate argument).')
         self.frame_rate = frame_rate
         self.w = None
         self.h = None
@@ -436,9 +451,7 @@ class FFMPEGWriter(GenericWriterProcess):
                                  '-cq:v':str(self.compression),
                                  '-threads':str(1),
                                  '-preset':'medium'}
-        self.doutputs['-r'] =str(self.frame_rate)
         self.hwaccel = hwaccel
-        self.dinputs = {'-r':str(self.frame_rate)}
         
     def close_file(self):
         if not self.fd is None:
@@ -450,6 +463,15 @@ class FFMPEGWriter(GenericWriterProcess):
             raise ValueError('[Recorder] Need to pass frame to open a file.')
         self.w = frame.shape[1]
         self.h = frame.shape[0]
+        if self.frame_rate is None:
+            self.frame_rate = 0
+        if self.frame_rate == 0:
+            display('Using 30Hz frame rate for ffmpeg')
+            self.frame_rate = 30
+        
+        self.doutputs['-r'] =str(self.frame_rate)
+        self.dinputs = {'-r':str(self.frame_rate)}
+
         # does a check for the datatype, if uint16 then save compressed lossless
         if frame.dtype in [np.uint16] and len(frame.shape) == 2:
             self.fd = FFmpegWriter(filename.replace(self.extension,'.mov'),
@@ -482,7 +504,6 @@ class OpenCVWriter(GenericWriter):
                  sleeptime = 1./30,
                  incrementruns=True,
                  compression=None,
-                 frame_rate = 30.,
                  fourcc = 'X264'):
         self.extension = '.avi'
         super(OpenCVWriter,self).__init__(inQ = inQ,
@@ -540,8 +561,7 @@ class FFMPEGCamWriter(GenericWriter):
                  incrementruns=True,
                  crf=None):
         self.extension = '.avi'
-        super(FFMPEGCamWriter,self).__init__(cam=cam,
-                                             filename=filename,
+        super(FFMPEGCamWriter,self).__init__(filename=filename,
                                              datafolder=datafolder,
                                              dataname=dataname,
                                              pathformat = pathformat,
@@ -605,8 +625,9 @@ class BinaryCamWriter(GenericWriter):
                  framesperfile=0,
                  inQ = None,
                  incrementruns=True):
-        self.extension = '_{H}_{W}_{dtype}.dat'
+        self.extension = '_{nchannels}_{H}_{W}_{dtype}.dat'
         self.cam = cam
+        self.nchannels = cam.nchan
         super(BinaryCamWriter,self).__init__(filename=filename,
                                              datafolder=datafolder,
                                              dataname=dataname,
@@ -633,7 +654,10 @@ class BinaryCamWriter(GenericWriter):
             dtype='uint8'
         else:
             dtype='uint16'
-        filename = filename.format(W=self.w, H=self.h, dtype=dtype) 
+        filename = filename.format(nchannels = self.nchannels,
+                                   W=self.w,
+                                   H=self.h, dtype=dtype)
+        self.parsed_filename = filename
         self.fd = open(filename,'wb')
 
     def _write(self,frame,frameid,timestamp):

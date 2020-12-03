@@ -99,7 +99,6 @@ class GenericCam(Process):
                                               datafolder = self.recorderpar['datafolder'],
                                               framesperfile = self.recorderpar['framesperfile'],
                                               incrementruns = True)
-
             else:
                 display('Recorder {0} not implemented'.format(
                     self.recorderpar['recorder']))

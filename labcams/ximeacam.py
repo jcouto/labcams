@@ -21,6 +21,7 @@ class XimeaCam(GenericCam):
         self.outputs = outputs
         self.binning = binning
         self.exposure = exposure
+        self.frame_rate = 1000./float(self.exposure)
         frame = self.get_one()
 
         self.h = frame.shape[0]

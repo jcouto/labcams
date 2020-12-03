@@ -110,7 +110,7 @@ class RecordingControlWidget(QWidget):
         l2 = QFormLayout()
         w2.setLayout(l2)
         self.experimentNameEdit = QLineEdit(' ')
-        #self.experimentNameEdit.textChanged.connect(self.setExpName)
+        self.experimentNameEdit.returnPressed.connect(self.checkUpdateFilename)
         label = QLabel('Name:')
         label.setToolTip(info)
         self.experimentNameEdit.setToolTip(info)
