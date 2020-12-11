@@ -851,6 +851,8 @@ class SettingsDialog(QDialog):
         from PyQt5.QtWidgets import QListWidget,QTabWidget
         
         self.cams_listw = QListWidget()
+        for c in settings['cams']:
+            self.cams_listw.addItem('{0} - {1}'.format(c['name'],c['driver']))
         btadd = QPushButton('Add')
         layout.addRow('Cameras',btadd)
         layout.addRow(self.cams_listw)
@@ -861,11 +863,14 @@ class SettingsDialog(QDialog):
             if not k.endswith('_help'):
                 if not k in self.settings.keys():
                     self.settings[k] = _SERVER_SETTINGS[k]
+                    if type(_SERVER_SETTINGS[k]) is list:
+                        self.settings[k] = self.settings[k][0]
                 if type(_SERVER_SETTINGS[k]) is list:
                     # then it is an option menu
                     par = QComboBox()
                     for i in _SERVER_SETTINGS[k]:
                         par.addItem(i)
+                    print(self.settings[k])
                     index = par.findText(self.settings[k])
                     if index >= 0:
                         par.setCurrentIndex(index)
