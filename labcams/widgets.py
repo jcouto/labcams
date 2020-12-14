@@ -552,7 +552,7 @@ class CamWidget(QWidget):
             self.hist.setLevels(np.iinfo(dt).min,np.iinfo(dt).max)
 
         
-    def addROI(self):
+    def addROI(self,roi = None):
         roiTab = QDockWidget("roi cam {0}".format(self.iCam), self)
         if self.roiwidget is None:
             self.roiwidget = ROIPlotWidget(roi_target = self.p1,
@@ -580,8 +580,7 @@ class CamWidget(QWidget):
                     self.roiwidget = None
                 ev.accept()
             roiTab.closeEvent = closetab
-        else:
-            self.roiwidget.add_roi()
+        self.roiwidget.add_roi(roi)
 
 #    def toggleSubtract(self):
 #        self.parameters['SubtractBackground'] = not self.parameters[
@@ -642,6 +641,7 @@ class CamWidget(QWidget):
             #self.trackerToggle.stateChanged.connect(self.trackerSaveToggle)
             self.trackerpar.pGridSave.addRow(
                 QLabel("Save cameras: "),self.trackerToggle)
+        self.addROI(self.eyeTracker)
         self.trackerTab.setWidget(self.trackerpar)
         self.trackerTab.setFloating(True)
         self.trackerpar.resize(400,250)
@@ -685,6 +685,7 @@ class CamWidget(QWidget):
                 if self.eyeTracker is None:
                     self._open_mptracker(image[:,:,0])
                 self.eyeTracker.apply(image[:,:,0])
+                self.displaychannel = -1
                 if not self.eyeTracker.concatenateBinaryImage:
                     (x1,y1,w,h) = self.eyeTracker.parameters['imagecropidx']
                     if frame.shape[2] != 3:
@@ -716,14 +717,14 @@ class CamWidget(QWidget):
 
 class ROIPlotWidget(QWidget):
     colors = ['#d62728',
-          '#1f77b4',
-          '#ff7f0e',
-          '#2ca02c',
-          '#9467bd',
-          '#8c564b',
-          '#e377c2',
-          '#7f7f7f',
-          '#bcbd22']
+              '#1f77b4',
+              '#ff7f0e',
+              '#2ca02c',
+              '#9467bd',
+              '#8c564b',
+              '#e377c2',
+              '#7f7f7f',
+              '#bcbd22'] 
     penwidth = 1.
     def __init__(self, roi_target= None,view=None,npoints = 1200,parent = None):
         super(ROIPlotWidget,self).__init__()	
@@ -741,23 +742,27 @@ class ROIPlotWidget(QWidget):
         self.rois = []
         self.plots = []
         self.buffers = []
-        self.add_roi()
-    def add_roi(self):
+
+    def add_roi(self,roi = None):
         pencolor = self.colors[
             np.mod(len(self.plots),len(self.colors))]
-        self.rois.append(pg.RectROI(pos=[100,100],
-                                    size=100,
-                                    pen=pencolor))
+        if roi is None:
+            roi = pg.RectROI(pos=[100,100],
+                             size=100,
+                             pen=pencolor)
+            self.roi_target.addItem(roi)
+        self.rois.append(roi)
         self.plots.append(pg.PlotCurveItem(pen=pg.mkPen(
-            color=pencolor, width=self.penwidth)))
+        color=pencolor, width=self.penwidth)))
         self.p1.addItem(self.plots[-1])
-        self.roi_target.addItem(self.rois[-1])
         buf = np.zeros([2,self.N],dtype=np.float32)
         buf[0,:] = np.nan
         buf[1,:] = 0
         self.buffers.append(buf)
+
     def items(self):
         return self.rois
+
     def closeEvent(self,ev):
         for roi in self.rois:
             self.roi_target.removeItem(roi)
@@ -777,12 +782,16 @@ class ROIPlotWidget(QWidget):
                 print('resetting')
                 self.reset()
         for i,(roi,plot) in enumerate(zip(self.rois,self.plots)):
-            r = roi.getArrayRegion(img, self.view)
+            if type(roi) is pg.graphicsItems.ROI.RectROI:
+                r = np.mean(roi.getArrayRegion(img, self.view))
+            else:
+                print(type(roi))
+                return
             buf = np.roll(self.buffers[i], -1, axis = 1)
             if ichan == -1:
-                buf[1,:] = np.mean(r)
+                buf[1,:] = r
             else:
-                buf[1,ichan] = np.mean(r) 
+                buf[1,ichan] = r
             buf[0,-1] = ctime
             self.buffers[i] = buf
             ii = ~np.isnan(buf[0,:])
