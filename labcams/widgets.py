@@ -641,7 +641,8 @@ class CamWidget(QWidget):
             #self.trackerToggle.stateChanged.connect(self.trackerSaveToggle)
             self.trackerpar.pGridSave.addRow(
                 QLabel("Save cameras: "),self.trackerToggle)
-        self.addROI(self.eyeTracker)
+        self.restracker = [0]
+        self.addROI(self.restracker)
         self.trackerTab.setWidget(self.trackerpar)
         self.trackerTab.setFloating(True)
         self.trackerpar.resize(400,250)
@@ -684,7 +685,7 @@ class CamWidget(QWidget):
             if bool(self.parameters['TrackEye']):
                 if self.eyeTracker is None:
                     self._open_mptracker(image[:,:,0])
-                self.eyeTracker.apply(image[:,:,0])
+                self.restracker[0] = np.nanmax(self.eyeTracker.apply(image[:,:,0])[2])
                 self.displaychannel = -1
                 if not self.eyeTracker.concatenateBinaryImage:
                     (x1,y1,w,h) = self.eyeTracker.parameters['imagecropidx']
@@ -785,8 +786,8 @@ class ROIPlotWidget(QWidget):
             if type(roi) is pg.graphicsItems.ROI.RectROI:
                 r = np.mean(roi.getArrayRegion(img, self.view))
             else:
-                print(type(roi))
-                return
+                r = np.array(roi)[-1]
+                ichan = 0
             buf = np.roll(self.buffers[i], -1, axis = 1)
             if ichan == -1:
                 buf[1,:] = r
@@ -794,7 +795,7 @@ class ROIPlotWidget(QWidget):
                 buf[1,ichan] = r
             buf[0,-1] = ctime
             self.buffers[i] = buf
-            ii = ~np.isnan(buf[0,:])
+            ii = (~np.isnan(buf[0,:])) & (~np.isnan(buf[1,:]))
             plot.setData(x = buf[0,ii],
                          y = buf[1,ii])
 
