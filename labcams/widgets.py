@@ -553,11 +553,11 @@ class CamWidget(QWidget):
 
         
     def addROI(self,roi = None):
-        roiTab = QDockWidget("roi cam {0}".format(self.iCam), self)
         if self.roiwidget is None:
             self.roiwidget = ROIPlotWidget(roi_target = self.p1,
                                            view = self.view,
                                            parent = self)
+            roiTab = QDockWidget("roi cam {0}".format(self.iCam), self)
             roiTab.setWidget(self.roiwidget)
             roiTab.setAllowedAreas(Qt.LeftDockWidgetArea |
                                    Qt.RightDockWidgetArea |
@@ -569,7 +569,7 @@ class CamWidget(QWidget):
             self.parent.addDockWidget(Qt.BottomDockWidgetArea
                                       ,roiTab)
             roiTab.setFloating(True)
-            roiTab.resize(400,150)
+            roiTab.resize(600,150)
             
             def closetab(ev):
                 # This probably does not clean up memory...
@@ -747,7 +747,7 @@ class ROIPlotWidget(QWidget):
     def add_roi(self,roi = None):
         pencolor = self.colors[
             np.mod(len(self.plots),len(self.colors))]
-        if roi is None:
+        if not type(roi) is list:
             roi = pg.RectROI(pos=[100,100],
                              size=100,
                              pen=pencolor)
@@ -783,17 +783,13 @@ class ROIPlotWidget(QWidget):
                 print('resetting')
                 self.reset()
         for i,(roi,plot) in enumerate(zip(self.rois,self.plots)):
-            if type(roi) is pg.graphicsItems.ROI.RectROI:
-                r = np.mean(roi.getArrayRegion(img, self.view))
-            else:
+            if type(roi) is list:
                 r = np.array(roi)[-1]
-                ichan = 0
-            buf = np.roll(self.buffers[i], -1, axis = 1)
-            if ichan == -1:
-                buf[1,:] = r
             else:
-                buf[1,ichan] = r
+                r = np.mean(roi.getArrayRegion(img[:,:,ichan], self.view)).copy()
+            buf = np.roll(self.buffers[i], -1, axis = 1)
             buf[0,-1] = ctime
+            buf[1,-1] = r
             self.buffers[i] = buf
             ii = (~np.isnan(buf[0,:])) & (~np.isnan(buf[1,:]))
             plot.setData(x = buf[0,ii],
