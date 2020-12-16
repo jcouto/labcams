@@ -1,3 +1,19 @@
+#  labcams - https://jpcouto@bitbucket.org/jpcouto/labcams.git
+# Copyright (C) 2020 Joao Couto - jpcouto@gmail.com
+#
+#  This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 from .utils import *
 from .cams import *
 from .io import *
@@ -329,57 +345,30 @@ class LabCamsGUI(QMainWindow):
             if not 'noqueue' in cam['recorder']:
                 if not 'recorder_path_format' in self.parameters.keys():
                     self.parameters['recorder_path_format'] = pjoin('{datafolder}','{dataname}','{filename}','{today}_{run}_{nfiles}')
+                towriter = dict(inQ = self.camQueues[-1],
+                                datafolder=self.parameters['recorder_path'],
+                                pathformat = self.parameters['recorder_path_format'],
+                                framesperfile=self.parameters['recorder_frames_per_file'],
+                                sleeptime = self.parameters['recorder_sleep_time'],
+                                filename = expName,
+                                dataname = cam['description'])
                 if  cam['recorder'] == 'tiff':
                     display('Recording to TIFF')
-                    self.writers.append(TiffWriter(
-                        inQ = self.camQueues[-1],
-                        datafolder=self.parameters['recorder_path'],
-                        pathformat = self.parameters['recorder_path_format'],
-                        framesperfile=self.parameters['recorder_frames_per_file'],
-                        sleeptime = self.parameters['recorder_sleep_time'],
-                        compression = cam['compress'],
-                        filename = expName,
-                        dataname = cam['description']))
+                    self.writers.append(TiffWriter(compression = cam['compress'],
+                                                   **towriter))
                 elif cam['recorder'] == 'ffmpeg':
                     display('Recording with ffmpeg')
                     if not 'hwaccel' in cam.keys():
                         cam['hwaccel'] = None
-                    if not 'frameRate' in cam.keys():
-                        cam['frameRate'] = 1000./cam['exposure']
-                        print('Using the exposure in ms to estimate the sampling rate.')
-                    self.writers.append(FFMPEGWriter(
-                        inQ = self.camQueues[-1],
-                        datafolder=self.parameters['recorder_path'],
-                        pathformat = self.parameters['recorder_path_format'],
-                        sleeptime = self.parameters['recorder_sleep_time'],
-                        frame_rate = cam['frameRate'],
-                        filename = expName,
-                        hwaccel = cam['hwaccel'],
-                        compression = cam['compress'],
-                        framesperfile=self.parameters['recorder_frames_per_file'],
-                        dataname = cam['description']))
+                    self.writers.append(FFMPEGWriter(compression = cam['compress'],
+                                                     hwaccel = cam['hwaccel'],
+                                                     **towriter))
                 elif cam['recorder'] == 'binary':
                     display('Recording binary')
-                    self.writers.append(BinaryWriter(
-                        inQ = self.camQueues[-1],
-                        datafolder=self.parameters['recorder_path'],
-                        pathformat = self.parameters['recorder_path_format'],
-                        sleeptime = self.parameters['recorder_sleep_time'],
-                        framesperfile=self.parameters['recorder_frames_per_file'],
-                        filename = expName,
-                        dataname = cam['description']))
+                    self.writers.append(BinaryWriter(**towriter))
                 elif cam['recorder'] == 'opencv':
                     display('Recording opencv')
-                    self.writers.append(OpenCVWriter(
-                        inQ = self.camQueues[-1],
-                        datafolder=self.parameters['recorder_path'],
-                        pathformat = self.parameters['recorder_path_format'],
-                        framesperfile=self.parameters['recorder_frames_per_file'],
-                        sleeptime = self.parameters['recorder_sleep_time'],
-                        compression = cam['compress'],
-                        frame_rate = cam['frameRate'],
-                        filename = expName,
-                        dataname = cam['description']))
+                    self.writers.append(OpenCVWriter(compression = cam['compress'],**towriter))
                 else:
                     print(''' 
 
@@ -414,6 +403,7 @@ The recorders can be specified with the '"recorder":"ffmpeg"' option in each cam
         for cam,writer in zip(self.cams[::-1],self.writers[::-1]):
             cam.start()
             if not writer is None:
+                writer.init(cam)
                 writer.start()
         
         camready = 0
@@ -691,7 +681,7 @@ def main():
     if not opts.make_config is None:
         from .widgets import SettingsDialog
         app = QApplication(sys.argv)
-        s = SettingsDialog()
+        s = SettingsDialog(getPreferences())
         sys.exit(app.exec_())
         fname = opts.make_config
         getPreferences(fname, create=True)

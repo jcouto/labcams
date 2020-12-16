@@ -1,3 +1,19 @@
+#  labcams - https://jpcouto@bitbucket.org/jpcouto/labcams.git
+# Copyright (C) 2020 Joao Couto - jpcouto@gmail.com
+#
+#  This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 from PyQt5.QtWidgets import (QWidget,
                              QApplication,
                              QGridLayout,
@@ -110,7 +126,7 @@ class RecordingControlWidget(QWidget):
         l2 = QFormLayout()
         w2.setLayout(l2)
         self.experimentNameEdit = QLineEdit(' ')
-        #self.experimentNameEdit.textChanged.connect(self.setExpName)
+        self.experimentNameEdit.returnPressed.connect(self.checkUpdateFilename)
         label = QLabel('Name:')
         label.setToolTip(info)
         self.experimentNameEdit.setToolTip(info)
@@ -536,12 +552,12 @@ class CamWidget(QWidget):
             self.hist.setLevels(np.iinfo(dt).min,np.iinfo(dt).max)
 
         
-    def addROI(self):
-        roiTab = QDockWidget("roi cam {0}".format(self.iCam), self)
+    def addROI(self,roi = None):
         if self.roiwidget is None:
             self.roiwidget = ROIPlotWidget(roi_target = self.p1,
                                            view = self.view,
                                            parent = self)
+            roiTab = QDockWidget("roi cam {0}".format(self.iCam), self)
             roiTab.setWidget(self.roiwidget)
             roiTab.setAllowedAreas(Qt.LeftDockWidgetArea |
                                    Qt.RightDockWidgetArea |
@@ -553,7 +569,7 @@ class CamWidget(QWidget):
             self.parent.addDockWidget(Qt.BottomDockWidgetArea
                                       ,roiTab)
             roiTab.setFloating(True)
-            roiTab.resize(400,150)
+            roiTab.resize(600,150)
             
             def closetab(ev):
                 # This probably does not clean up memory...
@@ -564,8 +580,7 @@ class CamWidget(QWidget):
                     self.roiwidget = None
                 ev.accept()
             roiTab.closeEvent = closetab
-        else:
-            self.roiwidget.add_roi()
+        self.roiwidget.add_roi(roi)
 
 #    def toggleSubtract(self):
 #        self.parameters['SubtractBackground'] = not self.parameters[
@@ -626,6 +641,8 @@ class CamWidget(QWidget):
             #self.trackerToggle.stateChanged.connect(self.trackerSaveToggle)
             self.trackerpar.pGridSave.addRow(
                 QLabel("Save cameras: "),self.trackerToggle)
+        self.restracker = [0]
+        self.addROI(self.restracker)
         self.trackerTab.setWidget(self.trackerpar)
         self.trackerTab.setFloating(True)
         self.trackerpar.resize(400,250)
@@ -668,7 +685,8 @@ class CamWidget(QWidget):
             if bool(self.parameters['TrackEye']):
                 if self.eyeTracker is None:
                     self._open_mptracker(image[:,:,0])
-                self.eyeTracker.apply(image[:,:,0])
+                self.restracker[0] = np.nanmax(self.eyeTracker.apply(image[:,:,0])[2])
+                self.displaychannel = -1
                 if not self.eyeTracker.concatenateBinaryImage:
                     (x1,y1,w,h) = self.eyeTracker.parameters['imagecropidx']
                     if frame.shape[2] != 3:
@@ -700,14 +718,14 @@ class CamWidget(QWidget):
 
 class ROIPlotWidget(QWidget):
     colors = ['#d62728',
-          '#1f77b4',
-          '#ff7f0e',
-          '#2ca02c',
-          '#9467bd',
-          '#8c564b',
-          '#e377c2',
-          '#7f7f7f',
-          '#bcbd22']
+              '#1f77b4',
+              '#ff7f0e',
+              '#2ca02c',
+              '#9467bd',
+              '#8c564b',
+              '#e377c2',
+              '#7f7f7f',
+              '#bcbd22'] 
     penwidth = 1.
     def __init__(self, roi_target= None,view=None,npoints = 1200,parent = None):
         super(ROIPlotWidget,self).__init__()	
@@ -725,23 +743,27 @@ class ROIPlotWidget(QWidget):
         self.rois = []
         self.plots = []
         self.buffers = []
-        self.add_roi()
-    def add_roi(self):
+
+    def add_roi(self,roi = None):
         pencolor = self.colors[
             np.mod(len(self.plots),len(self.colors))]
-        self.rois.append(pg.RectROI(pos=[100,100],
-                                    size=100,
-                                    pen=pencolor))
+        if not type(roi) is list:
+            roi = pg.RectROI(pos=[100,100],
+                             size=100,
+                             pen=pencolor)
+            self.roi_target.addItem(roi)
+        self.rois.append(roi)
         self.plots.append(pg.PlotCurveItem(pen=pg.mkPen(
-            color=pencolor, width=self.penwidth)))
+        color=pencolor, width=self.penwidth)))
         self.p1.addItem(self.plots[-1])
-        self.roi_target.addItem(self.rois[-1])
         buf = np.zeros([2,self.N],dtype=np.float32)
         buf[0,:] = np.nan
         buf[1,:] = 0
         self.buffers.append(buf)
+
     def items(self):
         return self.rois
+
     def closeEvent(self,ev):
         for roi in self.rois:
             self.roi_target.removeItem(roi)
@@ -761,15 +783,15 @@ class ROIPlotWidget(QWidget):
                 print('resetting')
                 self.reset()
         for i,(roi,plot) in enumerate(zip(self.rois,self.plots)):
-            r = roi.getArrayRegion(img, self.view)
-            buf = np.roll(self.buffers[i], -1, axis = 1)
-            if ichan == -1:
-                buf[1,:] = np.mean(r)
+            if type(roi) is list:
+                r = np.array(roi)[-1]
             else:
-                buf[1,ichan] = np.mean(r) 
+                r = np.mean(roi.getArrayRegion(img[:,:,ichan], self.view)).copy()
+            buf = np.roll(self.buffers[i], -1, axis = 1)
             buf[0,-1] = ctime
+            buf[1,-1] = r
             self.buffers[i] = buf
-            ii = ~np.isnan(buf[0,:])
+            ii = (~np.isnan(buf[0,:])) & (~np.isnan(buf[1,:]))
             plot.setData(x = buf[0,ii],
                          y = buf[1,ii])
 
@@ -828,35 +850,68 @@ class CamStimTriggerWidget(QWidget):
 class SettingsDialog(QDialog):
     def __init__(self, settings = None):
         super(SettingsDialog,self).__init__()
+        self.setWindowTitle('labcams')
         from .utils import _SERVER_SETTINGS,_RECORDER_SETTINGS,_OTHER_SETTINGS
         if settings is None:
-            settings = dict(cams = [],
-                            **_SERVER_SETTINGS,
-                            **_OTHER_SETTINGS)
+            settings = {}
+            for s in _SERVER_SETTINGS.keys():
+                if not s.endswith('_help'):
+                    if type(_SERVER_SETTINGS[s]) is list:
+                        settings[s] = _SERVER_SETTINGS[s][0]
+                    else:
+                        settings[s] = _SERVER_SETTINGS[s]
+                for s in _OTHER_SETTINGS.keys():
+                    if not s.endswith('_help'):
+                        settings[s] = _OTHER_SETTINGS[s]
+
+            settings['cams'] = []
+            
         self.settings = settings
         layout = QFormLayout()
         self.setLayout(layout)
 
         from PyQt5.QtWidgets import QListWidget,QTabWidget
         
-        self.cams_list = QListWidget()
-
+        self.cams_listw = QListWidget()
+        for c in settings['cams']:
+            self.cams_listw.addItem('{0} - {1}'.format(c['name'],c['driver']))
+        btadd = QPushButton('Add')
+        layout.addRow('Cameras',btadd)
+        layout.addRow(self.cams_listw)
         b1 = QGroupBox()
         b1.setTitle('Remote (network) access settings')
         lay = QFormLayout(b1)
         for k in _SERVER_SETTINGS.keys():
-            par = QLineEdit()
-            par.setText(str(self.settings[k]))
-            lay.addRow(QLabel(k),par)
+            if not k.endswith('_help'):
+                if not k in self.settings.keys():
+                    self.settings[k] = _SERVER_SETTINGS[k]
+                    if type(_SERVER_SETTINGS[k]) is list:
+                        self.settings[k] = self.settings[k][0]
+                if type(_SERVER_SETTINGS[k]) is list:
+                    # then it is an option menu
+                    par = QComboBox()
+                    for i in _SERVER_SETTINGS[k]:
+                        par.addItem(i)
+                    print(self.settings[k])
+                    index = par.findText(self.settings[k])
+                    if index >= 0:
+                        par.setCurrentIndex(index)
+                else:
+                    par = QLineEdit()
+                    par.setText(str(self.settings[k]))
+                lay.addRow(QLabel(k),par)
         layout.addRow(b1)
 
         b2 = QGroupBox()
         b2.setTitle('General settings')
         lay = QFormLayout(b2)
         for k in _OTHER_SETTINGS.keys():
-            par = QLineEdit()
-            par.setText(str(self.settings[k]))
-            lay.addRow(QLabel(k),par)
+            if not k.endswith('_help'):
+                par = QLineEdit()
+                if not k in self.settings.keys():
+                    self.settings[k] = _OTHER_SETTINGS[k]
+                par.setText(str(self.settings[k]))
+                lay.addRow(QLabel(k),par)
         layout.addRow(b2)
-
+        
         self.show()
