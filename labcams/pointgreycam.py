@@ -174,14 +174,15 @@ class PointGreyCam(GenericCam):
             try:
                 camId = int(np.where(np.array(serials)==self.serial)[0][0])
             except:
-                display('''
+                txt = '''
                 
 FLIR camera serial not correct or camera missing?
 
 Available serials are:
-
-''')
-                print('; '.join([str(s) for s in serials]))
+    {0}
+'''.format('\t\t  and '.join([str(s) for s in serials]))
+                raise(OSError(txt))
+                
         self.drv = None
         self.cam_id = camId
         if not len(roi):

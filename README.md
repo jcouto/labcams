@@ -43,7 +43,18 @@ This aims to facilitate video acquisition and automation of experimens, uses sep
  * Online compression using ffmpeg (supports hardware acceleration)
 
 
-## Instalation:
+## Instalation from pip (recommended but not the latest version):
+
+``pip install labcams`` or add the ``--no-deps`` flag to install no dependencies.
+
+## Instalation on Ubuntu 20.04
+
+``sudo apt install python3-matplotlib ipython3 python3-opencv python3-pyqt5 python3-tqdm python3-pip python3-pyqtgraph python3-serial python3-zmq python3-natsort python3-pandas emacs git ssh``
+
+
+``pip3 install labcams`` - this may end up in ``$HOME/.local/bin`` so add the following to the end of the ``.bashrc`` file: ``export PATH=$PATH:$HOME/.local/bin``
+
+## Instalation - from git:
 
 **Note:** On windows get the [ git bash terminal ](https://git-scm.com/downloads). I had issues running from cmd.exe when installed with conda.
 
@@ -94,7 +105,7 @@ Each camera has its own parameters, there are some parameters that are common to
 * `recorder` - the type of recorder `tiff` `ffmpeg` `opencv` `binary`
  * `haccel` - `nvidia` or `intel` for use with ffmpeg for compression.
 
-**NOTE:** You need to get ffmpeg compiled with `NVENC` from [here](https://developer.nvidia.com/ffmpeg) - precompiled versions are avaliable. Make sure to have python recognize it in the path (using for example `which ffmpeg` to confirm from git bash)/
+**NOTE:** You need to get ffmpeg compiled with `NVENC` from [here](https://developer.nvidia.com/ffmpeg) - precompiled versions are avaliable - `conda install ffmpeg` works. Make sure to have python recognize it in the path (using for example `which ffmpeg` to confirm from git bash)/
 
 
 **NOTE** To use `intel` acceleration you need to download the [mediaSDK](https://software.intel.com/content/www/us/en/develop/tools/media-sdk.html).
