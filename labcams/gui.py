@@ -127,12 +127,16 @@ class LabCamsGUI(QMainWindow):
                 cam['recorder'] = cam['saveMethod']
             if not 'compress' in cam.keys():
                 cam['compress'] = 0
+            if not 'recorder_path_format' in self.parameters.keys():
+                self.parameters['recorder_path_format'] = pjoin('{datafolder}','{dataname}','{filename}','{today}_{run}_{nfiles}')
+
             self.camQueues.append(Queue())
             if 'noqueue' in cam['recorder']:
                 recorderpar = dict(
                     recorder = cam['recorder'],
                     datafolder = self.parameters['recorder_path'],
                     framesperfile = self.parameters['recorder_frames_per_file'],
+                    pathformat = self.parameters['recorder_path_format'],
                     compression = cam['compress'],
                     filename = expName,
                     dataname = cam['description'])
@@ -346,8 +350,6 @@ class LabCamsGUI(QMainWindow):
                 cam['recorder'] = cam['SaveMethod']
                 display('SaveMethod is deprecated, use recorder instead.')
             if not 'noqueue' in cam['recorder']:
-                if not 'recorder_path_format' in self.parameters.keys():
-                    self.parameters['recorder_path_format'] = pjoin('{datafolder}','{dataname}','{filename}','{today}_{run}_{nfiles}')
                 towriter = dict(inQ = self.camQueues[-1],
                                 datafolder=self.parameters['recorder_path'],
                                 pathformat = self.parameters['recorder_path_format'],

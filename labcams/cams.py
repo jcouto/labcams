@@ -108,6 +108,7 @@ class GenericCam(Process):
             self.recorder = rec(self,
                                 inQ = self.queue,
                                 filename = self.recorderpar['filename'],
+                                pathformat = self.recorderpar['pathformat'],
                                 dataname = self.recorderpar['dataname'],
                                 datafolder = self.recorderpar['datafolder'],
                                 framesperfile = self.recorderpar['framesperfile'],
