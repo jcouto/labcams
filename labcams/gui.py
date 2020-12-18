@@ -136,6 +136,9 @@ class LabCamsGUI(QMainWindow):
                     compression = cam['compress'],
                     filename = expName,
                     dataname = cam['description'])
+                if 'ffmpeg' in cam['recorder']:
+                    if 'hwaccel' in cam.keys():
+                        recorderpar['hwaccel'] = cam['hwaccel']
             else:
                 display('Using the queue for recording.')
                 recorderpar = None # Use a queue recorder

@@ -573,57 +573,97 @@ class FFMPEGCamWriter(GenericWriter):
                  pathformat = pjoin('{datafolder}','{dataname}','{filename}',
                                     '{today}_{run}_{nfiles}'),
                  framesperfile=0,
+                 inQ = None,
                  incrementruns=True,
-                 crf=None):
+                 compression=None,
+                 hwaccel = None):
         self.extension = '.avi'
+        self.cam = cam
+        self.nchannels = cam.nchan
+
         super(FFMPEGCamWriter,self).__init__(filename=filename,
                                              datafolder=datafolder,
                                              dataname=dataname,
                                              pathformat = pathformat,
                                              framesperfile=framesperfile,
-                                             incrementruns=incrementruns)
-        self.crf = 17
-        if not crf is None:
-            if crf > 0:
-                self.crf = crf
-        self.dinputs = dict(format='rawvideo',
-                            pix_fmt='gray',
-                            s='{}x{}')
+                                             incrementruns=incrementruns,
+                                             inQ = inQ)
+
+        self.compression = compression
+        if self.compression is None:
+            self.compression = 0
+        frame_rate = cam.frame_rate
+        if frame_rate is None:
+            frame_rate = 0
+        if frame_rate <= 0:
+            frame_rate = 30.
+        self.frame_rate = frame_rate
         self.w = None
         self.h = None
-        
+        if hwaccel is None:
+            self.doutputs = {'-format':'h264',
+                             '-pix_fmt':'gray',
+                             '-vcodec':'libx264',
+                             '-threads':str(10),
+                             '-crf':str(self.compression)}
+        else:            
+            if hwaccel == 'intel':
+                if self.compression == 0:
+                    display('Using compression 17 for the intel Media SDK encoder')
+                    self.compression = 17
+                self.doutputs = {'-format':'h264',
+                                 '-pix_fmt':'yuv420p',#'gray',
+                                 '-vcodec':'h264_qsv',#'libx264',
+                                 '-global_quality':str(25), # specific to the qsv
+                                 '-look_ahead':str(1),
+                                 #preset='veryfast',#'ultrafast',
+                                 '-threads':str(1),
+                                 '-crf':str(self.compression)}
+            elif hwaccel == 'nvidia':
+                if self.compression == 0:
+                    display('Using compression 25 for the NVIDIA encoder')
+                    self.compression = 25
+                self.doutputs = {'-vcodec':'h264_nvenc',
+                                 '-pix_fmt':'yuv420p',
+                                 '-cq:v':str(self.compression),
+                                 '-threads':str(1),
+                                 '-preset':'medium'}
+        self.hwaccel = hwaccel
     def close_file(self):
         if not self.fd is None:
-            self.fd.stdin.close()
-            self.fd.wait()
+            self.fd.close()
             print("------->>> Closed file.")
         self.fd = None
 
-    def _open_file(self,filename,frame):
-        self.doutputs = dict(format='h264',
-                             pix_fmt='nv12',#'yuv420p',#'gray',
-                             vcodec='h264_qsv',#'libx264',
-                             global_quality=17,
-                             look_ahead=1, 
-                             #preset='veryfast',#'ultrafast',
-                             threads = 1,
-                             r = self.cam.frame_rate,
-                             crf=self.crf)
-        self.w = self.cam.w
-        self.h = self.cam.h
-        self.nchan = self.cam.nchan
-        indict = dict(**self.dinputs)
-        if self.nchan> 2:
-            indict['pix_fmt'] = 'bgr24'
-        indict['s'] = indict['s'].format(self.w,self.h)
-        self.fd = (ffmpeg
-                   .input('pipe:',**indict)
-                   .output(filename,**self.doutputs)
-                   .overwrite_output()
-                   .run_async(pipe_stdin=True))
+    def _open_file(self,filename,frame = None):
+        if frame is None:
+            raise ValueError('[Recorder] Need to pass frame to open a file.')
+        self.w = frame.shape[1]
+        self.h = frame.shape[0]
+        if self.frame_rate is None:
+            self.frame_rate = 0
+        if self.frame_rate == 0:
+            display('Using 30Hz frame rate for ffmpeg')
+            self.frame_rate = 30
+        
+        self.doutputs['-r'] =str(self.frame_rate)
+        self.dinputs = {'-r':str(self.frame_rate)}
 
+        # does a check for the datatype, if uint16 then save compressed lossless
+        if frame.dtype in [np.uint16] and len(frame.shape) == 2:
+            self.fd = FFmpegWriter(filename.replace(self.extension,'.mov'),
+                                   inputdict={'-pix_fmt':'gray16le',
+                                              '-r':str(self.frame_rate)}, # this is important
+                                   outputdict={'-c:v':'libopenjpeg',
+                                               '-pix_fmt':'gray16le',
+                                               '-r':str(self.frame_rate)})
+        else:
+            self.fd = FFmpegWriter(filename,
+                                   inputdict=self.dinputs,
+                                   outputdict=self.doutputs)
+            
     def _write(self,frame,frameid,timestamp):
-        self.fd.stdin.write(frame.tobytes())
+        self.fd.writeFrame(frame)
 
 ################################################################################
 ################################################################################

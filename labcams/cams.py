@@ -96,27 +96,26 @@ class GenericCam(Process):
 
     def _start_recorder(self):
         if not self.recorderpar is None:
+            extrapar = {}
             if 'binary' in self.recorderpar['recorder'].lower():
-                from .io import BinaryCamWriter
-                self.recorder = BinaryCamWriter(self,
-                                                inQ = self.queue,
-                                                filename = self.recorderpar['filename'],
-                                                dataname = self.recorderpar['dataname'],
-                                                datafolder = self.recorderpar['datafolder'],
-                                                framesperfile = 0,
-                                                incrementruns = True)
+                from .io import BinaryCamWriter as rec
             elif 'tiff' in self.recorderpar['recorder'].lower():
-                from .io import TiffCamWriter
-                self.recorder = TiffCamWriter(self,
-                                              inQ = self.queue,
-                                              filename = self.recorderpar['filename'],
-                                              dataname = self.recorderpar['dataname'],
-                                              datafolder = self.recorderpar['datafolder'],
-                                              framesperfile = self.recorderpar['framesperfile'],
-                                              incrementruns = True)
-            else:
-                display('Recorder {0} not implemented'.format(
-                    self.recorderpar['recorder']))
+                from .io import TiffCamWriter as rec
+            elif 'ffmpeg' in self.recorderpar['recorder'].lower():
+                from .io import FFMPEGCamWriter as rec
+                if 'hwaccel' in self.recorderpar:
+                    extrapar['hwaccel'] =  self.recorderpar['hwaccel']
+            self.recorder = rec(self,
+                                inQ = self.queue,
+                                filename = self.recorderpar['filename'],
+                                dataname = self.recorderpar['dataname'],
+                                datafolder = self.recorderpar['datafolder'],
+                                framesperfile = self.recorderpar['framesperfile'],
+                                incrementruns = True,**extrapar)
+                
+        else:                
+            display('Recorder {0} not implemented'.format(
+                self.recorderpar['recorder']))
     def run(self):
         self._init_ctrevents()
         self.img = np.frombuffer(self.frame.get_obj(),
