@@ -105,18 +105,19 @@ class GenericCam(Process):
                 from .io import FFMPEGCamWriter as rec
                 if 'hwaccel' in self.recorderpar:
                     extrapar['hwaccel'] =  self.recorderpar['hwaccel']
-            self.recorder = rec(self,
-                                inQ = self.queue,
-                                filename = self.recorderpar['filename'],
-                                pathformat = self.recorderpar['pathformat'],
-                                dataname = self.recorderpar['dataname'],
-                                datafolder = self.recorderpar['datafolder'],
-                                framesperfile = self.recorderpar['framesperfile'],
-                                incrementruns = True,**extrapar)
-                
-        else:                
-            display('Recorder {0} not implemented'.format(
-                self.recorderpar['recorder']))
+            else:                
+                display('Recorder {0} not implemented'.format(
+                    self.recorderpar['recorder']))
+            if 'rec' in dir():
+                self.recorder = rec(self,
+                                    inQ = self.queue,
+                                    filename = self.recorderpar['filename'],
+                                    pathformat = self.recorderpar['pathformat'],
+                                    dataname = self.recorderpar['dataname'],
+                                    datafolder = self.recorderpar['datafolder'],
+                                    framesperfile = self.recorderpar['framesperfile'],
+                                    incrementruns = True,**extrapar)
+            
     def run(self):
         self._init_ctrevents()
         self.img = np.frombuffer(self.frame.get_obj(),
