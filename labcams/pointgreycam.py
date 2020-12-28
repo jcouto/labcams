@@ -260,9 +260,6 @@ Available serials are:
 
     def get_one(self):
         self._cam_init()
-        self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
-        self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
-
         node_acquisition_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionMode'))
         if not PySpin.IsAvailable(node_acquisition_mode) or not PySpin.IsWritable(node_acquisition_mode):
             display('[PointGrey] - Unable to set acquisition mode(enum retrieval). Aborting...')
@@ -307,22 +304,24 @@ Available serials are:
             self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off) # Need to have the trigger off to set the rate.
             self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
             framerate_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionFrameRateAuto'))
+            framerate_enabled = PySpin.CBooleanPtr(self.nodemap.GetNode('AcquisitionFrameRateEnabled'))
 
             try:
                 autooff = framerate_mode.GetEntryByName('Off')
                 framerate_mode.SetIntValue(autooff.GetValue())
                 self.cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
-                self.cam.AcquisitionFrameRateEnable.SetValue(True)
-            except:
+                framerate_enabled.SetValue(True)
+            except Exception as err:
                 display('[PointGrey] - Could not set frame rate enable.')
-                pass
+                print(err)
             try:
                 self.cam.AcquisitionFrameRate.SetValue(self.frame_rate)
                 display('[PointGrey] - Frame rate: {0}'.format(
                     self.cam.AcquisitionFrameRate.GetValue()))
-            except:
+            except Exception as err:
                 self.frame_rate = self.cam.AcquisitionFrameRate.GetValue()
                 display('[PointGrey] - Could not set frame rate {0}'.format(self.frame_rate))
+                print(err)
                 
     def set_binning(self,binning = 1):
         if binning is None:
@@ -398,6 +397,10 @@ Available serials are:
         
         self.cam = self.cam_list[self.cam_id]
         self.cam.Init()
+        # Set the trigger and exposure off so to be able to set other parameters
+        self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
+        self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
+        
         self.cam.ChunkModeActive.SetValue(True)
         #self.cam.ChunkSelector.SetValue(PySpin.ChunkSelector_ExposureLineStatusAll)
         #self.cam.ChunkEnable.SetValue(True)
@@ -431,6 +434,7 @@ Available serials are:
         genable = PySpin.CBooleanPtr(self.nodemap.GetNode("SharpenessAuto"))
         if PySpin.IsWritable(genable):
             genable.SetValue(0)
+        # turn off the trigger mode before doing this
         self.set_exposure(self.exposure)
         self.set_framerate(self.frame_rate)
         self.set_gain(self.gain)
