@@ -488,27 +488,32 @@ Available serials are:
                 self.cam.TriggerSelector.SetValue(1) # this is exposure active in CM3
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
                 self.cam.TriggerOverlap.SetValue(PySpin.TriggerOverlap_ReadOut)
-                
-                display('PointGrey [{0}] - External trigger mode ON .'.format(self.cam_id))      
-
+                display('PointGrey [{0}] - External trigger mode ON .'.format(self.cam_id))    
+            if 'out_line' in self.hardware_trigger:
+                display('This is a master camera, sleeping .5 sec.')
+                time.sleep(0.2)                
+        self.cam.BeginAcquisition()
+        if not self.hardware_trigger is None:
             if self.hardware_trigger == 'out_line3':
                 display('Setting the output line for line 3')
-                display('This is a master camera, sleeping .5 sec.')
-                time.sleep(0.5)
                 self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
                 self.cam.LineMode.SetValue(PySpin.LineMode_Output)
                 self.cam.LineSource.SetValue(PySpin.LineSource_ExposureActive)
-
-        self.cam.BeginAcquisition()
-                # This is not doing what i would like it to do.
-        display('PointGrey [{0}] - Started acquitition.'.format(self.cam_id))            
+        display('PointGrey [{0}] - Started acquitition.'.format(self.cam_id))
+        
     def _cam_stopacquisition(self):
         '''stop camera acq'''
-        self.cam.EndAcquisition()
         if not self.hardware_trigger is None:
+            #if 'out_line' in self.hardware_trigger:
             if 'out_line' in self.hardware_trigger:
+                self.cam.EndAcquisition()
                 self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
                 self.cam.LineMode.SetValue(PySpin.LineMode_Input) # stop output
+                return
+            if 'in_line' in self.hardware_trigger:
+                time.sleep(0.2)
+        self.cam.EndAcquisition()
+        self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
 
 
     def _cam_loop(self):
