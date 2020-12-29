@@ -26,7 +26,7 @@ volatile byte armed = 0;      // whether the triggers are armed
 #define STX '@'
 #define ETX '\n'
 #define SEP "_"
-#define CAP "NCHANNELS_2_MODES_405nm:470nm:both" // capabilities for interfacing with labcams
+#define CAP "NCHANNELS_2_MODES_470nm:405nm:both" // capabilities for interfacing with labcams
 
 #define QUERY_CAP 'Q'
 #define START_LEDS 'N'

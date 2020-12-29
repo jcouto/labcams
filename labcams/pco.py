@@ -32,9 +32,11 @@ class PCOCam(GenericCam):
         self.armed = False
         self.drivername = 'PCO'
         if dllpath is None:
+            userpath = os.path.expanduser('~')
             dllpath = ['C:\\Program Files (x86)\\pco\\pco.sdk\\bin64\\SC2_Cam.dll',
                        'C:\\Program Files (x86)\\Digital Camera Toolbox\\pco.sdk\\bin64\\SC2_Cam.dll',
-                       'C:\\Program Files (x86)\\PCO Digital Camera Toolbox\\pco.sdk\\bin64\\SC2_Cam.dll']
+                       'C:\\Program Files (x86)\\PCO Digital Camera Toolbox\\pco.sdk\\bin64\\SC2_Cam.dll',
+                       pjoin(userpath,'AppData\\Roaming\\PCO Digital Camera Toolbox\\pco.sdkbin64\\SC2_Cam.dll')]
         self._dll = None
         for path in dllpath:
             if os.path.isfile(path):
@@ -512,9 +514,6 @@ class PCOCam(GenericCam):
         num_acquired = 0
         num_polls = 0
         polling = True
-
-        num_polls = 0
-        polling = True
         '''
         while polling:
             num_polls += 1
@@ -579,7 +578,7 @@ class PCOCam(GenericCam):
                 polling = False
                 break
             else:
-                time.sleep(0.00005)  # Wait 50 microseconds
+                time.sleep(0.0005)  # Wait 500 microseconds
                 if num_polls > self.poll_timeout:
                     break
         if not which_buf is None:
@@ -588,11 +587,11 @@ class PCOCam(GenericCam):
                     pass
                 elif self.dwStatusDrv.value == 0x80332028:
                     print('DMA error during record_to_memory')
-                    raise MemoryError('DMA error during record_to_memory')
+                    #raise MemoryError('DMA error during record_to_memory')
                 else:
                     print("dwStatusDrv:", self.dwStatusDrv.value)
                     print("Buffer status error")
-                    raise UserWarning("Buffer status error")
+                    #raise UserWarning("Buffer status error")
                 #print("Record to memory result:")
                 #print(hex(dwStatusDll.value), hex(dwStatusDrv.value))
                 buffer_ptr = ctypes.cast(self.buffer_pointers[which_buf], ctypes.POINTER(self.ArrayType))
@@ -607,11 +606,13 @@ class PCOCam(GenericCam):
             frameID = 0
             timestamp = 0
             frameID = int(''.join([hex(((a >> 8*0) & 0xFF))[-2:] for a in self.out[0,:4]]).replace('x','0'))
-            datestr = ('{0}{1}-{2}-{3} {4}:{5}:{6}.{7}{8}{9}'.format(
-                *[hex(((a >> 8*0) & 0xFF)
-                )[-2:] for a in self.out[0,4:14]]).replace('x','0'))
-            
-            timestam = datetime.strptime(datestr,'%Y-%m-%d %H:%M:%S.%f')
+            try:
+                datestr = ('{0}{1}-{2}-{3} {4}:{5}:{6}.{7}{8}{9}'.format(
+                    *[hex(((a >> 8*0) & 0xFF)
+                          )[-2:] for a in self.out[0,4:14]]).replace('x','0'))
+                timestam = datetime.strptime(datestr,'%Y-%m-%d %H:%M:%S.%f')
+            except:
+                timestam = datetime.now()
             timestamp = (timestam - self.datestart).total_seconds()
             # Handle failed string decoding.
             self.nframes.value = frameID
