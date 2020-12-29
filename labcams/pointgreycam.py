@@ -471,10 +471,15 @@ Available serials are:
             
         # Set GPIO lines and strobe # these should go in the config
         # Line 2 and Line 3
+        self.cam.LineSelector.SetValue(PySpin.LineSelector_Line2)
+        self.cam.LineMode.SetValue(PySpin.LineMode_Input)
+
         if not self.hardware_trigger is None:
             # This is not doing what i would like it to do.
             self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
             if self.hardware_trigger == 'in_line3':
+                self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
+                self.cam.LineMode.SetValue(PySpin.LineMode_Input)
                 self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
                 self.cam.TriggerActivation.SetValue(
                     PySpin.TriggerActivation_FallingEdge) # Exposure line is inversed
@@ -501,8 +506,7 @@ Available serials are:
         '''stop camera acq'''
         self.cam.EndAcquisition()
         if not self.hardware_trigger is None:
-            if self.hardware_trigger == 'out_line3':
-                display('Setting the output line for line 3')
+            if 'out_line' in self.hardware_trigger:
                 self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
                 self.cam.LineMode.SetValue(PySpin.LineMode_Input) # stop output
 
