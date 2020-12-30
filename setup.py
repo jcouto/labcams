@@ -6,7 +6,7 @@ from os.path import join as pjoin
 from setuptools import setup
 from setuptools.command.install import install
 
-with open("README.md", "r") as fh:
+with open("readme-pip.md", "r") as fh:
     longdescription = fh.read()
 
 requirements = []
@@ -17,7 +17,7 @@ data_path = pjoin(os.path.expanduser('~'), 'labcams')
 
 setup(
     name = 'labcams',
-    version = '0.2',
+    version = '0.2.1',
     author = 'Joao Couto',
     author_email = 'jpcouto@gmail.com',
     description = (longdescription),
