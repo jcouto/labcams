@@ -14,11 +14,13 @@ labcams searches for the drivers in:
  * C:\Program Files (x86)\Digital Camera Toolbox\pco.sdk\bin64\SC2_Cam.dll or
  * C:\Program Files (x86)\PCO Digital Camera Toolbox\pco.sdk\bin64\SC2_Cam.dll
 
-Because the camera needs to be initialized, you need to open the camera with Camware before opening with ``labcams``. This needs to be done everytime you restart the computer or change the size of the sensor.
+**CRITICAL:** For now the PCO camlink camera needs to be initialized before it can be used. You need to open the camera with Camware before opening with ``labcams``. This needs to be done everytime you restart the computer or change the size of the sensor. Change camera properties with CamWare, these will stay
 
 ### Connections for widefield imaging using a teensy for sync and alternate illumination
 
-For fast one photon imaging with the PCO camera you want to use the camera in rolling shutter mode. To do this light needs to be ON only during the exposure time common to all lines. These options need to be set in camware.
+For fast one photon imaging with the PCO camera you want to use the camera in **rolling shutter mode**. To do this light needs to be ON only during the exposure time common to all lines. These options need to be set in camware.
+
+**NOTE:** If CamWare does not have the settings menu available; go to: File -> Options -> Show Camera Control and set it to "Yes".
 
 You can use a teensy to record sync pulses from behavior or stimulus. There are a couple of examples in the duino folder.
 
