@@ -706,13 +706,13 @@ class CamWidget(QWidget):
                     frame[:,:,1] = f[:,:,0]
                     frame[:,:,2] = f[:,:,1]
                 self.view.setImage(frame.squeeze(),
-                                   autoLevels=self.autoRange)
+                                   autoLevels=self.autoRange,autoDownsample=True)
             else:
                 frame = frame.squeeze()
                 ref = self.parameters['reference_channel']
                 ref /= ref.max()
                 im = np.stack([ref,frame/np.max(frame),np.zeros_like(frame)]).transpose([1,2,0])
-                self.view.setImage(im)
+                self.view.setImage(im,autoDownsample=True)
             self.lastnFrame = nframe
 
 
@@ -774,6 +774,7 @@ class ROIPlotWidget(QWidget):
             self.buffers[ib][0,:] = np.nan
         
     def update(self,img,iFrame):
+        
         ichan = -1
         if not self.parent is None:
             ichan = self.parent.displaychannel
