@@ -446,6 +446,8 @@ class FFMPEGWriter(GenericWriterProcess):
                              '-vcodec':'libx264',
                              '-threads':str(10),
                              '-crf':str(self.compression)}
+            display('Using compression {0}'.format(self.compression))
+
         else:            
             if hwaccel == 'intel':
                 if self.compression == 0:
@@ -498,12 +500,13 @@ class FFMPEGWriter(GenericWriterProcess):
                                    outputdict={'-c:v':'libopenjpeg',
                                                '-pix_fmt':'gray16le',
                                                '-r':str(self.frame_rate)})
+            return
         elif len(frame.shape) == 3 and (frame.shape[-1] == 3):
             self.doutputs['-pix_fmt'] = 'yuv420p'
-        else:
-            self.fd = FFmpegWriter(filename,
-                                   inputdict=self.dinputs,
-                                   outputdict=self.doutputs)
+            display('Camera has 3 channels; recording in yuv420p.')
+        self.fd = FFmpegWriter(filename,
+                               inputdict=self.dinputs,
+                               outputdict=self.doutputs)
             
     def _write(self,frame,frameid,timestamp):
         self.fd.writeFrame(frame)
