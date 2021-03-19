@@ -24,6 +24,11 @@ For fast one photon imaging with the PCO camera you want to use the camera in **
 
 You can use a teensy to record sync pulses from behavior or stimulus. There are a couple of examples in the duino folder.
 
+# Basler cameras
+
+Install the Basler camera drivers "pylon" and the python API.
+The python API can be installed with the command ``pip install pypylon`` 
+
 
 # FLIR cameras
 

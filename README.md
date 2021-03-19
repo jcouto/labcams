@@ -32,6 +32,7 @@ This aims to facilitate video acquisition and automation of experimens, uses sep
  * PointGrey cameras (via PySpin)
  * QImaging cameras via the legacy driver (only windows)
  * PCO cameras (only windows)
+ * Basler cameras (via pypylon)
  * Ximea cameras
 
 ### Features:
