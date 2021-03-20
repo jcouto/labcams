@@ -474,7 +474,7 @@ class CamWidget(QWidget):
                 self.string = '{0}'            
         ts.link(toggleSaveCam)
         self.addAction(ts)
-        tr = QActionCheckBox(self,'reference channel',  False)
+        tr = QActionCheckBox(self,'alignment reference',  False)
         def toggleReference():
             if self.parameters['reference_channel'] is None:
                 reffile = str(QFileDialog().getOpenFileName(self,'Load reference image')[0])
@@ -710,8 +710,7 @@ class CamWidget(QWidget):
             else:
                 frame = frame.squeeze()
                 ref = self.parameters['reference_channel']
-                ref /= ref.max()
-                im = np.stack([ref,frame/np.max(frame),np.zeros_like(frame)]).transpose([1,2,0])
+                im = np.stack([ref/np.max(ref),frame/np.max(frame),np.zeros_like(frame)]).transpose([1,2,0])
                 self.view.setImage(im,autoDownsample=True)
             self.lastnFrame = nframe
 
