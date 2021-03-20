@@ -268,6 +268,42 @@ class LabCamsGUI(QMainWindow):
                                         acquisition_stim_trigger = camstim,
                                         triggered = self.triggered,
                                         recorderpar = recorderpar))
+            elif cam['driver'].lower() == 'basler':
+                try:
+                    from .basler import BaslerCam
+                except Exception as err:
+                    print(err)
+                    print(''' 
+
+                    Could not load the Basler driver. 
+
+    If you want to record from BASLER cameras install the pypylon driver (pip install).
+    If not you have the wrong config file.
+
+            Edit the file in USERHOME/labcams/default.json and delete the Basler cam or use the -c option
+
+''')
+
+                    sys.exit(1)
+                    
+                if 'CamStimTrigger' in cam.keys():
+                    if not cam['CamStimTrigger'] is None:
+                        self.camstim_widget = CamStimTriggerWidget(
+                            port = cam['CamStimTrigger']['port'],
+                            outQ = self.camQueues[-1])
+                        camstim = self.camstim_widget.ino
+                else:
+                    camstim = None
+                if not 'binning' in cam.keys():
+                    cam['binning'] = None
+                self.cams.append(BaslerCam(camId=cam['id'],
+                                           binning = cam['binning'],
+                                           exposure = cam['exposure'],
+                                           outQ = self.camQueues[-1],
+                                           triggered = self.triggered,
+                                           recorderpar = recorderpar))
+
+                
             elif cam['driver'].lower() == 'ximea':
                 try:
                     from .ximeacam import XimeaCam

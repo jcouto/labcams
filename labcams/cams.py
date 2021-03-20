@@ -104,7 +104,10 @@ class GenericCam(Process):
             elif 'ffmpeg' in self.recorderpar['recorder'].lower():
                 from .io import FFMPEGCamWriter as rec
                 if 'hwaccel' in self.recorderpar:
-                    extrapar['hwaccel'] =  self.recorderpar['hwaccel']
+                    if 'hwaccel' in self.recorderpar.keys():
+                        extrapar['hwaccel'] =  self.recorderpar['hwaccel']
+                    if 'compression' in self.recorderpar.keys():                    
+                        extrapar['compression'] = self.recorderpar['compression']
             else:                
                 display('Recorder {0} not implemented'.format(
                     self.recorderpar['recorder']))

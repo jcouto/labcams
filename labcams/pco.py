@@ -232,9 +232,12 @@ class PCOCam(GenericCam):
         self._dll.PCO_SetImageParameters(self.hCam,
                                          self.wXResAct,
                                          self.wYResAct)
-        self._dll.PCO_CamLinkSetImageParameters(self.hCam,
-                                                self.wXResAct,
-                                                self.wYResAct)
+        try:
+            self._dll.PCO_CamLinkSetImageParameters(self.hCam,
+                                                    self.wXResAct,
+                                                    self.wYResAct)
+        except:
+            display('CameraLink SetImageParameters failed.')
         self.set_transfer_parameters_auto()
     
     #def get_one(self, poll_timeout=5e7):
