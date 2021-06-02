@@ -419,7 +419,7 @@ class FFMPEGWriter(GenericWriterProcess):
                  incrementruns=True,
                  hwaccel = None,
                  frame_rate = None,
-                 compression=17):
+                 compression=25):
         self.extension = '.avi'
         super(FFMPEGWriter,self).__init__(inQ = inQ,
                                           loggerQ=loggerQ,
@@ -439,16 +439,19 @@ class FFMPEGWriter(GenericWriterProcess):
         self.w = None
         self.h = None
         if hwaccel is None:
+            if self.compression == 0:
+                self.compression = 25
             self.doutputs = {'-format':'h264',
                              '-pix_fmt':'gray',
                              '-vcodec':'libx264',
                              '-threads':str(10),
                              '-crf':str(self.compression)}
+            display('Using compression {0}'.format(self.compression))
+
         else:            
             if hwaccel == 'intel':
                 if self.compression == 0:
-                    display('Using compression 17 for the intel Media SDK encoder')
-                    self.compression = 17
+                    self.compression = 25
                 self.doutputs = {'-format':'h264',
                                  '-pix_fmt':'yuv420p',#'gray',
                                  '-vcodec':'h264_qsv',#'libx264',
@@ -459,13 +462,15 @@ class FFMPEGWriter(GenericWriterProcess):
                                  '-crf':str(self.compression)}
             elif hwaccel == 'nvidia':
                 if self.compression == 0:
-                    display('Using compression 25 for the NVIDIA encoder')
-                    self.compression = 25
+                    display('Using compression 30 for the NVIDIA encoder')
+                    self.compression = 30
                 self.doutputs = {'-vcodec':'h264_nvenc',
                                  '-pix_fmt':'yuv420p',
                                  '-cq:v':str(self.compression),
                                  '-threads':str(1),
                                  '-preset':'medium'}
+            display('Using compression {0} for the hardware acceleration: {1}'.format(self.compression,hwaccel))
+
         self.hwaccel = hwaccel
         
     def close_file(self):
@@ -495,10 +500,13 @@ class FFMPEGWriter(GenericWriterProcess):
                                    outputdict={'-c:v':'libopenjpeg',
                                                '-pix_fmt':'gray16le',
                                                '-r':str(self.frame_rate)})
-        else:
-            self.fd = FFmpegWriter(filename,
-                                   inputdict=self.dinputs,
-                                   outputdict=self.doutputs)
+            return
+        elif len(frame.shape) == 3 and (frame.shape[-1] == 3):
+            self.doutputs['-pix_fmt'] = 'yuv420p'
+            display('Camera has 3 channels; recording in yuv420p.')
+        self.fd = FFmpegWriter(filename,
+                               inputdict=self.dinputs,
+                               outputdict=self.doutputs)
             
     def _write(self,frame,frameid,timestamp):
         self.fd.writeFrame(frame)
