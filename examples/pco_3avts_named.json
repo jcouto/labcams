@@ -1,4 +1,5 @@
 {
+    "_comment1": "this is an example for using AlliedVision Technologies cameras and a PCO in the same file.",
     "cams": [
         {
             "NBackgroundFrames": 1.0, 
@@ -47,19 +48,8 @@
 	    "NBackgroundFrames": 20.0
         }
     ], 
-    "datapaths": {
-        "analysispaths": "analysis", 
-        "dataserverpaths": [
-            "I:\\data", 
-            "P:\\"
-        ], 
-        "eyecampaths": "eyecam", 
-        "facecampaths": "facecam", 
-        "logpaths": "presentation", 
-        "onephotonpaths": "1photon\\raw"
-    }, 
     "recorder_frames_per_file": 256, 
-    "recorder_path": "I:\\data", 
+    "recorder_path": "C:\\data", 
     "recorder_sleep_time": 0.03, 
     "server_port": 100000
 }

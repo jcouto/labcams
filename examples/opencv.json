@@ -1,4 +1,5 @@
 {
+    "_comment1": "this is an example for using a Webcam.",
     "cams": [
         {
 	    "id":0,
@@ -9,7 +10,7 @@
         }
     ],
     "recorder_frames_per_file": 256,
-    "recorder_path": "I:\\data",
+    "recorder_path": "C:\\data",
     "recorder_sleep_time": 0.05,
     "server_port": 100000
 }
