@@ -213,7 +213,8 @@ class GenericCam(Process):
                     if self.recorder is None:
                         self.queue.put([msg])
                     else:
-                        self.recorder.logfile.write(msg)
+                        if not self.recorder.logfile is None:
+                            self.recorder.logfile.write(msg)
                     
     def _call_event(self,eventname,eventvalue):
         if eventname in self.ctrevents.keys():
