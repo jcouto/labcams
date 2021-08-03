@@ -411,9 +411,9 @@ Available serials are:
         serial = PySpin.CStringPtr(
             self.nodemap_tldevice.GetNode('DeviceSerialNumber'))
         display('[PointGrey] - Serial number {0}'.format(serial.ToString()))
-        display('[PointGrey] - Camera model is {0}'.format(PySpin.CStringPtr(
-            self.nodemap_tldevice.GetNode('DeviceModelName')).ToString()))
-        
+        self.cammodel = PySpin.CStringPtr(
+            self.nodemap_tldevice.GetNode('DeviceModelName')).ToString()
+        display('[PointGrey] - Camera model is {0}'.format(self.cammodel))
         self.nodemap = self.cam.GetNodeMap()
 
         if False:
@@ -471,20 +471,25 @@ Available serials are:
             
         # Set GPIO lines and strobe # these should go in the config
         # Line 2 and Line 3
-        self.cam.LineSelector.SetValue(PySpin.LineSelector_Line2)
-        self.cam.LineMode.SetValue(PySpin.LineMode_Input)
+        if 'Chameleon3' in self.cammodel:
+            self.cam.LineSelector.SetValue(PySpin.LineSelector_Line2)
+            self.cam.LineMode.SetValue(PySpin.LineMode_Input)
+            self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
+            self.cam.LineMode.SetValue(PySpin.LineMode_Input)
 
         if not self.hardware_trigger is None:
-            # This is not doing what i would like it to do.
+            d = '3'
+            if self.hardware_trigger[-1].isdigit():
+                d = self.hardware_trigger[-1]
             self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
-            if self.hardware_trigger == 'in_line3':
-                self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
+            if 'in_line' in self.hardware_trigger:
+                self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line' + d))
                 self.cam.LineMode.SetValue(PySpin.LineMode_Input)
-                self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
+                self.cam.TriggerSource.SetValue(eval('PySpin.TriggerSource_Line' + d))
                 self.cam.TriggerActivation.SetValue(
                     PySpin.TriggerActivation_FallingEdge) # Exposure line is inversed
                 self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed) #PySpin.ExposureMode_TriggerWidth)
-                self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
+                self.cam.TriggerSource.SetValue(eval('PySpin.TriggerSource_Line'+d))
                 self.cam.TriggerSelector.SetValue(1) # this is exposure active in CM3
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
                 self.cam.TriggerOverlap.SetValue(PySpin.TriggerOverlap_ReadOut)
@@ -494,9 +499,9 @@ Available serials are:
                 time.sleep(0.2)                
         self.cam.BeginAcquisition()
         if not self.hardware_trigger is None:
-            if self.hardware_trigger == 'out_line3':
-                display('Setting the output line for line 3')
-                self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
+            if 'out_line' in self.hardware_trigger:
+                display('Setting the output line for line {0}'.format(d))
+                self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line'+d))
                 self.cam.LineMode.SetValue(PySpin.LineMode_Output)
                 self.cam.LineSource.SetValue(PySpin.LineSource_ExposureActive)
         display('PointGrey [{0}] - Started acquitition.'.format(self.cam_id))
@@ -505,13 +510,16 @@ Available serials are:
         '''stop camera acq'''
         if not self.hardware_trigger is None:
             #if 'out_line' in self.hardware_trigger:
+            d = '3'
+            if self.hardware_trigger[-1].isdigit():
+                d = self.hardware_trigger[-1]
             if 'out_line' in self.hardware_trigger:
-                self.cam.EndAcquisition()
-                self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
+                self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line' + d))
                 self.cam.LineMode.SetValue(PySpin.LineMode_Input) # stop output
+                self.cam.EndAcquisition()
                 return
             if 'in_line' in self.hardware_trigger:
-                time.sleep(0.2)
+                time.sleep(0.1)
         self.cam.EndAcquisition()
         self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
 
