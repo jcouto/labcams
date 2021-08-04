@@ -92,14 +92,14 @@ _CAMERA_SETTINGS = dict(avt = dict(name='camera serial number',
                         ximea = dict(id = 0,
                                      exposure=33,
                                      binning = 4),
-                        pointgrey = dict(roi = 'full sensor of [X,Y,W,H]',
-                                         pxformat='Mono8',
+                        pointgrey = dict(roi = 'full sensor or [X,Y,W,H]',
                                          serial='Camera serial number',
-                                         binning = 1,
                                          exposure = 7000,
+                                         frameRate = 100.,
+                                         pxformat='Mono8',
+                                         binning = 1,
                                          gamma = 1.0,
-                                         hardware_trigger = 'out_line3',
-                                         frameRate = 100.))
+                                         hardware_trigger = 'out_line3'))
 
 
 DEFAULTS = dict(cams = [{'description':'facecam',

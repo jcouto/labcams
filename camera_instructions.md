@@ -16,13 +16,18 @@ labcams searches for the drivers in:
 
 **CRITICAL:** For now the PCO camlink camera needs to be initialized before it can be used. You need to open the camera with Camware before opening with ``labcams``. This needs to be done everytime you restart the computer or change the size of the sensor. Change camera properties with CamWare, these will stay
 
-### Connections for widefield imaging using a teensy for sync and alternate illumination
+# Connections for widefield imaging using a teensy for sync and alternate illumination
 
-For fast one photon imaging with the PCO camera you want to use the camera in **rolling shutter mode**. To do this light needs to be ON only during the exposure time common to all lines. These options need to be set in camware.
+For fast one photon imaging with the PCO (or another) camera you want to use the camera in **rolling shutter mode**. To do this light needs to be ON only during the exposure time common to all lines. These options need to be set in the camera software.
 
 **NOTE:** If CamWare does not have the settings menu available; go to: File -> Options -> Show Camera Control and set it to "Yes".
 
-You can use a teensy to record sync pulses from behavior or stimulus. There are a couple of examples in the duino folder.
+You can use a teensy to record sync pulses from behavior or stimulus (e.g. using a photodiode on visual display). There are a couple of examples in the duino folder.
+
+Connect the teensy as follows:
+![picture](images/widefield_acquisition.png)
+
+The teensy code uses interrupts so that we keep count of even and odd frames.
 
 # Basler cameras
 
@@ -96,8 +101,8 @@ Camera GND|Orange dot Red|GND
 
 Mako Hirose HR25-7TR-8PA(73) connector [Complete table](images/mako_conn.png)
 
-# Triggering box
-The triggering box  has been tested with AVT cameras mostly. It can be used to
+### Triggering printed circuit board
+The triggering printed circuit board has been tested with AVT cameras. It can be used to
    - power cameras;
    - access the camera output
    - trigger cameras with TTL signals.
@@ -109,19 +114,12 @@ It uses a schmitt trigger for normalizing the outputs
 Power is on the left, camera interface on top and Arduino interface on bottom.
 Only 2 outputs are used: the GC can only use 1, and while the Mako can use up to 3, there is no likely scenario where 3 outputs are needed.
 
-The two main components of the board are the 74HCT14 (Hex Inverter with Schmitt trigger) and the LM7805 (Voltage regulator which outputs 5V).
-We only want the Hex Inverter to put the signals to 5V, without inverting, so we invert the signals twice.
-The LM7805 is used instead of a voltage divider because it will still supply 5V with a 24V input (it will overheat), allowing a potentially connected Arduino board to survive.
-
+The two main components of the board are a Hex Inverter with Schmitt trigger (74HCT14) and a voltage regulator (LM7805).
 ![picture](images/trigger_box_schematic.svg)
 
-##### Printed circuit board (PCB)
-
-Schematics and PCB were done in KiCad ([Design files](pcb/)). The initial version of the PCB was designed by Adrian Philippon at NERF.
+The schematics and PCB were done in KiCad ([Design files](pcb/)) by Adrian Philippon in the Bonin Lab at NERF.
 
 * There is an indicator LED for each trigger connection.
 * The 1k resistors (U3 and U4) are the pull up/down resistors for the camera outputs, and can be connected either to 5V (for the AVT GC) or GND (for the AVT Mako).
 * Some pins are repeated (e.g. 12V, GND) to allow juxtaposition of several trigger boxes. This allows several boards to share the same power supply and trigger source.
 * The two holes are M6.
-
-![picture](images/trigger_box_avt.png)
