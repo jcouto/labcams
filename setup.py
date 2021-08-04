@@ -22,6 +22,7 @@ setup(
     author_email = 'jpcouto@gmail.com',
     description = (longdescription),
     long_description = longdescription,
+    long_description_content_type='text/markdown',
     license = 'GPL',
     install_requires = requirements,
     url = "https://bitbucket.org/jpcouto/labcams",
