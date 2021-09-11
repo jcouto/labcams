@@ -301,16 +301,19 @@ Available serials are:
         if not self.cam is None:
             self.frame_rate = min(self.cam.AcquisitionFrameRate.GetMax(),
                                   self.frame_rate)
-            self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off) # Need to have the trigger off to set the rate.
+            # Need to have the trigger off to set the rate.
+            self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off) 
             self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
             framerate_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionFrameRateAuto'))
             framerate_enabled = PySpin.CBooleanPtr(self.nodemap.GetNode('AcquisitionFrameRateEnabled'))
-
             try:
-                autooff = framerate_mode.GetEntryByName('Off')
-                framerate_mode.SetIntValue(autooff.GetValue())
+                try:
+                    autooff = framerate_mode.GetEntryByName('Off')
+                    framerate_mode.SetIntValue(autooff.GetValue())
+                except:
+                    pass
                 self.cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
-                framerate_enabled.SetValue(True)
+                self.cam.AcquisitionFrameRateEnable.SetValue(True)
             except Exception as err:
                 display('[PointGrey] - Could not set frame rate enable.')
                 print(err)
@@ -359,15 +362,20 @@ Available serials are:
         self.gamma = gamma
         if not self.cam is None:
             genable = PySpin.CBooleanPtr(self.nodemap.GetNode("GammaEnabled"))
-            if not PySpin.IsWritable(genable):
-                cprocess = PySpin.CBooleanPtr(
-                    self.nodemap.GetNode("OnBoardColorProcessEnabled"))
-                cprocess.SetValue(True)
+            try:
+                if not PySpin.IsWritable(genable):
+                    cprocess = PySpin.CBooleanPtr(
+                        self.nodemap.GetNode("OnBoardColorProcessEnabled"))
+                    cprocess.SetValue(True)
+            except:
+                # this does not exist on the blackfly
+                pass
             if PySpin.IsWritable(genable):
                 genable.SetValue(True)
             if self.cam.Gamma.GetAccessMode() != PySpin.RW:
                 display('[PointGrey] - Cannot set gamma.')
                 return
+            print(self.cam.Gamma.GetValue())
             self.cam.Gamma.SetValue(gamma)
             
     def set_gain(self,gain = 1):
@@ -439,7 +447,7 @@ Available serials are:
         self.set_framerate(self.frame_rate)
         self.set_gain(self.gain)
         self.set_gamma(self.gamma)
-            
+
         self.lastframeid = -1
         self.nframes.value = 0
         self.camera_ready.set()
