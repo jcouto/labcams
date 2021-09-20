@@ -6,7 +6,7 @@ from os.path import join as pjoin
 from setuptools import setup
 from setuptools.command.install import install
 
-with open("README.md", "r") as fh:
+with open("readme-pip.md", "r") as fh:
     longdescription = fh.read()
 
 requirements = []
