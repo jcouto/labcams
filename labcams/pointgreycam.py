@@ -301,7 +301,8 @@ Available serials are:
         if not self.cam is None:
             self.frame_rate = min(self.cam.AcquisitionFrameRate.GetMax(),
                                   self.frame_rate)
-            self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off) # Need to have the trigger off to set the rate.
+            # Need to have the trigger off to set the rate.
+            self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off) 
             self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
             framerate_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionFrameRateAuto'))
             if 'Blackfly S' in self.cammodel: # Because the Blackfly S is slightly different
@@ -312,7 +313,7 @@ Available serials are:
                 framerate_mode.SetIntValue(autooff.GetValue())
             try:
                 self.cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
-                framerate_enabled.SetValue(True)
+                self.cam.AcquisitionFrameRateEnable.SetValue(True)
             except Exception as err:
                 display('Point Grey [{0}] - Could not set frame rate enable.'.format(self.cam_id))
                 print(err)
@@ -372,7 +373,7 @@ Available serials are:
                     cprocess.SetValue(True)
                 except:
                     pass
-            if PySpin.IsWritable(genable):
+            if PySpin.IsWritable(genable):
                 genable.SetValue(True)
             if self.cam.Gamma.GetAccessMode() != PySpin.RW:
                 display('PointGrey [{0}] - Cannot set gamma.'.format(self.cam_id))
@@ -380,9 +381,10 @@ Available serials are:
             try:
                 self.cam.Gamma.SetValue(self.gamma)
             except Exception as err:
-                display('Pointgrey [{0}] - could not set gamma {1}'.format(self.cam_id, self.gamma))
+                display('Pointgrey [{0}] - could not set gamma {1}'.format(
+                    self.cam_id, self.gamma))
                 print(err)
-                
+            print(self.cam.Gamma.GetValue())
             
     def set_gain(self,gain = 1):
         '''Set the gain is in dB'''
@@ -454,7 +456,7 @@ Available serials are:
         self.set_framerate(self.frame_rate)
         self.set_gain(self.gain)
         self.set_gamma(self.gamma)
-            
+
         self.lastframeid = -1
         self.nframes.value = 0
         self.camera_ready.set()
