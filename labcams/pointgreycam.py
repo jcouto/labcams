@@ -305,15 +305,16 @@ Available serials are:
             self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off) 
             self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
             framerate_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionFrameRateAuto'))
-            if 'Blackfly S' in self.cammodel: # Because the Blackfly S is slightly different
-                framerate_enabled = PySpin.CBooleanPtr(self.nodemap.GetNode('AcquisitionFrameRateEnable'))
-            else:
-                framerate_enabled = PySpin.CBooleanPtr(self.nodemap.GetNode('AcquisitionFrameRateEnabled'))
-                autooff = framerate_mode.GetEntryByName('Off')
-                framerate_mode.SetIntValue(autooff.GetValue())
+            autooff = framerate_mode.GetEntryByName('Off')
+            framerate_mode.SetIntValue(autooff.GetValue())
             try:
                 self.cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
-                self.cam.AcquisitionFrameRateEnable.SetValue(True)
+                try:
+                    self.cam.AcquisitionFrameRateEnable.SetValue(True)
+                except:
+                    framerate_enabled = PySpin.CBooleanPtr(
+                        self.nodemap.GetNode('AcquisitionFrameRateEnabled'))
+                    framerate_enabled.SetValue(True)
             except Exception as err:
                 display('Point Grey [{0}] - Could not set frame rate enable.'.format(self.cam_id))
                 print(err)
@@ -509,8 +510,8 @@ Available serials are:
                 self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed) #PySpin.ExposureMode_TriggerWidth)
                 self.cam.TriggerSource.SetValue(eval('PySpin.TriggerSource_Line'+d))
                 self.cam.TriggerSelector.SetValue(1) # this is exposure active in CM3
-                self.cam.TriggerOverlap.SetValue(PySpin.TriggerOverlap_ReadOut)
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
+                self.cam.TriggerOverlap.SetValue(PySpin.TriggerOverlap_ReadOut)
                 display('PointGrey [{0}] - External trigger mode ON on line {1}.'.format(self.cam_id, d))    
             if 'out_line' in self.hardware_trigger:
                 display('This is a master camera, sleeping .5 sec.')
@@ -520,14 +521,20 @@ Available serials are:
                 # Use line 1 for Blackfly S
                 # Use line 2 or 3 for Chamaeleon
                 display('PointGrey [{0}] - Setting the output line for line {1}'.format(self.cam_id, d))
-                self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line'+d))
-                self.cam.LineMode.SetValue(PySpin.LineMode_Output)
-                self.cam.LineSource.SetValue(PySpin.LineSource_ExposureActive)
+                if not 'Chameleon3' in self.cammodel: # delay the chamaeleon until after started
+                    self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line'+d))
+                    self.cam.LineMode.SetValue(PySpin.LineMode_Output)
+                    self.cam.LineSource.SetValue(PySpin.LineSource_ExposureActive)
                 if 'Blackfly S' in self.cammodel: # on Blackfly S connect line 1 to line 2 with a 10kOhm resistor 
                     display('PointGrey [{0}] - Setting 3.3V Enable on line 2'.format(self.cam_id))
                     self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line2'))
                     self.cam.V3_3Enable.SetValue(True)
         self.cam.BeginAcquisition()
+        if not self.hardware_trigger is None: # start chameleon trigger after the cam because it is constantly on
+            if 'out_line' in self.hardware_trigger and 'Chameleon3' in self.cammodel:
+                self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line'+d))
+                self.cam.LineMode.SetValue(PySpin.LineMode_Output)
+                self.cam.LineSource.SetValue(PySpin.LineSource_ExposureActive)
         display('PointGrey [{0}] - Started acquitition.'.format(self.cam_id))
         
     def _cam_stopacquisition(self):
@@ -538,7 +545,7 @@ Available serials are:
             if self.hardware_trigger[-1].isdigit():
                 d = self.hardware_trigger[-1]
             if 'out_line' in self.hardware_trigger:
-                if 'Blackfly S' in self.cammodel and d == 1: # can't set line 1 to input on Blackfly S
+                if not ('Blackfly S' in self.cammodel and d == 1): # can't set line 1 to input on Blackfly S
                     self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line' + d))
                     self.cam.LineMode.SetValue(PySpin.LineMode_Input) # stop output
                 self.cam.EndAcquisition()
