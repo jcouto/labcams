@@ -304,9 +304,10 @@ Available serials are:
             # Need to have the trigger off to set the rate.
             self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off) 
             self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
-            framerate_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionFrameRateAuto'))
-            autooff = framerate_mode.GetEntryByName('Off')
-            framerate_mode.SetIntValue(autooff.GetValue())
+            if not 'Blackfly S' in self.cammodel: # on Blackfly S does not have auto 
+                framerate_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionFrameRateAuto'))
+                autooff = framerate_mode.GetEntryByName('Off')
+                framerate_mode.SetIntValue(autooff.GetValue())
             try:
                 self.cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
                 try:
@@ -545,7 +546,8 @@ Available serials are:
             if self.hardware_trigger[-1].isdigit():
                 d = self.hardware_trigger[-1]
             if 'out_line' in self.hardware_trigger:
-                if not ('Blackfly S' in self.cammodel and d == 1): # can't set line 1 to input on Blackfly S
+                
+                if not 'Blackfly S' in self.cammodel: # can't set line 1 to input on Blackfly S
                     self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line' + d))
                     self.cam.LineMode.SetValue(PySpin.LineMode_Input) # stop output
                 self.cam.EndAcquisition()
