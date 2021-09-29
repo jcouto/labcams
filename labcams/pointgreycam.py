@@ -304,10 +304,6 @@ Available serials are:
             # Need to have the trigger off to set the rate.
             self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off) 
             self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
-            if not 'Blackfly S' in self.cammodel: # on Blackfly S does not have auto 
-                framerate_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionFrameRateAuto'))
-                autooff = framerate_mode.GetEntryByName('Off')
-                framerate_mode.SetIntValue(autooff.GetValue())
             try:
                 self.cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
                 try:
@@ -319,6 +315,10 @@ Available serials are:
             except Exception as err:
                 display('Point Grey [{0}] - Could not set frame rate enable.'.format(self.cam_id))
                 print(err)
+            if not 'Blackfly S' in self.cammodel: # on Blackfly S does not have auto 
+                framerate_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionFrameRateAuto'))
+                autooff = framerate_mode.GetEntryByName('Off')
+                framerate_mode.SetIntValue(autooff.GetValue())
             try:
                 self.cam.AcquisitionFrameRate.SetValue(self.frame_rate)
                 display('PointGrey [{0}] - Frame rate: {1}'.format(
