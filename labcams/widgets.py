@@ -19,6 +19,7 @@ from PyQt5.QtWidgets import (QWidget,
                              QGridLayout,
                              QFormLayout,
                              QVBoxLayout,
+                             QHBoxLayout,
                              QTabWidget,
                              QCheckBox,
                              QTextEdit,
@@ -865,7 +866,7 @@ class SettingsDialog(QDialog):
                         settings[s] = _OTHER_SETTINGS[s]
 
             settings['cams'] = []
-            
+        self.currentcam = None    
         self.settings = settings
         layout = QFormLayout()
         self.setLayout(layout)
@@ -873,12 +874,32 @@ class SettingsDialog(QDialog):
         from PyQt5.QtWidgets import QListWidget,QTabWidget
         
         self.cams_listw = QListWidget()
-        for c in settings['cams']:
+        for i,c in enumerate(settings['cams']):
             self.cams_listw.addItem('{0} - {1}'.format(c['name'],c['driver']))
+            self.currentcam = i
         btadd = QPushButton('Add')
         layout.addRow('Cameras',btadd)
-        camwidget = CamSettingsDialog()
+        btremove = QPushButton('Remove')
+        nw = QWidget()
+        nl = QHBoxLayout()
+        nl.addWidget(btadd)
+        nl.addWidget(btremove)
+        nw.setLayout(nl)
+        layout.addRow('Cameras',nw)
+        def addcamera():
+            self.settings['cams'].append(DEFAULTS['cams'][-1])
+            c = self.settings['cams'][-1]
+            self.cams_listw.addItem('{0} - {1}'.format(c['name'],
+                                                       c['driver']))
+        self.camwidget = CamSettingsDialog(settings = self.settings)
 
+        def camselect():
+            idx = self.cams_listw.currentRow()
+            self.currentcam = idx
+            self.camwidget.set_camera(idx)
+            
+        self.cams_listw.itemClicked.connect(camselect)
+        btadd.clicked.connect(addcamera)
         b1 = QGroupBox()
         b1.setTitle('Remote (network) access settings')
         lay = QFormLayout(b1)
@@ -902,7 +923,7 @@ class SettingsDialog(QDialog):
                     par.setText(str(self.settings[k]))
                 lay.addRow(QLabel(k),par)
         layout.addRow(self.cams_listw,b1)
-        layout.addRow(camwidget)
+        layout.addRow(self.camwidget)
         b2 = QGroupBox()
         b2.setTitle('General settings')
         lay = QFormLayout(b2)
@@ -918,27 +939,29 @@ class SettingsDialog(QDialog):
         self.show()
 
 class CamSettingsDialog(QWidget):
-    def __init__(self, camsettings = None):
+    def __init__(self, settings = None):
         super(CamSettingsDialog,self).__init__()
-        if camsettings is None:
-            camsettings = dict()
-        self.cam = camsettings
-
+        if settings is None:
+            settings = dict()
+        self.settings = settings
+        self.current = 0
+        self.cam = dict()
+        
         layout = QFormLayout()
         self.setLayout(layout)
         from .utils import _CAMERA_SETTINGS,_RECORDER_SETTINGS,_CAMERAS
         self.b1 = QGroupBox()
         self.b1.setTitle('Camera settings')
         self.b1_lay = QFormLayout(self.b1)
-        par = QComboBox()
+        self.drivername = QComboBox()
         for k in _CAMERAS.keys():
-            par.addItem(_CAMERAS[k])
+            self.drivername.addItem(_CAMERAS[k])
         self.b1_w = []
         w1 = QWidget()
         l = QFormLayout()
         w1.setLayout(l)
-        l.addRow('Camera driver',par)
-        par.currentIndexChanged.connect(self.set_driver)
+        l.addRow('Camera driver',self.drivername)
+        self.drivername.currentIndexChanged.connect(self.set_driver)
         w2 = QWidget()
         l = QFormLayout()
         w2.setLayout(l)
@@ -959,12 +982,31 @@ class CamSettingsDialog(QWidget):
         self.b2_lay.addRow('Use frame queue',self.use_queue)
         layout.addRow(self.b1)
         layout.addRow(self.b2)
-    def set_driver(self,value):
+
+    def set_camera(self,idx):
+        self.current = idx
+        self.camsettings = self.settings['cams'][self.current]
+        print(self.camsettings['driver'])
+        self.set_driver(self.camsettings['driver'])
+        
+    def set_driver(self,value=None):
         from .utils import _CAMERA_SETTINGS,_CAMERAS
         drivers = [k for k in _CAMERAS.keys()]
-        camdriver = drivers[value]
-        self.camsettings = dict(_CAMERA_SETTINGS[camdriver],driver = camdriver)
+        if not value is None:
+            if type(value) is int:
+                camdriver = drivers[value]
+            else:
+                camdriver = value.lower()
+            if not len(self.camsettings):
+                self.camsettings = dict(_CAMERA_SETTINGS[camdriver],driver = camdriver)
+            # check that what is in the settings is not overwritten.
+            self.drivername.setCurrentIndex(drivers.index(camdriver)) 
+        self.camsettings['driver'] = camdriver
+        print(self.camsettings)
         self.set_camera_widgets()
+        
+
+
     def set_camera_widgets(self):
         if len(self.b1_w):
             for i in self.b1_w:

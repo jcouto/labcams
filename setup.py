@@ -17,11 +17,12 @@ data_path = pjoin(os.path.expanduser('~'), 'labcams')
 
 setup(
     name = 'labcams',
-    version = '0.2.1',
+    version = '0.3.0',
     author = 'Joao Couto',
     author_email = 'jpcouto@gmail.com',
-    description = (longdescription),
+    description = 'Multicamera video acquisition,online compression and automation',
     long_description = longdescription,
+    long_description_content_type='text/markdown',
     license = 'GPL',
     install_requires = requirements,
     url = "https://bitbucket.org/jpcouto/labcams",
