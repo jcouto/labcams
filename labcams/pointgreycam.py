@@ -315,7 +315,7 @@ Available serials are:
             except Exception as err:
                 display('Point Grey [{0}] - Could not set frame rate enable.'.format(self.cam_id))
                 print(err)
-            if not 'Blackfly S' in self.cammodel: # on Blackfly S does not have auto 
+            if 'Chameleon3' in self.cammodel: 
                 framerate_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionFrameRateAuto'))
                 autooff = framerate_mode.GetEntryByName('Off')
                 framerate_mode.SetIntValue(autooff.GetValue())
