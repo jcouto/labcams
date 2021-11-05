@@ -512,7 +512,10 @@ Available serials are:
                 self.cam.TriggerSource.SetValue(eval('PySpin.TriggerSource_Line'+d))
                 self.cam.TriggerSelector.SetValue(1) # this is exposure active in CM3
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
-                self.cam.TriggerOverlap.SetValue(PySpin.TriggerOverlap_ReadOut)
+                try:
+                    self.cam.TriggerOverlap.SetValue(PySpin.TriggerOverlap_ReadOut)
+                except:
+                    display('PointGrey [{0}] - TriggerOverlap could not be set.')
                 display('PointGrey [{0}] - External trigger mode ON on line {1}.'.format(self.cam_id, d))    
             if 'out_line' in self.hardware_trigger:
                 display('This is a master camera, sleeping .5 sec.')
