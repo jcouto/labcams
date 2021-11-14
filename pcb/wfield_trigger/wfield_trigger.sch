@@ -1,0 +1,735 @@
+EESchema Schematic File Version 4
+EELAYER 30 0
+EELAYER END
+$Descr A4 11693 8268
+encoding utf-8
+Sheet 1 1
+Title ""
+Date ""
+Rev ""
+Comp ""
+Comment1 ""
+Comment2 ""
+Comment3 ""
+Comment4 ""
+$EndDescr
+$Comp
+L labcams_custom:Teensy4.0 U1
+U 1 1 6184B1F3
+P 6760 3315
+F 0 "U1" H 6760 4930 50  0000 C CNN
+F 1 "Teensy4.0" H 6760 4839 50  0000 C CNN
+F 2 "labcams_custom:Teensy40" H 6360 3515 50  0001 C CNN
+F 3 "" H 6360 3515 50  0001 C CNN
+	1    6760 3315
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:R_US R1
+U 1 1 6184F194
+P 3500 1850
+F 0 "R1" V 3295 1850 50  0000 C CNN
+F 1 "10k" V 3386 1850 50  0000 C CNN
+F 2 "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder" V 3540 1840 50  0001 C CNN
+F 3 "~" H 3500 1850 50  0001 C CNN
+	1    3500 1850
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:R_US R2
+U 1 1 6184FDB5
+P 4050 2000
+F 0 "R2" H 3982 1954 50  0000 R CNN
+F 1 "10k" H 3982 2045 50  0000 R CNN
+F 2 "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder" V 4090 1990 50  0001 C CNN
+F 3 "~" H 4050 2000 50  0001 C CNN
+	1    4050 2000
+	-1   0    0    1   
+$EndComp
+$Comp
+L Connector:Conn_Coaxial J4
+U 1 1 618528B4
+P 3650 1230
+F 0 "J4" V 3887 1159 50  0000 C CNN
+F 1 "Exposure trigger" V 3796 1159 50  0000 C CNN
+F 2 "Connector_Coaxial:SMA_Molex_73251-2200_Horizontal" H 3650 1230 50  0001 C CNN
+F 3 " ~" H 3650 1230 50  0001 C CNN
+	1    3650 1230
+	0    -1   -1   0   
+$EndComp
+$Comp
+L Connector:Screw_Terminal_01x04 J1
+U 1 1 618542C1
+P 2440 3310
+F 0 "J1" H 2358 2885 50  0000 C CNN
+F 1 "SYNC" H 2358 2976 50  0000 C CNN
+F 2 "TerminalBlock_TE-Connectivity:TerminalBlock_TE_282834-4_1x04_P2.54mm_Horizontal" H 2440 3310 50  0001 C CNN
+F 3 "~" H 2440 3310 50  0001 C CNN
+	1    2440 3310
+	-1   0    0    1   
+$EndComp
+$Comp
+L power:GND #PWR0101
+U 1 1 61862945
+P 3850 1230
+F 0 "#PWR0101" H 3850 980 50  0001 C CNN
+F 1 "GND" H 3855 1057 50  0000 C CNN
+F 2 "" H 3850 1230 50  0001 C CNN
+F 3 "" H 3850 1230 50  0001 C CNN
+	1    3850 1230
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+3.3V #PWR0102
+U 1 1 61874ED6
+P 4050 2150
+F 0 "#PWR0102" H 4050 2000 50  0001 C CNN
+F 1 "+3.3V" H 4065 2323 50  0000 C CNN
+F 2 "" H 4050 2150 50  0001 C CNN
+F 3 "" H 4050 2150 50  0001 C CNN
+	1    4050 2150
+	-1   0    0    1   
+$EndComp
+Wire Wire Line
+	3850 2150 4050 2150
+Connection ~ 4050 2150
+$Comp
+L power:+5V #PWR0103
+U 1 1 61876468
+P 3350 1850
+F 0 "#PWR0103" H 3350 1700 50  0001 C CNN
+F 1 "+5V" V 3365 1978 50  0000 L CNN
+F 2 "" H 3350 1850 50  0001 C CNN
+F 3 "" H 3350 1850 50  0001 C CNN
+	1    3350 1850
+	0    -1   -1   0   
+$EndComp
+Text GLabel 4050 1850 2    50   Input ~ 0
+cam_trigger
+$Comp
+L Transistor_FET:BSS138 Q1
+U 1 1 6184C95F
+P 3850 1950
+F 0 "Q1" V 4192 1950 50  0000 C CNN
+F 1 "BSS138" V 4101 1950 50  0000 C CNN
+F 2 "Package_TO_SOT_SMD:SOT-23" H 4050 1875 50  0001 L CIN
+F 3 "https://www.onsemi.com/pub/Collateral/BSS138-D.PDF" H 3850 1950 50  0001 L CNN
+	1    3850 1950
+	0    -1   -1   0   
+$EndComp
+Connection ~ 3650 1850
+Wire Wire Line
+	3650 1430 3650 1850
+Text GLabel 5660 2265 0    50   Input ~ 0
+cam_trigger
+Text GLabel 5660 2465 0    50   Input ~ 0
+sync1
+Text GLabel 5660 2365 0    50   Input ~ 0
+sync0
+Text GLabel 5660 2565 0    50   Input ~ 0
+led0
+Text GLabel 5660 2665 0    50   Input ~ 0
+led1
+Text GLabel 5660 2765 0    50   Input ~ 0
+gpio0
+$Comp
+L power:GND #PWR0104
+U 1 1 618C4EFC
+P 2640 3410
+F 0 "#PWR0104" H 2640 3160 50  0001 C CNN
+F 1 "GND" H 2645 3237 50  0000 C CNN
+F 2 "" H 2640 3410 50  0001 C CNN
+F 3 "" H 2640 3410 50  0001 C CNN
+	1    2640 3410
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:R_US R3
+U 1 1 618D1A9A
+P 3815 3510
+F 0 "R3" V 3610 3510 50  0000 C CNN
+F 1 "10k" V 3701 3510 50  0000 C CNN
+F 2 "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder" V 3855 3500 50  0001 C CNN
+F 3 "~" H 3815 3510 50  0001 C CNN
+	1    3815 3510
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:R_US R4
+U 1 1 618D1AA0
+P 4365 3660
+F 0 "R4" H 4297 3614 50  0000 R CNN
+F 1 "10k" H 4297 3705 50  0000 R CNN
+F 2 "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder" V 4405 3650 50  0001 C CNN
+F 3 "~" H 4365 3660 50  0001 C CNN
+	1    4365 3660
+	-1   0    0    1   
+$EndComp
+$Comp
+L Connector:Conn_Coaxial J6
+U 1 1 618D1AA6
+P 3965 2890
+F 0 "J6" V 4202 2819 50  0000 C CNN
+F 1 "SYNC0" V 4111 2819 50  0000 C CNN
+F 2 "Connector_Coaxial:SMA_Molex_73251-2200_Horizontal" H 3965 2890 50  0001 C CNN
+F 3 " ~" H 3965 2890 50  0001 C CNN
+	1    3965 2890
+	0    -1   -1   0   
+$EndComp
+$Comp
+L power:GND #PWR0105
+U 1 1 618D1AAC
+P 4165 2890
+F 0 "#PWR0105" H 4165 2640 50  0001 C CNN
+F 1 "GND" H 4170 2717 50  0000 C CNN
+F 2 "" H 4165 2890 50  0001 C CNN
+F 3 "" H 4165 2890 50  0001 C CNN
+	1    4165 2890
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+3.3V #PWR0106
+U 1 1 618D1AB2
+P 4365 3810
+F 0 "#PWR0106" H 4365 3660 50  0001 C CNN
+F 1 "+3.3V" H 4380 3983 50  0000 C CNN
+F 2 "" H 4365 3810 50  0001 C CNN
+F 3 "" H 4365 3810 50  0001 C CNN
+	1    4365 3810
+	-1   0    0    1   
+$EndComp
+Wire Wire Line
+	4165 3810 4365 3810
+Connection ~ 4365 3810
+$Comp
+L power:+5V #PWR0107
+U 1 1 618D1ABA
+P 3665 3510
+F 0 "#PWR0107" H 3665 3360 50  0001 C CNN
+F 1 "+5V" V 3680 3638 50  0000 L CNN
+F 2 "" H 3665 3510 50  0001 C CNN
+F 3 "" H 3665 3510 50  0001 C CNN
+	1    3665 3510
+	0    -1   -1   0   
+$EndComp
+$Comp
+L Transistor_FET:BSS138 Q2
+U 1 1 618D1AC1
+P 4165 3610
+F 0 "Q2" V 4507 3610 50  0000 C CNN
+F 1 "BSS138" V 4416 3610 50  0000 C CNN
+F 2 "Package_TO_SOT_SMD:SOT-23" H 4365 3535 50  0001 L CIN
+F 3 "https://www.onsemi.com/pub/Collateral/BSS138-D.PDF" H 4165 3610 50  0001 L CNN
+	1    4165 3610
+	0    -1   -1   0   
+$EndComp
+Connection ~ 3965 3510
+Wire Wire Line
+	3965 3090 3965 3510
+$Comp
+L Device:R_US R5
+U 1 1 618D57E6
+P 3780 4855
+F 0 "R5" V 3575 4855 50  0000 C CNN
+F 1 "10k" V 3666 4855 50  0000 C CNN
+F 2 "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder" V 3820 4845 50  0001 C CNN
+F 3 "~" H 3780 4855 50  0001 C CNN
+	1    3780 4855
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:R_US R6
+U 1 1 618D57EC
+P 4330 5005
+F 0 "R6" H 4262 4959 50  0000 R CNN
+F 1 "10k" H 4262 5050 50  0000 R CNN
+F 2 "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder" V 4370 4995 50  0001 C CNN
+F 3 "~" H 4330 5005 50  0001 C CNN
+	1    4330 5005
+	-1   0    0    1   
+$EndComp
+$Comp
+L Connector:Conn_Coaxial J5
+U 1 1 618D57F2
+P 3930 4235
+F 0 "J5" V 4167 4164 50  0000 C CNN
+F 1 "SYNC1" V 4076 4164 50  0000 C CNN
+F 2 "Connector_Coaxial:SMA_Molex_73251-2200_Horizontal" H 3930 4235 50  0001 C CNN
+F 3 " ~" H 3930 4235 50  0001 C CNN
+	1    3930 4235
+	0    -1   -1   0   
+$EndComp
+$Comp
+L power:GND #PWR0108
+U 1 1 618D57F8
+P 4130 4235
+F 0 "#PWR0108" H 4130 3985 50  0001 C CNN
+F 1 "GND" H 4135 4062 50  0000 C CNN
+F 2 "" H 4130 4235 50  0001 C CNN
+F 3 "" H 4130 4235 50  0001 C CNN
+	1    4130 4235
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+3.3V #PWR0109
+U 1 1 618D57FE
+P 4330 5155
+F 0 "#PWR0109" H 4330 5005 50  0001 C CNN
+F 1 "+3.3V" H 4345 5328 50  0000 C CNN
+F 2 "" H 4330 5155 50  0001 C CNN
+F 3 "" H 4330 5155 50  0001 C CNN
+	1    4330 5155
+	-1   0    0    1   
+$EndComp
+Wire Wire Line
+	4130 5155 4330 5155
+Connection ~ 4330 5155
+$Comp
+L power:+5V #PWR0110
+U 1 1 618D5806
+P 3630 4855
+F 0 "#PWR0110" H 3630 4705 50  0001 C CNN
+F 1 "+5V" V 3645 4983 50  0000 L CNN
+F 2 "" H 3630 4855 50  0001 C CNN
+F 3 "" H 3630 4855 50  0001 C CNN
+	1    3630 4855
+	0    -1   -1   0   
+$EndComp
+$Comp
+L Transistor_FET:BSS138 Q3
+U 1 1 618D580D
+P 4130 4955
+F 0 "Q3" V 4472 4955 50  0000 C CNN
+F 1 "BSS138" V 4381 4955 50  0000 C CNN
+F 2 "Package_TO_SOT_SMD:SOT-23" H 4330 4880 50  0001 L CIN
+F 3 "https://www.onsemi.com/pub/Collateral/BSS138-D.PDF" H 4130 4955 50  0001 L CNN
+	1    4130 4955
+	0    -1   -1   0   
+$EndComp
+Connection ~ 3930 4855
+Wire Wire Line
+	3930 4435 3930 4855
+$Comp
+L Device:R_US R11
+U 1 1 618D9DD6
+P 5325 6260
+F 0 "R11" V 5120 6260 50  0000 C CNN
+F 1 "10k" V 5211 6260 50  0000 C CNN
+F 2 "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder" V 5365 6250 50  0001 C CNN
+F 3 "~" H 5325 6260 50  0001 C CNN
+	1    5325 6260
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:R_US R12
+U 1 1 618D9DDC
+P 5875 6410
+F 0 "R12" H 5807 6364 50  0000 R CNN
+F 1 "10k" H 5807 6455 50  0000 R CNN
+F 2 "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder" V 5915 6400 50  0001 C CNN
+F 3 "~" H 5875 6410 50  0001 C CNN
+	1    5875 6410
+	-1   0    0    1   
+$EndComp
+$Comp
+L Connector:Conn_Coaxial J8
+U 1 1 618D9DE2
+P 5475 5640
+F 0 "J8" V 5712 5569 50  0000 C CNN
+F 1 "GPIO0" V 5621 5569 50  0000 C CNN
+F 2 "Connector_Coaxial:SMA_Molex_73251-2200_Horizontal" H 5475 5640 50  0001 C CNN
+F 3 " ~" H 5475 5640 50  0001 C CNN
+	1    5475 5640
+	0    -1   -1   0   
+$EndComp
+$Comp
+L power:GND #PWR0111
+U 1 1 618D9DE8
+P 5675 5640
+F 0 "#PWR0111" H 5675 5390 50  0001 C CNN
+F 1 "GND" H 5680 5467 50  0000 C CNN
+F 2 "" H 5675 5640 50  0001 C CNN
+F 3 "" H 5675 5640 50  0001 C CNN
+	1    5675 5640
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+3.3V #PWR0112
+U 1 1 618D9DEE
+P 5875 6560
+F 0 "#PWR0112" H 5875 6410 50  0001 C CNN
+F 1 "+3.3V" H 5890 6733 50  0000 C CNN
+F 2 "" H 5875 6560 50  0001 C CNN
+F 3 "" H 5875 6560 50  0001 C CNN
+	1    5875 6560
+	-1   0    0    1   
+$EndComp
+Wire Wire Line
+	5675 6560 5875 6560
+Connection ~ 5875 6560
+$Comp
+L power:+5V #PWR0113
+U 1 1 618D9DF6
+P 5175 6260
+F 0 "#PWR0113" H 5175 6110 50  0001 C CNN
+F 1 "+5V" V 5190 6388 50  0000 L CNN
+F 2 "" H 5175 6260 50  0001 C CNN
+F 3 "" H 5175 6260 50  0001 C CNN
+	1    5175 6260
+	0    -1   -1   0   
+$EndComp
+Text GLabel 5875 6260 2    50   Input ~ 0
+gpio0
+$Comp
+L Transistor_FET:BSS138 Q6
+U 1 1 618D9DFD
+P 5675 6360
+F 0 "Q6" V 6017 6360 50  0000 C CNN
+F 1 "BSS138" V 5926 6360 50  0000 C CNN
+F 2 "Package_TO_SOT_SMD:SOT-23" H 5875 6285 50  0001 L CIN
+F 3 "https://www.onsemi.com/pub/Collateral/BSS138-D.PDF" H 5675 6360 50  0001 L CNN
+	1    5675 6360
+	0    -1   -1   0   
+$EndComp
+Connection ~ 5475 6260
+Wire Wire Line
+	5475 5840 5475 6260
+$Comp
+L Device:R_US R7
+U 1 1 618DB30A
+P 4010 6705
+F 0 "R7" V 3805 6705 50  0000 C CNN
+F 1 "10k" V 3896 6705 50  0000 C CNN
+F 2 "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder" V 4050 6695 50  0001 C CNN
+F 3 "~" H 4010 6705 50  0001 C CNN
+	1    4010 6705
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:R_US R8
+U 1 1 618DB310
+P 4560 6855
+F 0 "R8" H 4492 6809 50  0000 R CNN
+F 1 "10k" H 4492 6900 50  0000 R CNN
+F 2 "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder" V 4600 6845 50  0001 C CNN
+F 3 "~" H 4560 6855 50  0001 C CNN
+	1    4560 6855
+	-1   0    0    1   
+$EndComp
+$Comp
+L Connector:Conn_Coaxial J7
+U 1 1 618DB316
+P 4160 6085
+F 0 "J7" V 4397 6014 50  0000 C CNN
+F 1 "LED0" V 4306 6014 50  0000 C CNN
+F 2 "Connector_Coaxial:SMA_Molex_73251-2200_Horizontal" H 4160 6085 50  0001 C CNN
+F 3 " ~" H 4160 6085 50  0001 C CNN
+	1    4160 6085
+	0    -1   -1   0   
+$EndComp
+$Comp
+L power:GND #PWR0114
+U 1 1 618DB31C
+P 4360 6085
+F 0 "#PWR0114" H 4360 5835 50  0001 C CNN
+F 1 "GND" H 4365 5912 50  0000 C CNN
+F 2 "" H 4360 6085 50  0001 C CNN
+F 3 "" H 4360 6085 50  0001 C CNN
+	1    4360 6085
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+3.3V #PWR0115
+U 1 1 618DB322
+P 4560 7005
+F 0 "#PWR0115" H 4560 6855 50  0001 C CNN
+F 1 "+3.3V" H 4575 7178 50  0000 C CNN
+F 2 "" H 4560 7005 50  0001 C CNN
+F 3 "" H 4560 7005 50  0001 C CNN
+	1    4560 7005
+	-1   0    0    1   
+$EndComp
+Wire Wire Line
+	4360 7005 4560 7005
+Connection ~ 4560 7005
+$Comp
+L power:+5V #PWR0116
+U 1 1 618DB32A
+P 3860 6705
+F 0 "#PWR0116" H 3860 6555 50  0001 C CNN
+F 1 "+5V" V 3875 6833 50  0000 L CNN
+F 2 "" H 3860 6705 50  0001 C CNN
+F 3 "" H 3860 6705 50  0001 C CNN
+	1    3860 6705
+	0    -1   -1   0   
+$EndComp
+Text GLabel 4560 6705 2    50   Input ~ 0
+led0
+$Comp
+L Transistor_FET:BSS138 Q4
+U 1 1 618DB331
+P 4360 6805
+F 0 "Q4" V 4702 6805 50  0000 C CNN
+F 1 "BSS138" V 4611 6805 50  0000 C CNN
+F 2 "Package_TO_SOT_SMD:SOT-23" H 4560 6730 50  0001 L CIN
+F 3 "https://www.onsemi.com/pub/Collateral/BSS138-D.PDF" H 4360 6805 50  0001 L CNN
+	1    4360 6805
+	0    -1   -1   0   
+$EndComp
+Connection ~ 4160 6705
+Wire Wire Line
+	4160 6285 4160 6705
+$Comp
+L Device:R_US R9
+U 1 1 618DDC60
+P 2385 6730
+F 0 "R9" V 2180 6730 50  0000 C CNN
+F 1 "10k" V 2271 6730 50  0000 C CNN
+F 2 "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder" V 2425 6720 50  0001 C CNN
+F 3 "~" H 2385 6730 50  0001 C CNN
+	1    2385 6730
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:R_US R10
+U 1 1 618DDC66
+P 2935 6880
+F 0 "R10" H 2867 6834 50  0000 R CNN
+F 1 "10k" H 2867 6925 50  0000 R CNN
+F 2 "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder" V 2975 6870 50  0001 C CNN
+F 3 "~" H 2935 6880 50  0001 C CNN
+	1    2935 6880
+	-1   0    0    1   
+$EndComp
+$Comp
+L Connector:Conn_Coaxial J3
+U 1 1 618DDC6C
+P 2535 6110
+F 0 "J3" V 2772 6039 50  0000 C CNN
+F 1 "LED1" V 2681 6039 50  0000 C CNN
+F 2 "Connector_Coaxial:SMA_Molex_73251-2200_Horizontal" H 2535 6110 50  0001 C CNN
+F 3 " ~" H 2535 6110 50  0001 C CNN
+	1    2535 6110
+	0    -1   -1   0   
+$EndComp
+$Comp
+L power:GND #PWR0117
+U 1 1 618DDC72
+P 2735 6110
+F 0 "#PWR0117" H 2735 5860 50  0001 C CNN
+F 1 "GND" H 2740 5937 50  0000 C CNN
+F 2 "" H 2735 6110 50  0001 C CNN
+F 3 "" H 2735 6110 50  0001 C CNN
+	1    2735 6110
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+3.3V #PWR0118
+U 1 1 618DDC78
+P 2935 7030
+F 0 "#PWR0118" H 2935 6880 50  0001 C CNN
+F 1 "+3.3V" H 2950 7203 50  0000 C CNN
+F 2 "" H 2935 7030 50  0001 C CNN
+F 3 "" H 2935 7030 50  0001 C CNN
+	1    2935 7030
+	-1   0    0    1   
+$EndComp
+Wire Wire Line
+	2735 7030 2935 7030
+Connection ~ 2935 7030
+$Comp
+L power:+5V #PWR0119
+U 1 1 618DDC80
+P 2235 6730
+F 0 "#PWR0119" H 2235 6580 50  0001 C CNN
+F 1 "+5V" V 2250 6858 50  0000 L CNN
+F 2 "" H 2235 6730 50  0001 C CNN
+F 3 "" H 2235 6730 50  0001 C CNN
+	1    2235 6730
+	0    -1   -1   0   
+$EndComp
+$Comp
+L Transistor_FET:BSS138 Q5
+U 1 1 618DDC87
+P 2735 6830
+F 0 "Q5" V 3077 6830 50  0000 C CNN
+F 1 "BSS138" V 2986 6830 50  0000 C CNN
+F 2 "Package_TO_SOT_SMD:SOT-23" H 2935 6755 50  0001 L CIN
+F 3 "https://www.onsemi.com/pub/Collateral/BSS138-D.PDF" H 2735 6830 50  0001 L CNN
+	1    2735 6830
+	0    -1   -1   0   
+$EndComp
+Connection ~ 2535 6730
+Wire Wire Line
+	2535 6310 2535 6730
+Text GLabel 2935 6730 2    50   Input ~ 0
+led1
+Text GLabel 4330 4855 2    50   Input ~ 0
+sync1
+Text GLabel 4365 3510 2    50   Input ~ 0
+sync0
+Text GLabel 2535 6310 0    50   Input ~ 0
+led1_out
+Text GLabel 4160 6285 0    50   Input ~ 0
+led0_out
+Text GLabel 3650 1430 0    50   Input ~ 0
+cam_trigger_out
+Text GLabel 3930 4435 0    50   Input ~ 0
+sync1_out
+Text GLabel 3965 3090 0    50   Input ~ 0
+sync0_out
+Text GLabel 5475 5840 0    50   Input ~ 0
+gpio0_out
+Text GLabel 2640 3210 2    50   Input ~ 0
+sync0_out
+Text GLabel 2640 3310 2    50   Input ~ 0
+cam_trigger_out
+Text GLabel 2640 3110 2    50   Input ~ 0
+sync1_out
+$Comp
+L Connector:Screw_Terminal_01x04 J2
+U 1 1 6195E744
+P 2440 4630
+F 0 "J2" H 2358 4205 50  0000 C CNN
+F 1 "LED_control" H 2358 4296 50  0000 C CNN
+F 2 "TerminalBlock_TE-Connectivity:TerminalBlock_TE_282834-4_1x04_P2.54mm_Horizontal" H 2440 4630 50  0001 C CNN
+F 3 "~" H 2440 4630 50  0001 C CNN
+	1    2440 4630
+	-1   0    0    1   
+$EndComp
+$Comp
+L power:GND #PWR0120
+U 1 1 61960F50
+P 2640 4730
+F 0 "#PWR0120" H 2640 4480 50  0001 C CNN
+F 1 "GND" H 2645 4557 50  0000 C CNN
+F 2 "" H 2640 4730 50  0001 C CNN
+F 3 "" H 2640 4730 50  0001 C CNN
+	1    2640 4730
+	1    0    0    -1  
+$EndComp
+Text GLabel 2640 4530 2    50   Input ~ 0
+led1_out
+Text GLabel 2640 4630 2    50   Input ~ 0
+led0_out
+Text GLabel 2640 4430 2    50   Input ~ 0
+gpio0_out
+NoConn ~ 5660 2865
+NoConn ~ 5660 2965
+NoConn ~ 5660 3065
+NoConn ~ 5660 3165
+NoConn ~ 5660 3265
+NoConn ~ 5660 3365
+NoConn ~ 5660 3765
+NoConn ~ 5660 3665
+NoConn ~ 5660 3865
+NoConn ~ 5660 3965
+NoConn ~ 5660 4065
+NoConn ~ 5660 4165
+NoConn ~ 5660 4265
+NoConn ~ 5660 4365
+NoConn ~ 5660 4465
+NoConn ~ 5660 4565
+NoConn ~ 5660 4665
+NoConn ~ 7860 4665
+NoConn ~ 7860 4565
+NoConn ~ 7860 4465
+NoConn ~ 7860 4265
+NoConn ~ 7860 3865
+NoConn ~ 7860 3765
+NoConn ~ 7860 3665
+NoConn ~ 7860 3565
+NoConn ~ 7860 3465
+NoConn ~ 7860 3365
+NoConn ~ 7860 3265
+NoConn ~ 7860 3165
+NoConn ~ 7860 3065
+NoConn ~ 7860 2965
+NoConn ~ 7860 2865
+NoConn ~ 7860 2765
+NoConn ~ 7860 1965
+NoConn ~ 7860 2065
+NoConn ~ 7860 2165
+NoConn ~ 7860 2265
+NoConn ~ 7860 2365
+NoConn ~ 7860 2565
+$Comp
+L power:GND #PWR0121
+U 1 1 61981C64
+P 7860 4365
+F 0 "#PWR0121" H 7860 4115 50  0001 C CNN
+F 1 "GND" V 7865 4237 50  0000 R CNN
+F 2 "" H 7860 4365 50  0001 C CNN
+F 3 "" H 7860 4365 50  0001 C CNN
+	1    7860 4365
+	0    -1   -1   0   
+$EndComp
+$Comp
+L power:GND #PWR0122
+U 1 1 61983A97
+P 7860 2665
+F 0 "#PWR0122" H 7860 2415 50  0001 C CNN
+F 1 "GND" V 7865 2537 50  0000 R CNN
+F 2 "" H 7860 2665 50  0001 C CNN
+F 3 "" H 7860 2665 50  0001 C CNN
+	1    7860 2665
+	0    -1   -1   0   
+$EndComp
+$Comp
+L power:+3.3V #PWR0123
+U 1 1 61984FF9
+P 7860 2465
+F 0 "#PWR0123" H 7860 2315 50  0001 C CNN
+F 1 "+3.3V" V 7875 2593 50  0000 L CNN
+F 2 "" H 7860 2465 50  0001 C CNN
+F 3 "" H 7860 2465 50  0001 C CNN
+	1    7860 2465
+	0    1    1    0   
+$EndComp
+$Comp
+L power:+3.3V #PWR0124
+U 1 1 61987720
+P 5660 3465
+F 0 "#PWR0124" H 5660 3315 50  0001 C CNN
+F 1 "+3.3V" V 5675 3593 50  0000 L CNN
+F 2 "" H 5660 3465 50  0001 C CNN
+F 3 "" H 5660 3465 50  0001 C CNN
+	1    5660 3465
+	0    -1   -1   0   
+$EndComp
+$Comp
+L power:GND #PWR0125
+U 1 1 61988E30
+P 5660 3565
+F 0 "#PWR0125" H 5660 3315 50  0001 C CNN
+F 1 "GND" V 5665 3437 50  0000 R CNN
+F 2 "" H 5660 3565 50  0001 C CNN
+F 3 "" H 5660 3565 50  0001 C CNN
+	1    5660 3565
+	0    1    1    0   
+$EndComp
+$Comp
+L power:+5V #PWR0126
+U 1 1 6198B917
+P 7860 4165
+F 0 "#PWR0126" H 7860 4015 50  0001 C CNN
+F 1 "+5V" V 7875 4293 50  0000 L CNN
+F 2 "" H 7860 4165 50  0001 C CNN
+F 3 "" H 7860 4165 50  0001 C CNN
+	1    7860 4165
+	0    1    1    0   
+$EndComp
+$Comp
+L power:GND #PWR0127
+U 1 1 6198EDC7
+P 5660 1965
+F 0 "#PWR0127" H 5660 1715 50  0001 C CNN
+F 1 "GND" V 5665 1837 50  0000 R CNN
+F 2 "" H 5660 1965 50  0001 C CNN
+F 3 "" H 5660 1965 50  0001 C CNN
+	1    5660 1965
+	0    1    1    0   
+$EndComp
+NoConn ~ 5660 2065
+NoConn ~ 5660 2165
+$EndSCHEMATC

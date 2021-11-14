@@ -19,6 +19,7 @@ from PyQt5.QtWidgets import (QWidget,
                              QGridLayout,
                              QFormLayout,
                              QVBoxLayout,
+                             QHBoxLayout,
                              QTabWidget,
                              QCheckBox,
                              QTextEdit,
@@ -474,7 +475,7 @@ class CamWidget(QWidget):
                 self.string = '{0}'            
         ts.link(toggleSaveCam)
         self.addAction(ts)
-        tr = QActionCheckBox(self,'reference channel',  False)
+        tr = QActionCheckBox(self,'alignment reference',  False)
         def toggleReference():
             if self.parameters['reference_channel'] is None:
                 reffile = str(QFileDialog().getOpenFileName(self,'Load reference image')[0])
@@ -710,8 +711,7 @@ class CamWidget(QWidget):
             else:
                 frame = frame.squeeze()
                 ref = self.parameters['reference_channel']
-                ref /= ref.max()
-                im = np.stack([ref,frame/np.max(frame),np.zeros_like(frame)]).transpose([1,2,0])
+                im = np.stack([ref/np.max(ref),frame/np.max(frame),np.zeros_like(frame)]).transpose([1,2,0])
                 self.view.setImage(im,autoDownsample=True)
             self.lastnFrame = nframe
 
@@ -866,7 +866,7 @@ class SettingsDialog(QDialog):
                         settings[s] = _OTHER_SETTINGS[s]
 
             settings['cams'] = []
-            
+        self.currentcam = None    
         self.settings = settings
         layout = QFormLayout()
         self.setLayout(layout)
@@ -874,11 +874,32 @@ class SettingsDialog(QDialog):
         from PyQt5.QtWidgets import QListWidget,QTabWidget
         
         self.cams_listw = QListWidget()
-        for c in settings['cams']:
+        for i,c in enumerate(settings['cams']):
             self.cams_listw.addItem('{0} - {1}'.format(c['name'],c['driver']))
+            self.currentcam = i
         btadd = QPushButton('Add')
         layout.addRow('Cameras',btadd)
-        layout.addRow(self.cams_listw)
+        btremove = QPushButton('Remove')
+        nw = QWidget()
+        nl = QHBoxLayout()
+        nl.addWidget(btadd)
+        nl.addWidget(btremove)
+        nw.setLayout(nl)
+        layout.addRow('Cameras',nw)
+        def addcamera():
+            self.settings['cams'].append(DEFAULTS['cams'][-1])
+            c = self.settings['cams'][-1]
+            self.cams_listw.addItem('{0} - {1}'.format(c['name'],
+                                                       c['driver']))
+        self.camwidget = CamSettingsDialog(settings = self.settings)
+
+        def camselect():
+            idx = self.cams_listw.currentRow()
+            self.currentcam = idx
+            self.camwidget.set_camera(idx)
+            
+        self.cams_listw.itemClicked.connect(camselect)
+        btadd.clicked.connect(addcamera)
         b1 = QGroupBox()
         b1.setTitle('Remote (network) access settings')
         lay = QFormLayout(b1)
@@ -901,8 +922,8 @@ class SettingsDialog(QDialog):
                     par = QLineEdit()
                     par.setText(str(self.settings[k]))
                 lay.addRow(QLabel(k),par)
-        layout.addRow(b1)
-
+        layout.addRow(self.cams_listw,b1)
+        layout.addRow(self.camwidget)
         b2 = QGroupBox()
         b2.setTitle('General settings')
         lay = QFormLayout(b2)
@@ -916,3 +937,98 @@ class SettingsDialog(QDialog):
         layout.addRow(b2)
         
         self.show()
+
+class CamSettingsDialog(QWidget):
+    def __init__(self, settings = None):
+        super(CamSettingsDialog,self).__init__()
+        if settings is None:
+            settings = dict()
+        self.settings = settings
+        self.current = 0
+        self.cam = dict()
+        
+        layout = QFormLayout()
+        self.setLayout(layout)
+        from .utils import _CAMERA_SETTINGS,_RECORDER_SETTINGS,_CAMERAS
+        self.b1 = QGroupBox()
+        self.b1.setTitle('Camera settings')
+        self.b1_lay = QFormLayout(self.b1)
+        self.drivername = QComboBox()
+        for k in _CAMERAS.keys():
+            self.drivername.addItem(_CAMERAS[k])
+        self.b1_w = []
+        w1 = QWidget()
+        l = QFormLayout()
+        w1.setLayout(l)
+        l.addRow('Camera driver',self.drivername)
+        self.drivername.currentIndexChanged.connect(self.set_driver)
+        w2 = QWidget()
+        l = QFormLayout()
+        w2.setLayout(l)
+        self.camname = QLineEdit()
+        self.camname.setText('cam1')
+        l.addRow('Name',self.camname)
+        self.b1_lay.addRow(w1,w2)
+        self.b2 = QGroupBox()
+        self.b2.setTitle('Recorder settings')
+        self.b2_lay = QFormLayout(self.b2)
+        par = QComboBox()
+        for i in _RECORDER_SETTINGS['recorder']:
+            par.addItem(i)
+        self.b2_w = []
+        self.b2_lay.addRow('Recorder format',par)
+        self.use_queue = QCheckBox()
+        self.use_queue.setChecked(True)
+        self.b2_lay.addRow('Use frame queue',self.use_queue)
+        layout.addRow(self.b1)
+        layout.addRow(self.b2)
+
+    def set_camera(self,idx):
+        self.current = idx
+        self.camsettings = self.settings['cams'][self.current]
+        print(self.camsettings['driver'])
+        self.set_driver(self.camsettings['driver'])
+        
+    def set_driver(self,value=None):
+        from .utils import _CAMERA_SETTINGS,_CAMERAS
+        drivers = [k for k in _CAMERAS.keys()]
+        if not value is None:
+            if type(value) is int:
+                camdriver = drivers[value]
+            else:
+                camdriver = value.lower()
+            if not len(self.camsettings):
+                self.camsettings = dict(_CAMERA_SETTINGS[camdriver],driver = camdriver)
+            # check that what is in the settings is not overwritten.
+            self.drivername.setCurrentIndex(drivers.index(camdriver)) 
+        self.camsettings['driver'] = camdriver
+        print(self.camsettings)
+        self.set_camera_widgets()
+        
+
+
+    def set_camera_widgets(self):
+        if len(self.b1_w):
+            for i in self.b1_w:
+                self.b1_lay.removeRow(i[0])
+        self.b1_w = []
+        from .utils import _CAMERA_SETTINGS,_CAMERAS
+        sett = self.camsettings
+        print(sett)
+        for k in sett.keys():
+            if not k in _CAMERA_SETTINGS[self.camsettings['driver']]:
+                continue
+            if type(sett[k]) is list:
+                # then it is an option menu
+                par = QComboBox()
+                for i in sett[k]:
+                    par.addItem(i)
+                index = par.findText(self.settings[k])
+                if index >= 0:
+                    par.setCurrentIndex(index)
+            else:
+                par = QLineEdit()
+            par.setText(str(self.camsettings[k]))
+            l = QLabel(k)
+            self.b1_lay.addRow(l,par)
+            self.b1_w.append([l,par])

@@ -147,14 +147,14 @@ class GenericCam(Process):
                     if not self.stop_trigger.is_set():
                         self._cam_startacquisition()
                         self.cam_is_running = True
-            display('[Camera] Stop trigger set.')
+            #display('[Camera {0}] Stop trigger set.'.format(self.cam_id))
             self.start_trigger.clear()
             self._cam_close()
             self.cam_is_running = False
             if self.was_saving:
                 self.was_saving = False
                 if self.recorder is None:
-                    display('[Camera] Sending stop signal to the recorder.')
+                    display('[Camera {0}] Sending stop signal to the recorder.'.format(self.cam_id))
                     self.queue.put(['STOP'])
                 else:
                     self.recorder.close_run()
@@ -213,7 +213,8 @@ class GenericCam(Process):
                     if self.recorder is None:
                         self.queue.put([msg])
                     else:
-                        self.recorder.logfile.write(msg)
+                        if not self.recorder.logfile is None:
+                            self.recorder.logfile.write(msg)
                     
     def _call_event(self,eventname,eventvalue):
         if eventname in self.ctrevents.keys():

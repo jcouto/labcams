@@ -24,48 +24,13 @@
 
 Multicamera control and acquisition.
 
-This aims to facilitate video acquisition and automation of experimens, uses separate processes to record and store data.
-
-### Supported cameras -  [see instructions here](./camera_instructions.md):
-
- * Allied Vision Technologies (via pymba)
- * PointGrey cameras (via PySpin)
- * QImaging cameras via the legacy driver (only windows)
- * PCO cameras (only windows)
- * Ximea cameras
-
-### Features:
-
- *  Separates viewer, camera control/acquisition and file writer in different processes.
- *  Data from camera acquisition process placed on a cue.
- *  Display options: background subtraction; histogram equalization; pupil tracking via the [ mptracker ](https://bitbucket.org/jpcouto/mptracker).	
- *  Multiple buffers on Allied vision technologies cameras allows high speed data acquisition.
- * Online compression using ffmpeg (supports hardware acceleration)
-
+This aims to facilitate video acquisition and automation of experimens, uses separate processes to record and store data. Interfaces with other computers via UDP or ZeroMQ for automating experiments. Uses hardware and FFMPEG to compress in real-time. 
 
 ## Instalation from pip (recommended but not the latest version):
 
 ``pip install labcams`` or add the ``--no-deps`` flag to install no dependencies.
 
-## Instalation on Ubuntu 20.04
-
-``sudo apt install python3-matplotlib ipython3 python3-opencv python3-pyqt5 python3-tqdm python3-pip python3-pyqtgraph python3-serial python3-zmq python3-natsort python3-pandas emacs git ssh``
-
-
-``pip3 install labcams`` - this may end up in ``$HOME/.local/bin`` so add the following to the end of the ``.bashrc`` file: ``export PATH=$PATH:$HOME/.local/bin``
-
-## Instalation - from git:
-
-**Note:** On windows get the [ git bash terminal ](https://git-scm.com/downloads). I had issues running from cmd.exe when installed with conda.
-
-1. Get [ anaconda ](https://conda.io/anaconda.html). Add conda to system PATH when asked. Open a terminal (use git bash if on windows) and type ``conda init bash``.
-2. Clone the repository: ``git clone git@bitbucket.org:jpcouto/labcams.git``
-3. Go into the cloned ``cd labcams`` folder.
-4. Install the required packages, use e.g. ``pip install -r requirements.txt`` or conda install... 
-5. Install ``labcams`` with ``python setup.py develop``
-6. Follow the [camera specific instalation](./camera_instructions.md) and instructions for syncronization. Each camera must have a section in the ``~/labcams/default.json`` file that is created the first time you try to run the software with the command ``labcams`` from the terminal. Use a text editor to add the correct options. There are examples in the examples folder.
-
-You can run ``labcams`` from the command terminal. Install *FFMPEG* if you need to save in compressed video formats.
+Install camera [drivers](./camera_instructions.md):
 
 ## Usage:
 
@@ -99,6 +64,8 @@ Available camera drivers:
  * `QImaging` 
  * `pointgrey` - FLIR cameras - install Spinnaker
  * `openCV` - webcams and so on
+
+For calcium or voltage imaging with the PCO (or another) camera use the arduino code in the ``duino`` folder and [instructions](./camera_instructions.md).
 
 Each camera has its own parameters, there are some parameters that are common to all:
 
@@ -140,26 +107,52 @@ The UDP commands are:
  * Add a message to the log ``log=MESSAGE``
  * Quit ``quit``
 
-**Please drop me a line for feedback and acknowledge if you use labcams in your work.**
 
+### Supported cameras -  [see instructions here](./camera_instructions.md):
+
+ * PCO cameras (only windows)
+ * PointGrey cameras (via PySpin)
+ * Basler cameras (via pypylon)
+ * Allied Vision Technologies (via pymba - updating to the latest)
+ * QImaging cameras via the legacy driver (only windows)
+ * Ximea cameras
+
+### Features:
+
+ * Separates viewer, camera control/acquisition and file writer in different processes.
+ * Data from camera acquisition process placed on a cue.
+ * Display options: background subtraction; histogram equalization; pupil tracking via the [ mptracker ](https://bitbucket.org/jpcouto/mptracker).	
+ * Multiple buffers on Allied vision technologies cameras allows high speed data acquisition.
+ * Online compression using ffmpeg (supports hardware acceleration)
+
+## Instalation on Ubuntu 20.04
+
+``sudo apt install python3-matplotlib ipython3 python3-opencv python3-pyqt5 python3-tqdm python3-pip python3-pyqtgraph python3-serial python3-zmq python3-natsort python3-pandas emacs git ssh ffmpeg``
+
+
+``pip3 install labcams`` - this may end up in ``$HOME/.local/bin`` so add the following to the end of the ``.bashrc`` file: ``export PATH=$PATH:$HOME/.local/bin``
+
+## Instalation - from git:
+
+**Note:** On windows get the [ git bash terminal ](https://git-scm.com/downloads). I had issues running from cmd.exe when installed with conda.
+
+1. Get [ anaconda ](https://conda.io/anaconda.html). Add conda to system PATH when asked. Open a terminal (use git bash if on windows) and type ``conda init bash``.
+2. Clone the repository: ``git clone git@bitbucket.org:jpcouto/labcams.git``
+3. Go into the cloned ``cd labcams`` folder.
+4. Install the required packages, use e.g. ``pip install -r requirements.txt`` or conda install... 
+5. Install ``labcams`` with ``python setup.py develop``
+6. Follow the [camera specific instalation](./camera_instructions.md) and instructions for syncronization. Each camera must have a section in the ``~/labcams/default.json`` file that is created the first time you try to run the software with the command ``labcams`` from the terminal. Use a text editor to add the correct options. There are examples in the examples folder.
+7. Install ffmpeg with anaconda: ``conda install -c conda-forge ffmpeg`` 
+
+
+You can run ``labcams`` from the command terminal. 
+
+**Please drop me a line for feedback and let the world know if you use this.**
 
 Joao Couto - jpcouto@gmail.com
 
 May 2017
 
-
-
-## Debugging:
-
-### FFMPEG recordings with (realtime) nvidia encoding.
-
-To do this you need to have a version of ffmpeg compile with NVENC.
-
-If you have the error:
-
-   ``Unrecognized option 'cq:v'.``
-
-Make sure you have the version with NVENC, check with ``which ffmpeg`` which version is running
 
 
 

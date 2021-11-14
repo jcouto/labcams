@@ -6,7 +6,7 @@ from os.path import join as pjoin
 from setuptools import setup
 from setuptools.command.install import install
 
-with open("README.md", "r") as fh:
+with open("readme-pip.md", "r") as fh:
     longdescription = fh.read()
 
 requirements = []
@@ -17,11 +17,12 @@ data_path = pjoin(os.path.expanduser('~'), 'labcams')
 
 setup(
     name = 'labcams',
-    version = '0.2',
+    version = '0.3.1a',
     author = 'Joao Couto',
     author_email = 'jpcouto@gmail.com',
-    description = (longdescription),
+    description = 'Multicamera video acquisition,online compression and automation',
     long_description = longdescription,
+    long_description_content_type='text/markdown',
     license = 'GPL',
     install_requires = requirements,
     url = "https://bitbucket.org/jpcouto/labcams",
