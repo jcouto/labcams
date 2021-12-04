@@ -815,8 +815,11 @@ def parseCamLog(fname, readTeensy = False):
                 sync.append([1.] + [_convert(f) for f in  l.strip('#SYNC1:').split(',')])
             else:
                 ncomm.append(l)
-        sync = pd.DataFrame(sync, columns=['sync','count','frame','timestamp'])
-        led = pd.DataFrame(led, columns=['led','frame','timestamp'])
+        if len(sync):
+            sync = pd.DataFrame(sync,
+                                columns=['sync','count','frame','timestamp'])
+        if len(led):
+            led = pd.DataFrame(led, columns=['led','frame','timestamp'])
         return logdata,led,sync,ncomm
     return logdata,comments
 
