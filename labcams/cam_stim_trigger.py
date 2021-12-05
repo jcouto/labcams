@@ -47,11 +47,20 @@ SYNC = 'T'
 SYNC1 = 'U'
 #SET_PARAMETERS = 'P'
 FRAME = 'F'
+NCHAN = 'N'
 # Class to talk to arduino  using a separate process.
 class CamStimInterface(Process):
-    def __init__(self,port='COM3', baudrate=2000000,
-                 inQ = None, outQ=None, saving = None, timeout=0.1):
+    def __init__(self,
+                 port=None,
+                 baudrate=2000000,
+                 inQ = None,
+                 outQ=None,
+                 saving = None,
+                 timeout=0.1):
         Process.__init__(self)
+        if port is None:
+            raise(ValueError(
+                'Camera stim trigger needs a serial port connection.'))
         if inQ is None:
             inQ = Queue()
         self.inQ = inQ
@@ -78,14 +87,14 @@ Could not open teensy on port {0}
         self.ino.write((STX + QUERY_CAP + ETX).encode())
         tread,message = self.ino_read()
         msg = message.split('_')
-        self.nchannels = 1
+        self.nchannels = Value('i',1)
         self.modes = []
         if STX+QUERY_CAP in msg:
             if "NCHANNELS" in message:
                 arg = msg.index("NCHANNELS")
                 if not arg is None:
-                    self.nchannels = int(msg[arg+1].strip('\n'))
-                    print('Got {0} channels from capabilities.'.format(self.nchannels))
+                    self.nchannels.value = int(msg[arg+1].strip('\n'))
+                    print('Got {0} channels from capabilities.'.format(self.nchannels.value))
             if "MODES" in message:         
                 arg = msg.index("MODES")
                 if not arg is None:
@@ -119,6 +128,9 @@ Could not open teensy on port {0}
         msg = self.ino.readline().decode()
         return time.time(),msg
 
+    def check_nchannels(self):
+        self.inQ.put(NCHAN)
+        
     def arm(self):
         self.inQ.put(ARM)
 
@@ -170,6 +182,9 @@ Could not open teensy on port {0}
                 return(['#LED:{0},{1},{2}'.format(self.last_led.value,
                                                   self.frame_count.value,
                                                   self.last_time.value)])
+            elif msg[0] == NCHAN:
+                tmp = msg.split(SEP)
+                self.nchannels.value = int(tmp[1])
             else:
                 print('[CamStimTrigger] Unknown message: ' + msg)
         else:

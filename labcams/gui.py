@@ -268,6 +268,8 @@ class LabCamsGUI(QMainWindow):
                                         acquisition_stim_trigger = camstim,
                                         triggered = self.triggered,
                                         recorderpar = recorderpar))
+                if not camstim is None:
+                    camstim.cam = self.cams[-1]
             elif cam['driver'].lower() == 'basler':
                 try:
                     from .basler import BaslerCam

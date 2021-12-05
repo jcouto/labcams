@@ -387,7 +387,8 @@ class CamWidget(QWidget):
                 ev['name'] = k
                 ev['action'] = None
                 if ev['widget'] == 'slider':
-                    ev['action'] = QActionSlider(self,k+' [{0:03d}]:'.format(int(val)),
+                    ev['action'] = QActionSlider(self,
+                                                 k+' [{0:03d}]:'.format(int(val)),
                                                  value = val,
                                                  vmin = ev['min'],
                                                  vmax = ev['max'],)
@@ -797,12 +798,13 @@ class ROIPlotWidget(QWidget):
                          y = buf[1,ii])
 
 class CamStimTriggerWidget(QWidget):
-    def __init__(self,port = None,ino=None, outQ = None):
+    def __init__(self,port = None,ino=None, outQ = None, cam = None):
         super(CamStimTriggerWidget,self).__init__()
         if (ino is None) and (not port is None):
             from .cam_stim_trigger import CamStimInterface
             ino = CamStimInterface(port = port,outQ = outQ)
         self.ino = ino
+        self.cam = cam
         form = QFormLayout()
         if not ino is None:
             def disarm():
@@ -842,6 +844,10 @@ class CamStimTriggerWidget(QWidget):
             
     def setMode(self,i):
         self.ino.set_mode(i+1)
+        self.ino.check_nchannels()
+        time.sleep(0.1)
+        if not self.cam is None:
+            self.cam.nchan = self.ino.nchannels.value
         
     def close(self):
         self.ino.close()
