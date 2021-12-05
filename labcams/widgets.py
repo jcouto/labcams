@@ -281,6 +281,7 @@ If the camera is saving this stops the camera.'''
                     display('[Controller] Sending start saving command to camera [{0}].'.format(c))
                     cam.saving.set()
                     if not writer is None:
+                        writer.init(cam)
                         writer.write.set()
                     self.experimentNameEdit.setDisabled(True)
                 else:
@@ -824,6 +825,7 @@ class CamStimTriggerWidget(QWidget):
                 wcombo.addItems(self.ino.modes)
                 wcombo.setCurrentIndex(len(self.ino.modes)-1)
                 wcombo.currentIndexChanged.connect(self.setMode)
+                self.ino.set_mode(len(self.ino.modes))
                 form.addRow(wcombo)
 
             wsync = QLabel()

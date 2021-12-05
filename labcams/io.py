@@ -64,6 +64,7 @@ class GenericWriter(object):
         self.inQ = inQ
         self.parQ = None
         self.today = datetime.today().strftime('%Y%m%d')
+        self.nchannels = Value('i',1)
         self.logfile = None
         self.nFiles = 0
         runname = 'run{0:03d}'.format(self.runs)
@@ -84,10 +85,9 @@ class GenericWriter(object):
         self.frame_rate = None
         if hasattr(cam,'frame_rate'):
             self.frame_rate = cam.frame_rate
-        self.nchannels = 1
+        self.nchannels.value = 1
         if hasattr(cam,'nchan'):
-            self.nchannels = cam.nchan
-
+            self.nchannels.value = cam.nchan
     def _stop_write(self):
         self.write = False
     def stop(self):
@@ -390,7 +390,7 @@ class BinaryWriter(GenericWriterProcess):
             dtype='uint8'
         else:
             dtype='uint16'
-        filename = filename.format(nchannels = self.nchannels,
+        filename = filename.format(nchannels = self.nchannels.value,
                                    W=self.w,
                                    H=self.h,
                                    dtype=dtype) 
@@ -690,7 +690,7 @@ class BinaryCamWriter(GenericWriter):
                  incrementruns=True):
         self.extension = '_{nchannels}_{H}_{W}_{dtype}.dat'
         self.cam = cam
-        self.nchannels = cam.nchan
+        self.nchannels.value = cam.nchan
         super(BinaryCamWriter,self).__init__(filename=filename,
                                              datafolder=datafolder,
                                              dataname=dataname,
@@ -717,7 +717,8 @@ class BinaryCamWriter(GenericWriter):
             dtype='uint8'
         else:
             dtype='uint16'
-        filename = filename.format(nchannels = self.nchannels,
+        self.nchannels.value = self.cam.nchan
+        filename = filename.format(nchannels = self.nchannels.value,
                                    W=self.w,
                                    H=self.h, dtype=dtype)
         self.parsed_filename = filename

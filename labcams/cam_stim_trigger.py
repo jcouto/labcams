@@ -47,7 +47,7 @@ SYNC = 'T'
 SYNC1 = 'U'
 #SET_PARAMETERS = 'P'
 FRAME = 'F'
-NCHAN = 'N'
+NCHAN = 'C'
 # Class to talk to arduino  using a separate process.
 class CamStimInterface(Process):
     def __init__(self,
