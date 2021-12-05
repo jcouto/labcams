@@ -386,7 +386,8 @@ Available serials are:
                 display('Pointgrey [{0}] - could not set gamma {1}'.format(
                     self.cam_id, self.gamma))
                 print(err)
-            print(self.cam.Gamma.GetValue())
+            display('Pointgrey [{0}] - Gamma set to: {1}'.format(
+                self.cam_id, self.cam.Gamma.GetValue()))
             
     def set_gain(self,gain = 1):
         '''Set the gain is in dB'''

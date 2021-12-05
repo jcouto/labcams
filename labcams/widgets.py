@@ -73,7 +73,7 @@ class QActionCheckBox(QWidgetAction):
 
 class QActionSlider(QWidgetAction):
     ''' Slider for the right mouse button dropdown menu'''
-    def __init__(self,parent,label='',value=0,vmin = 0,vmax = 1000):
+    def __init__(self,parent,label='',value=0,vmin = 0,vmax = 1000,step = None):
         super(QActionSlider,self).__init__(parent)
         self.subw = QWidget()
         self.sublay = QFormLayout()
@@ -85,6 +85,8 @@ class QActionSlider(QWidgetAction):
         self.setDefaultWidget(self.subw)
         self.slider.setMaximum(vmax)
         self.slider.setValue(value)
+        if not step is None:
+            self.slider.setSingleStep(step)
         self.slider.setMinimum(vmin)
         self.value = self.slider.value
     def link(self,func):
@@ -92,7 +94,10 @@ class QActionSlider(QWidgetAction):
 
 class QActionFloat(QWidgetAction):
     ''' Float edit for the right mouse button dropdown menu'''
-    def __init__(self,parent,label='',value=0,vmax = None,vmin = None):
+    def __init__(self,parent,label='',value=0,
+                 vmax = None,
+                 vmin = None,
+                 step = None):
         super(QActionFloat,self).__init__(parent)
         self.subw = QWidget()
         self.sublay = QFormLayout()
@@ -103,6 +108,8 @@ class QActionFloat(QWidgetAction):
         self.setDefaultWidget(self.subw)
         if not vmax is None:
             self.spin.setMaximum(vmax)
+        if not step is None:
+            self.spin.setSingleStep(step)
         if not value is None:
             self.spin.setValue(value)
         if not vmin is None:
@@ -110,7 +117,6 @@ class QActionFloat(QWidgetAction):
         self.value = self.spin.value
     def link(self,func):
         self.spin.editingFinished.connect(func)
-
 
 class RecordingControlWidget(QWidget):
     def __init__(self,parent):
@@ -379,7 +385,7 @@ class CamWidget(QWidget):
             self.ctract = dict()
             def vchanged(the):
                 val = the['action'].value()
-                self.cam.eventsQ.put(the['name']+'='+str(int(np.floor(val))))
+                self.cam.eventsQ.put(the['name']+'='+str(val))
 
             for k in  self.cam.ctrevents.keys():
                 self.ctract[k] = dict(**self.cam.ctrevents[k])
@@ -392,12 +398,14 @@ class CamWidget(QWidget):
                                                  k+' [{0:03d}]:'.format(int(val)),
                                                  value = val,
                                                  vmin = ev['min'],
-                                                 vmax = ev['max'],)
+                                                 vmax = ev['max'],
+                                                 step = ev['step'])
                 elif ev['widget'] == 'float':
                     ev['action'] = QActionFloat(self,k,
                                                 value = val,
                                                 vmin = ev['min'],
-                                                vmax = ev['max'],)
+                                                vmax = ev['max'],
+                                                step = ev['step'])
                     
                 if not ev['action'] is None:
                         #e.sublab.setText(k + ' [{0:03d}]:'.format(int(val)))
