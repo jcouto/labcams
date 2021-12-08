@@ -143,6 +143,8 @@ class LabCamsGUI(QMainWindow):
                 if 'ffmpeg' in cam['recorder']:
                     if 'hwaccel' in cam.keys():
                         recorderpar['hwaccel'] = cam['hwaccel']
+                    if 'preset' in cam.keys():
+                        recorderpar['preset'] = cam['preset']
             else:
                 display('Using the queue for recording.')
                 recorderpar = None # Use a queue recorder
@@ -403,8 +405,11 @@ class LabCamsGUI(QMainWindow):
                     display('Recording with ffmpeg')
                     if not 'hwaccel' in cam.keys():
                         cam['hwaccel'] = None
+                    if not 'preset' in cam.keys():
+                        cam['preset'] = None
                     self.writers.append(FFMPEGWriter(compression = cam['compress'],
                                                      hwaccel = cam['hwaccel'],
+                                                     preset = cam['preset'],
                                                      **towriter))
                 elif cam['recorder'] == 'binary':
                     display('Recording binary')
