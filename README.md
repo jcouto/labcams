@@ -110,11 +110,11 @@ The UDP commands are:
 
 ### Supported cameras -  [see instructions here](./camera_instructions.md):
 
- * Allied Vision Technologies (via pymba)
- * PointGrey cameras (via PySpin)
- * QImaging cameras via the legacy driver (only windows)
  * PCO cameras (only windows)
+ * PointGrey cameras (via PySpin)
  * Basler cameras (via pypylon)
+ * Allied Vision Technologies (via pymba - updating to the latest)
+ * QImaging cameras via the legacy driver (only windows)
  * Ximea cameras
 
 ### Features:
@@ -142,12 +142,12 @@ The UDP commands are:
 4. Install the required packages, use e.g. ``pip install -r requirements.txt`` or conda install... 
 5. Install ``labcams`` with ``python setup.py develop``
 6. Follow the [camera specific instalation](./camera_instructions.md) and instructions for syncronization. Each camera must have a section in the ``~/labcams/default.json`` file that is created the first time you try to run the software with the command ``labcams`` from the terminal. Use a text editor to add the correct options. There are examples in the examples folder.
+7. Install ffmpeg with anaconda: ``conda install -c conda-forge ffmpeg`` 
 
-You can run ``labcams`` from the command terminal. Install *FFMPEG* if you need to save in compressed video formats.
 
+You can run ``labcams`` from the command terminal. 
 
 **Please drop me a line for feedback and let the world know if you use this.**
-
 
 Joao Couto - jpcouto@gmail.com
 

@@ -82,7 +82,7 @@ class PCOCam(GenericCam):
             acquisition_stim_trigger.is_saving = self.saving
             self.refresh_period = -1
             # refresh every frame
-            self.nchan = acquisition_stim_trigger.nchannels
+            self.nchan = acquisition_stim_trigger.nchannels.value
         else:
             self.acquisition_stim_trigger = None
             self.nchan = 1 #frame.shape[2]
