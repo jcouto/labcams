@@ -1,9 +1,11 @@
 
 const byte PIN_CAM_EXPOSURE = 2;
-const byte PIN_SYNC = 3;
-const byte PIN_LED0_TRIGGER = 4;
-const byte PIN_LED1_TRIGGER = 5;
-
+const byte PIN_SYNC0 = 3;
+const byte PIN_SYNC1 = 4;
+const byte PIN_LED0_TRIGGER = 5;
+const byte PIN_LED1_TRIGGER = 6;
+const byte PIN_GPIO = 7;
+#define GPIO_MIMIC_EXPOSURE
 volatile long current_time = 0;
 volatile long start_time = 0;
 volatile long last_pulse_count = 0;
@@ -27,7 +29,7 @@ volatile byte armed = 0;      // whether the triggers are armed
 #define ETX '\n'
 #define SEP "_"
 #define CAP "NCHANNELS_2_MODES_470nm:405nm:both" // capabilities for interfacing with labcams
-
+#define QUERY_NCHANNELS 'C'
 #define QUERY_CAP 'Q'
 #define START_LEDS 'N'
 #define STOP_LEDS 'S'
@@ -47,6 +49,9 @@ void camera_triggered() {
   if (digitalReadFast(PIN_CAM_EXPOSURE) == LOW) {
         digitalWriteFast(PIN_LED0_TRIGGER, LOW);
       digitalWriteFast(PIN_LED1_TRIGGER, LOW);  
+      #ifdef GPIO_MIMIC_EXPOSURE
+        digitalWriteFast(PIN_GPIO, LOW);
+       #endif
   } else {
     
   if (armed) {
@@ -73,6 +78,9 @@ void camera_triggered() {
           pin = PIN_LED0_TRIGGER;
     }
     digitalWriteFast(pin, HIGH);
+    #ifdef GPIO_MIMIC_EXPOSURE
+      digitalWriteFast(PIN_GPIO, HIGH);
+    #endif
     last_rise = millis() - start_time;
     last_led = pin;
     last_pulse_count = pulse_count;    
@@ -81,7 +89,7 @@ void camera_triggered() {
 }
 
 void sync_received() {
-  if (digitalReadFast(PIN_SYNC) == HIGH)
+  if (digitalReadFast(PIN_SYNC0) == HIGH)
     sync_count++;
   sync_frame_count = pulse_count;
   last_sync_rise = millis() - start_time;
@@ -91,7 +99,9 @@ void sync_received() {
 void setup() {
   pinMode(PIN_LED0_TRIGGER, OUTPUT);
   pinMode(PIN_LED1_TRIGGER, OUTPUT);
-  pinMode(PIN_SYNC, INPUT);
+  pinMode(PIN_GPIO, OUTPUT);
+  pinMode(PIN_SYNC0, INPUT);
+  pinMode(PIN_SYNC1, INPUT);
   pinMode(PIN_CAM_EXPOSURE, INPUT);
 
   digitalWriteFast(PIN_LED0_TRIGGER, LOW);
@@ -99,7 +109,7 @@ void setup() {
 
   Serial.begin(2000000);
   attachInterrupt(digitalPinToInterrupt(PIN_CAM_EXPOSURE), camera_triggered, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(PIN_SYNC), sync_received, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(PIN_SYNC0), sync_received, CHANGE);
   start_time = millis(); // use micros if more precision needed
 }
 
@@ -187,6 +197,17 @@ void serialEvent()
             Serial.print(mode);
             Serial.print(ETX);
             break;
+          case QUERY_NCHANNELS:
+            // @C
+            reply += QUERY_NCHANNELS;
+            Serial.print(reply);
+            Serial.print(SEP);
+            if (mode < 3) 
+              Serial.print(1);
+            else              
+              Serial.print(2);
+            Serial.print(ETX);
+            break;          
           default:
             reply += "E";
             reply += 1;

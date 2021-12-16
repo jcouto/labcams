@@ -64,6 +64,7 @@ class GenericWriter(object):
         self.inQ = inQ
         self.parQ = None
         self.today = datetime.today().strftime('%Y%m%d')
+        self.nchannels = Value('i',1)
         self.logfile = None
         self.nFiles = 0
         runname = 'run{0:03d}'.format(self.runs)
@@ -84,10 +85,9 @@ class GenericWriter(object):
         self.frame_rate = None
         if hasattr(cam,'frame_rate'):
             self.frame_rate = cam.frame_rate
-        self.nchannels = 1
+        self.nchannels.value = 1
         if hasattr(cam,'nchan'):
-            self.nchannels = cam.nchan
-
+            self.nchannels.value = cam.nchan
     def _stop_write(self):
         self.write = False
     def stop(self):
@@ -390,7 +390,7 @@ class BinaryWriter(GenericWriterProcess):
             dtype='uint8'
         else:
             dtype='uint16'
-        filename = filename.format(nchannels = self.nchannels,
+        filename = filename.format(nchannels = self.nchannels.value,
                                    W=self.w,
                                    H=self.h,
                                    dtype=dtype) 
@@ -405,6 +405,17 @@ class BinaryWriter(GenericWriterProcess):
 ################################################################################
 ################################################################################
 ################################################################################
+nvenc_presets = {0:'default (medium)',
+                 1:'slow',
+                 2:'medium',
+                 3:'fast',
+                 4:'hp',
+                 5:'hq',
+                 6:'bd',
+                 8:'llhq',
+                 9:'llhp',
+                 10:'lossless',
+                 11:'losslesshp'}
 class FFMPEGWriter(GenericWriterProcess):
     def __init__(self,
                  inQ = None,
@@ -419,7 +430,8 @@ class FFMPEGWriter(GenericWriterProcess):
                  incrementruns=True,
                  hwaccel = None,
                  frame_rate = None,
-                 compression=25):
+                 preset = None,
+                 compression=0):
         self.extension = '.avi'
         super(FFMPEGWriter,self).__init__(inQ = inQ,
                                           loggerQ=loggerQ,
@@ -431,6 +443,11 @@ class FFMPEGWriter(GenericWriterProcess):
                                           sleeptime=sleeptime,
                                           incrementruns=incrementruns)
         self.compression = compression
+        if self.compression is None:
+            self.compression = 0
+        if type(preset) == str:
+            preset =[nvenc_presets[k] for k in  nvenc_presets.keys()].index(preset)
+        self.preset = preset
         if frame_rate is None:
             frame_rate = 0
         if frame_rate <= 0:
@@ -446,8 +463,6 @@ class FFMPEGWriter(GenericWriterProcess):
                              '-vcodec':'libx264',
                              '-threads':str(10),
                              '-crf':str(self.compression)}
-            display('Using compression {0}'.format(self.compression))
-
         else:            
             if hwaccel == 'intel':
                 if self.compression == 0:
@@ -461,17 +476,32 @@ class FFMPEGWriter(GenericWriterProcess):
                                  '-threads':str(1),
                                  '-crf':str(self.compression)}
             elif hwaccel == 'nvidia':
-                if self.compression == 0:
-                    display('Using compression 30 for the NVIDIA encoder')
-                    self.compression = 30
                 self.doutputs = {'-vcodec':'h264_nvenc',
                                  '-pix_fmt':'yuv420p',
-                                 '-cq:v':str(self.compression),
-                                 '-threads':str(1),
-                                 '-preset':'medium'}
-            display('Using compression {0} for the hardware acceleration: {1}'.format(self.compression,hwaccel))
+                                 '-threads':str(1)}
+                preset = 'NA'
+                if not self.preset is None:
+                    print('Using preset for compression')
+                    self.doutputs['-preset'] = str(self.preset)
+                    preset = nvenc_presets[self.preset]
 
+                if not self.compression is None:
+                    comp = self.compression
+                    if type(self.compression) is str:
+                        if ':' in self.compression: # then parse the bitrate
+                            comp = self.compression.split(':')
+                    else:
+                        comp = [str(self.compression)] 
+                    self.doutputs['-cq:v'] = comp[0]
+                    #self.doutputs['-rc:v'] = 'vbr_hq'
+                    if len(comp)>1:
+                        self.doutputs['-b:v'] = comp[1]
+                    
         self.hwaccel = hwaccel
+        display('Using compression (preset {0}) {1} for the {2} FFMPEG encoder.'.format(
+            preset,
+            self.compression,
+            hwaccel))
         
     def close_file(self):
         if not self.fd is None:
@@ -617,7 +647,6 @@ class FFMPEGCamWriter(GenericWriter):
         else:            
             if hwaccel == 'intel':
                 if self.compression == 0:
-                    display('Using compression 17 for the intel Media SDK encoder')
                     self.compression = 17
                 self.doutputs = {'-format':'h264',
                                  '-pix_fmt':'yuv420p',#'gray',
@@ -629,14 +658,16 @@ class FFMPEGCamWriter(GenericWriter):
                                  '-crf':str(self.compression)}
             elif hwaccel == 'nvidia':
                 if self.compression == 0:
-                    display('Using compression 25 for the NVIDIA encoder')
                     self.compression = 25
                 self.doutputs = {'-vcodec':'h264_nvenc',
                                  '-pix_fmt':'yuv420p',
-                                 '-cq:v':str(self.compression),
+                                 #'-cq:v':str(self.compression),
                                  '-threads':str(1),
-                                 '-preset':'medium'}
+                                 '-preset':str(self.compression)}
         self.hwaccel = hwaccel
+        display('Using compression {0} for the {1} FFMPEG encoder.'.format(
+            self.compression, hwaccel))
+
     def close_file(self):
         if not self.fd is None:
             self.fd.close()
@@ -690,7 +721,7 @@ class BinaryCamWriter(GenericWriter):
                  incrementruns=True):
         self.extension = '_{nchannels}_{H}_{W}_{dtype}.dat'
         self.cam = cam
-        self.nchannels = cam.nchan
+        self.nchannels.value = cam.nchan
         super(BinaryCamWriter,self).__init__(filename=filename,
                                              datafolder=datafolder,
                                              dataname=dataname,
@@ -717,7 +748,8 @@ class BinaryCamWriter(GenericWriter):
             dtype='uint8'
         else:
             dtype='uint16'
-        filename = filename.format(nchannels = self.nchannels,
+        self.nchannels.value = self.cam.nchan
+        filename = filename.format(nchannels = self.nchannels.value,
                                    W=self.w,
                                    H=self.h, dtype=dtype)
         self.parsed_filename = filename
@@ -815,8 +847,11 @@ def parseCamLog(fname, readTeensy = False):
                 sync.append([1.] + [_convert(f) for f in  l.strip('#SYNC1:').split(',')])
             else:
                 ncomm.append(l)
-        sync = pd.DataFrame(sync, columns=['sync','count','frame','timestamp'])
-        led = pd.DataFrame(led, columns=['led','frame','timestamp'])
+        if len(sync):
+            sync = pd.DataFrame(sync,
+                                columns=['sync','count','frame','timestamp'])
+        if len(led):
+            led = pd.DataFrame(led, columns=['led','frame','timestamp'])
         return logdata,led,sync,ncomm
     return logdata,comments
 
