@@ -757,7 +757,52 @@ class BinaryCamWriter(GenericWriter):
 
     def _write(self,frame,frameid,timestamp):
         self.fd.write(frame)
-        
+
+class BinaryDAQWriter(GenericWriter):
+    def __init__(self,
+                 daq,
+                 filename = pjoin('dummy','run'),
+                 dataname = 'daq',
+                 datafolder=pjoin(os.path.expanduser('~'),'data'),
+                 pathformat = pjoin('{datafolder}','{dataname}','{filename}',
+                                    '{today}_{run}_{nfiles}'),
+                 inQ = None,
+                 incrementruns=True):
+        self.extension = '_{nchannels}_{dtype}.daq.bin'
+        self.daq = daq
+        self.nchannels.value = daq.n_ai_channels + daq.n_di_channels
+        super(BinaryDAQWriter,self).__init__(filename=filename,
+                                             datafolder=datafolder,
+                                             dataname=dataname,
+                                             inQ = inQ,
+                                             pathformat = pathformat,
+                                             framesperfile=-1,
+                                             incrementruns=incrementruns)
+    def close_file(self):
+        if not self.fd is None:
+            self.fd.close()
+            print("------->>> Closed daq.bin file.")
+        self.fd = None
+
+    def _open_file(self,filename,data = None):
+        dtype = data.dtype
+        if dtype == np.float32:
+            dtype='float32'
+        elif dtype == np.int16:
+            dtype='int16'
+        elif dtype == np.uint8:
+            dtype='uint8'
+        else:
+            dtype='uint16'
+        filename = filename.format(nchannels = self.nchannels.value,
+                                   W=self.w,
+                                   H=self.h, dtype=dtype)
+        self.parsed_filename = filename
+        self.fd = open(filename,'wb')
+
+    def _write(self,data,frameid,timestamp):
+        self.fd.write(data)
+
 class TiffCamWriter(GenericWriter):
     def __init__(self,
                  cam,
