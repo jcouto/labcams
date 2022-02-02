@@ -26,7 +26,7 @@ class NIDAQ(object):
         self.di_num_channels = 0
                     
         self.triggered = triggered
-        self.recorder = recorder
+        self.recorderpar = recorderpar
         self.srate = srate
         self.samps_per_chan = 10000
 
@@ -78,6 +78,9 @@ class NIDAQ(object):
         self.data =  np.zeros((self.ai_num_channels+self.di_num_channels,self.srate),
                               dtype = np.float64)
         self.daq_acquiring = False
+        self.data_buffer = np.zeros((self.ai_num_channels+self.di_num_channels,
+                                     self.srate*2),
+                                    dtype='float32')
 
     def start(self):
         if not self.task_ai is None:
@@ -100,23 +103,34 @@ class NIDAQ(object):
                                  dtype = np.uint32)
 
             self.daq_acquiring = True
+            self.ibuff = int(0)
 
             while self.daq_acquiring:
+                di_nsamples = 0
+                ai_nsamples = 0
                 if not self.task_ai is None:
                     ai_nsamples = self.ai_reader.read_many_sample(
                         ai_buffer,
                         number_of_samples_per_channel = self.samps_per_chan,
-                        timeout = 1)
+                        timeout = 2)
                     self.n_ai_samples += ai_nsamples
-
                 if not self.task_di is None:
                     di_nsamples = self.di_reader.read_many_sample_port_uint32(
                         di_buffer,
                         number_of_samples_per_channel = self.samps_per_chan,
-                        timeout = 1)
-                    print(di_buffer,flush=True)
-                    print(di_nsamples,flush=True)
+                        timeout = 2)
                     self.n_di_samples += di_nsamples
+                    
+                nsamplestoroll = np.max([di_nsamples,ai_nsamples])
+                self.data_buffer[:] = np.roll(self.data_buffer, -nsamplestoroll,axis = 1)[:]
+                if ai_nsamples:
+                    self.data_buffer[:self.ai_num_channels,-ai_nsamples:] = ai_buffer[:]
+                if di_nsamples:
+                    self.data_buffer[self.ai_num_channels:,-di_nsamples:] = di_buffer[:]
+                
+                print(di_nsamples,ai_nsamples,flush=True)
+                #self.data_buffer[:self.ai_num_channels,:] = self.data
+
                     
             if not self.task_clock is None:
                 self.task_clock.stop()

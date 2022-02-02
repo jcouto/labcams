@@ -758,7 +758,7 @@ class BinaryCamWriter(GenericWriter):
     def _write(self,frame,frameid,timestamp):
         self.fd.write(frame)
 
-class BinaryDAQWriter(GenericWriter):
+class BinaryDAQWriter(object):
     def __init__(self,
                  daq,
                  filename = pjoin('dummy','run'),
@@ -770,7 +770,7 @@ class BinaryDAQWriter(GenericWriter):
                  incrementruns=True):
         self.extension = '_{nchannels}_{dtype}.daq.bin'
         self.daq = daq
-        self.nchannels.value = daq.n_ai_channels + daq.n_di_channels
+        self.nchannels = daq.n_ai_channels + daq.n_di_channels
         super(BinaryDAQWriter,self).__init__(filename=filename,
                                              datafolder=datafolder,
                                              dataname=dataname,
@@ -800,9 +800,12 @@ class BinaryDAQWriter(GenericWriter):
         self.parsed_filename = filename
         self.fd = open(filename,'wb')
 
-    def _write(self,data,frameid,timestamp):
+    def _write(self,data):
         self.fd.write(data)
 
+    def save(data):
+        return _write(data)
+    
 class TiffCamWriter(GenericWriter):
     def __init__(self,
                  cam,
