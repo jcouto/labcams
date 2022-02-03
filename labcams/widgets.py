@@ -371,6 +371,10 @@ class CamWidget(QWidget):
         self.addActions()
 
         #self.show()
+    def update(self):
+        frame = self.cam.get_img()
+        if not frame is None:
+            self.image(frame,self.cam.nframes.value) #frame
     def addActions(self):
         self.setContextMenuPolicy(Qt.ActionsContextMenu)
         saveImg = QAction("Take camera shot",self)
@@ -727,16 +731,6 @@ class CamWidget(QWidget):
 
 
 class ROIPlotWidget(QWidget):
-    colors = ['#d62728',
-              '#1f77b4',
-              '#ff7f0e',
-              '#2ca02c',
-              '#9467bd',
-              '#8c564b',
-              '#e377c2',
-              '#7f7f7f',
-              '#bcbd22'] 
-    penwidth = 1.
     def __init__(self, roi_target= None,view=None,npoints = 1200,parent = None):
         super(ROIPlotWidget,self).__init__()	
         layout = QGridLayout()
@@ -755,7 +749,7 @@ class ROIPlotWidget(QWidget):
         self.buffers = []
 
     def add_roi(self,roi = None):
-        pencolor = self.colors[
+        pencolor = colors[
             np.mod(len(self.plots),len(self.colors))]
         if not type(roi) is list:
             roi = pg.RectROI(pos=[100,100],
@@ -764,7 +758,7 @@ class ROIPlotWidget(QWidget):
             self.roi_target.addItem(roi)
         self.rois.append(roi)
         self.plots.append(pg.PlotCurveItem(pen=pg.mkPen(
-        color=pencolor, width=self.penwidth)))
+        color=pencolor, width=penwidth)))
         self.p1.addItem(self.plots[-1])
         buf = np.zeros([2,self.N],dtype=np.float32)
         buf[0,:] = np.nan
@@ -1021,8 +1015,6 @@ class CamSettingsDialog(QWidget):
         print(self.camsettings)
         self.set_camera_widgets()
         
-
-
     def set_camera_widgets(self):
         if len(self.b1_w):
             for i in self.b1_w:
@@ -1048,3 +1040,44 @@ class CamSettingsDialog(QWidget):
             l = QLabel(k)
             self.b1_lay.addRow(l,par)
             self.b1_w.append([l,par])
+
+colors = ['#d62728',
+          '#1f77b4',
+          '#ff7f0e',
+          '#2ca02c',
+          '#9467bd',
+          '#8c564b',
+          '#e377c2',
+          '#7f7f7f',
+          '#bcbd22'] 
+penwidth = 1.
+
+class DAQPlotWidget(QWidget):
+    def __init__(self,
+                 daq,
+                 parent = None,
+                 parameters = None):
+        super(DAQPlotWidget,self).__init__()
+        self.parent = parent
+        self.daq = daq
+        self.parameters = parameters
+        layout = QGridLayout()
+        self.setLayout(layout)
+
+        win = pg.GraphicsLayoutWidget()
+        self.p1 = win.addPlot()
+        self.p1.getAxis('bottom').setPen('k') 
+        self.p1.getAxis('left').setPen('k') 
+        layout.addWidget(win,0,0)
+        self.plots = []
+        self.N = self.daq.data_buffer.shape[1]
+        for i in range(self.daq.data_buffer.shape[0]):
+            pencolor = colors[np.mod(i,len(colors))]
+            self.plots.append(pg.PlotCurveItem(pen=pg.mkPen(
+                color=pencolor, width=penwidth)))
+            self.p1.addItem(self.plots[-1])
+
+    def update(self):
+        for i, plot in enumerate(self.plots):
+            plot.setData(x = np.arange(0,self.N),
+                         y = self.daq.data_buffer[i])
