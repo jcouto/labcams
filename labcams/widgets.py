@@ -1072,12 +1072,22 @@ class DAQPlotWidget(QWidget):
         self.plots = []
         self.N = self.daq.data_buffer.shape[1]
         for i in range(self.daq.data_buffer.shape[0]):
+            
             pencolor = colors[np.mod(i,len(colors))]
             self.plots.append(pg.PlotCurveItem(pen=pg.mkPen(
                 color=pencolor, width=penwidth)))
             self.p1.addItem(self.plots[-1])
 
+        chan = [self.daq.analog_channels[k] for k in self.daq.analog_channels.keys()]
+        chan += [self.daq.digital_channels[k] for k in self.daq.digital_channels.keys()]
+        self.p1.getAxis('left').setTicks([[
+            ((1*i),p) for i,p in enumerate(chan)]])
+
     def update(self):
         for i, plot in enumerate(self.plots):
+            Y = self.daq.data_buffer[i]
+            if i<self.daq.ai_num_channels:
+                # divide by int16:
+                Y = Y.astype('float32')/32767
             plot.setData(x = np.arange(0,self.N),
-                         y = self.daq.data_buffer[i])
+                         y = Y*0.7 + i)

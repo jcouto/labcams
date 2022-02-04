@@ -5,6 +5,15 @@ from nidaqmx.stream_readers import AnalogMultiChannelReader,AnalogUnscaledReader
 from nidaqmx.stream_readers import DigitalMultiChannelReader
 from .cams import *
 
+def unpackbits(x,num_bits = 32):
+    '''
+    unpacks numbers in bits from the port.
+    '''
+    xshape = list(x.shape)
+    x = x.reshape([-1,1])
+    to_and = 2**np.arange(num_bits).reshape([1,num_bits])
+    return (x & to_and).astype(bool).astype(int).reshape(xshape + [num_bits]).squeeze().transpose()
+
 # this only reads data for now.
 class NIDAQ(object): 
     def __init__(self, device = "dev2",
@@ -26,7 +35,7 @@ class NIDAQ(object):
         self.stop_trigger = Event()
         self.saving = Event()
         self.eventsQ = Queue() # not used now.
-        
+        self.recorder = None # not used now.
         self.device = device
         self.task_ai = None
         self.task_di = None
@@ -35,12 +44,13 @@ class NIDAQ(object):
         self.analog_channels = analog
         self.ai_num_channels = len(analog)
         self.di_num_channels = len(digital)
-        
+        self.di_port_channels = []
         self.triggered = triggered
         self.recorderpar = recorderpar
         self.srate = srate
         self.samps_per_chan = 1000
-
+        self.was_saving = False
+        
         self.task_clock = nidaqmx.Task()
         self.task_clock.co_channels.add_co_pulse_chan_freq(
             self.device + '/ctr0',freq = self.srate)
@@ -64,13 +74,16 @@ class NIDAQ(object):
             dinames = [n[:2] for n in self.digital_channels.keys()]
             # one channel per port
             diports = np.unique(dinames)
-            for diport in diports:
+            for io,diport in enumerate(diports):
                 chanstr = '{0}/{1}'.format(self.device,diport.replace("P","port"))
                 self.task_di.di_channels.add_di_chan(
                     chanstr,
                     line_grouping = nidaqmx.constants.LineGrouping.CHAN_FOR_ALL_LINES)
+                for o in self.digital_channels.keys():
+                    if o.startswith(diport):
+                        self.di_port_channels.append(io*8 + int(o.split('.')[-1]))
+            
             self.di_num_channels = len(diports)
-
         if not self.task_ai is None:
             self.task_ai.timing.cfg_samp_clk_timing(
                 self.srate,
@@ -92,20 +105,32 @@ class NIDAQ(object):
         self.data =  np.zeros((self.ai_num_channels+self.di_num_channels,self.srate),
                               dtype = np.float64)
         self.daq_acquiring = False
-        self.data_buffer = np.zeros((self.ai_num_channels+self.di_num_channels,
+        self.data_buffer = np.zeros((self.ai_num_channels+len(self.di_port_channels),
                                      self.srate),
                                     dtype='int16')
+    def _start_recorder(self):
+        if not self.recorderpar is None:
+            from .io import BinaryDAQWriter
+            self.recorder = BinaryDAQWriter(self,
+                                            filename = self.recorderpar['filename'],
+                                            pathformat = self.recorderpar['pathformat'],
+                                            dataname = self.recorderpar['dataname'],
+                                            datafolder = self.recorderpar['datafolder'],
+                                            incrementruns = True)
+            
     def _waitsoftwaretrigger(self):
         '''wait for software trigger'''
         display('[{0}] waiting for software trigger.'.format('nidaq'))
         while not self.start_trigger.is_set() or self.stop_trigger.is_set():
             # limits resolution to 1 ms 
             time.sleep(0.001)
+            self._parse_command_queue()
             if self.close_event.is_set() or self.stop_trigger.is_set():
                 break
         if self.close_event.is_set() or self.stop_trigger.is_set():
             return
         self.camera_ready.clear()
+        
     def _daq_init(self):
         if not self.task_ai is None:
             self.task_ai.start()
@@ -120,8 +145,22 @@ class NIDAQ(object):
         self.ai_reader.read_all_avail_samp = True
         self.di_reader.read_all_avail_samp = True
 
+    def _parse_command_queue(self):
+        if not self.eventsQ.empty():
+            cmd = self.eventsQ.get()
+            if '=' in cmd:
+                cmd = cmd.split('=')
+                if hasattr(self,'ctrevents'):
+                    self._call_event(cmd[0],cmd[1])
+                if cmd[0] == 'filename':
+                    if not self.recorder is None:
+                        if hasattr(self,'recorder'):
+                            self.recorder.set_filename(cmd[1])
+                    self.recorderpar['filename'] = cmd[1]
+
     def start(self):
         def run_thread():
+            self._start_recorder()
             while not self.close_event.is_set():
                 self.camera_ready.set()
                 self._waitsoftwaretrigger()
@@ -132,14 +171,16 @@ class NIDAQ(object):
                                      dtype = np.uint32)
 
                 self.ibuff = int(0)
+                self._parse_command_queue()
                 while not self.stop_trigger.is_set():
+                    self._parse_command_queue()
                     di_nsamples = 0
                     ai_nsamples = 0
                     if not self.task_ai is None:
                         ai_nsamples = self.ai_reader.read_int16(
                             ai_buffer,
                             number_of_samples_per_channel = self.samps_per_chan,
-                            timeout = 2)
+                            timeout = 1)
                         #ai_nsamples = self.ai_reader.read_many_sample(
                         #    ai_buffer,
                         #    number_of_samples_per_channel = self.samps_per_chan,
@@ -149,11 +190,27 @@ class NIDAQ(object):
                         di_nsamples = self.di_reader.read_many_sample_port_uint32(
                             di_buffer,
                             number_of_samples_per_channel = self.samps_per_chan,
-                            timeout = 2)
+                            timeout = 1)
                         self.n_di_samples += di_nsamples
 
-                    databuffer = np.vstack([ai_buffer,di_buffer.astype('int16')])
+                    databuffer = np.hstack([ai_buffer.T,di_buffer.astype('int16').T])
+                    if self.saving.is_set():
+                        self.was_saving = True
+                        if not self.recorder is None:
+                            self.recorder.save(databuffer)
+                    elif self.was_saving:
+                        display("Closing file")
+                        self.recorder.close_run()
+                        self.was_saving = False
+                    databuffer = databuffer.T
                     nsampl = databuffer.shape[1]
+                    if not self.task_di is None:
+                        # send it to the plot-buffer...
+                        tmp = unpackbits(
+                            di_buffer,
+                            32)
+                        databuffer = np.vstack([ai_buffer,tmp[self.di_port_channels].astype('int16')])
+
                     self.data_buffer[:] = np.roll(self.data_buffer, -nsampl,
                                                   axis = 1)[:]
                     self.data_buffer[:,-nsampl:] = databuffer[:]
@@ -190,4 +247,4 @@ class NIDAQ(object):
         pass
 
     def stop_saving(self):
-        pass
+        self.saving.clear()

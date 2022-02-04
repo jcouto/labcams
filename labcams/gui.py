@@ -389,7 +389,12 @@ class LabCamsGUI(QMainWindow):
 Please install nidaqmx using pip and NIDAQmx from the National Instruments website.
 
                     ''')
-                self.cams.append(NIDAQ(**cam))
+                self.cams.append(NIDAQ(**cam,recorderpar = dict(
+                    datafolder = self.parameters['recorder_path'],
+                    framesperfile = self.parameters['recorder_frames_per_file'],
+                    pathformat = self.parameters['recorder_path_format'],
+                    filename = expName,
+                    dataname = cam['description'])))
                 display('\t DAQ device recording: {0}'.format(cam['name']))
                 for k in np.sort(list(cam.keys())):
                     if not k == 'name' and not k == 'recorder':

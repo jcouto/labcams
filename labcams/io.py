@@ -758,7 +758,7 @@ class BinaryCamWriter(GenericWriter):
     def _write(self,frame,frameid,timestamp):
         self.fd.write(frame)
 
-class BinaryDAQWriter(object):
+class BinaryDAQWriter(GenericWriter):
     def __init__(self,
                  daq,
                  filename = pjoin('dummy','run'),
@@ -768,9 +768,8 @@ class BinaryDAQWriter(object):
                                     '{today}_{run}_{nfiles}'),
                  inQ = None,
                  incrementruns=True):
-        self.extension = '_{nchannels}_{dtype}.daq.bin'
+        self.extension = '_{nchannels}_{dtype}.nidq.bin'
         self.daq = daq
-        self.nchannels = daq.n_ai_channels + daq.n_di_channels
         super(BinaryDAQWriter,self).__init__(filename=filename,
                                              datafolder=datafolder,
                                              dataname=dataname,
@@ -778,11 +777,38 @@ class BinaryDAQWriter(object):
                                              pathformat = pathformat,
                                              framesperfile=-1,
                                              incrementruns=incrementruns)
+        self.nchannels = daq.ai_num_channels + daq.di_num_channels
+        self.nbytes = 0
+        
     def close_file(self):
         if not self.fd is None:
             self.fd.close()
-            print("------->>> Closed daq.bin file.")
+            print("------->>> Closed nidq.bin file.")
+            # create the metadata:
+            with open(self.parsed_filename.replace('.bin','.meta'),'w') as f:
+                f.write('fileSizeBytes={0}\n'.format(self.nbytes))
+                f.write('fileTimeSecs={0}\n'.format(self.nsamples/self.daq.srate))
+                f.write('niSampRate={0}\n'.format(self.daq.srate))
+                f.write('niAiRangeMax={0}\n'.format(self.daq.ai_range[1]))
+                f.write('niAiRangeMin={0}\n'.format(self.daq.ai_range[0]))
+                f.write('niMAGain={0}\n'.format(1))
+                f.write('niMNGain={0}\n'.format(1))
+                f.write('snsMnMaXaDw=0,0,{0},{1}\n'.format(self.daq.ai_num_channels,
+                                                            self.daq.ai_num_channels))                
+                f.write('nSavedChan={0}\n'.format(self.nchannels))
+                f.write('typeThis=nidq\n')
+                
         self.fd = None
+
+    def open_file(self,nfiles = None,data = None):
+        filename = self.get_filename_path()
+        if not self.fd is None:
+            self.close_file()
+        self._open_file(filename,data)
+        self.nFiles += 1
+        if hasattr(self,'parsed_filename'):
+            filename = self.parsed_filename
+        display('Opened: '+ filename)
 
     def _open_file(self,filename,data = None):
         dtype = data.dtype
@@ -794,17 +820,26 @@ class BinaryDAQWriter(object):
             dtype='uint8'
         else:
             dtype='uint16'
-        filename = filename.format(nchannels = self.nchannels.value,
-                                   W=self.w,
-                                   H=self.h, dtype=dtype)
+        filename = filename.format(nchannels = self.nchannels,
+                                   dtype=dtype)
         self.parsed_filename = filename
         self.fd = open(filename,'wb')
+        self.nsamples = 0
+        self.nbytes = 0
 
+    def save(self, data,metadata = None):
+        if self.fd is None:
+            self.open_file(data = data)
+        return self._write(data)
+    
     def _write(self,data):
         self.fd.write(data)
-
-    def save(data):
-        return _write(data)
+        self.nbytes += data.nbytes
+        self.nsamples += data.shape[1]
+        
+    def close_run(self):
+        self.close_file()
+        self.runs += 1
     
 class TiffCamWriter(GenericWriter):
     def __init__(self,
