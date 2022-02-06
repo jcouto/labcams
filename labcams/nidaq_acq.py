@@ -19,7 +19,7 @@ class NIDAQ(object):
     def __init__(self, device = "dev2",
                  srate = 25000,
                  digital = {"P0.0":"P0.0"},
-                 analog = {"ai0":"ai0"},
+                 analog = {},
                  ai_range = [-5,5],
                  dtype = 'int16',
                  triggered = Event(),
@@ -125,6 +125,10 @@ class NIDAQ(object):
             # limits resolution to 1 ms 
             time.sleep(0.001)
             self._parse_command_queue()
+            if self.was_saving:
+                display("Closing nidaq file.")
+                self.recorder.close_run()
+                self.was_saving = False
             if self.close_event.is_set() or self.stop_trigger.is_set():
                 break
         if self.close_event.is_set() or self.stop_trigger.is_set():

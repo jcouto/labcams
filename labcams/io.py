@@ -795,8 +795,16 @@ class BinaryDAQWriter(GenericWriter):
                 f.write('niMNGain={0}\n'.format(1))
                 f.write('snsMnMaXaDw=0,0,{0},{1}\n'.format(self.daq.ai_num_channels,
                                                             self.daq.ai_num_channels))                
-                f.write('nSavedChan={0}\n'.format(self.nchannels))
+                f.write('nSavedChans={0}\n'.format(self.nchannels))
                 f.write('typeThis=nidq\n')
+                p = []
+                for k in self.daq.digital_channels.keys():
+                    p.append('({0},{1})'.format(k,self.daq.digital_channels[k]))
+                f.write('digitalChannelNames={0}\n'.format(','.join(p)))
+                p = []
+                for k in self.daq.analog_channels.keys():
+                    p.append('({0},{1})'.format(k,self.daq.analog_channels[k]))
+                f.write('analogChannelNames={0}\n'.format(','.join(p)))
                 
         self.fd = None
 

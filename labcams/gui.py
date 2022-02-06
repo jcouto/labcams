@@ -564,7 +564,7 @@ The recorders can be specified with the '"recorder":"ffmpeg"' option in each cam
         display("Waiting for the cameras to be ready.")
         for c,cam in enumerate(self.cams):
             while not cam.camera_ready.is_set():
-                time.sleep(0.001)
+                sleep(0.001)
             display('Camera [{0}] ready.'.format(c))
         display('Doing save ({0}) and trigger'.format(save))
         if save:
@@ -585,8 +585,11 @@ The recorders can be specified with the '"recorder":"ffmpeg"' option in each cam
                     #writer.write.clear() # cam stops writer
         #time.sleep(2)
         if soft_trigger:
-            for c,cam in enumerate(self.cams):
+            for c,cam in enumerate(self.cams):                    
                 cam.start_trigger.set()
+                if hasattr(cam,'analog_channels'):
+                    display('Sleeping for 1 second for the DAQ to record.')
+                    sleep(1)
             display('Software triggered cameras.')
         
     def experimentMenuTrigger(self,q):

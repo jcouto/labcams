@@ -55,6 +55,11 @@ pg.setConfigOption('crashWarning', True)
 from .utils import *
 cv2.setNumThreads(1)
 
+def sleep(dur = 1):
+    tstart = time.time()
+    while not (time.time()-tstart) > dur:
+        QApplication.processEvents()
+
 class QActionCheckBox(QWidgetAction):
     ''' Check box for the right mouse button dropdown menu'''
     def __init__(self,parent,label='',value=True):
@@ -181,12 +186,14 @@ If the camera is saving this stops the camera.'''
         def saveButton():
             if not self.saveOnStartToggle.isChecked():
                 self.softTriggerToggle.setChecked(False)
-                time.sleep(0.1)
+                sleep(0.1)
                 self.saveOnStartToggle.setChecked(True)
-                time.sleep(0.1)
+                sleep(0.1)
                 self.softTriggerToggle.setChecked(True)
                 self.saveButton.setText('Stop')                
-            else:
+            else:                
+                self.softTriggerToggle.setChecked(False)
+                sleep(0.1)
                 self.saveOnStartToggle.setChecked(False)
                 self.saveButton.setText('Acquire')
         self.saveButton.clicked.connect(saveButton)
@@ -240,8 +247,14 @@ If the camera is saving this stops the camera.'''
                 display('Cam stim trigger armed.')
             for cam in self.parent.cams:
                 cam.start_trigger.set()
+                if hasattr(cam,'analog_channels'):
+                    display('Sleeping for 1 second for the DAQ to record.')
+                    sleep(1)
         else:
-            for cam in self.parent.cams:
+            for cam in self.parent.cams[::-1]:
+                if hasattr(cam,'analog_channels'):
+                    display('Sleeping for 1 second for the DAQ to record.')
+                    sleep(1)
                 cam.start_trigger.clear()
             if hasattr(self.parent,'camstim_widget'):
                 self.parent.camstim_widget.ino.disarm()
@@ -259,11 +272,14 @@ If the camera is saving this stops the camera.'''
                 self.saveOnStart = False
                 self.saveOnStartToggle.setCheckState(Qt.Unchecked)
             self.parent.triggered.clear()
-        for cam in self.parent.cams:
+        for cam in self.parent.cams[::-1]:
+            if hasattr(cam,'analog_channels'):
+                display('Sleeping for 1 second for the DAQ to record.')
+                sleep(1)
             cam.stop_acquisition()
         if self.parent.saveOnStart:
             self.checkUpdateFilename()
-        time.sleep(.5)
+        sleep(.5)
         self.parent.triggerCams(save = self.parent.saveOnStart)
         tstart[0] = time.time()
         
@@ -849,7 +865,7 @@ class CamStimTriggerWidget(QWidget):
     def setMode(self,i):
         self.ino.set_mode(i+1)
         self.ino.check_nchannels()
-        time.sleep(0.1)
+        sleep(0.1)
         if not self.cam is None:
             self.cam.nchan = self.ino.nchannels.value
         

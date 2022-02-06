@@ -1,16 +1,6 @@
 {
     "cams": [
 	{
-            "description": "1photon", 
-            "driver": "PCO", 
-            "exposure": 16, 
-            "id": 0, 
-            "name": "pco.edge", 
-            "triggerType": 0,
-	    "recorder": "binary",
-	    "CamStimTrigger": {"port":"COM5"}
-        },
-		{
             "description": "sync", 
             "driver": "nidaq", 
             "srate": 25000,
@@ -30,7 +20,18 @@
 	    },
 	    "format":"int16",
             "name": "nidaq"
+        },
+	{
+            "description": "1photon", 
+            "driver": "PCO", 
+            "exposure": 16, 
+            "id": 0, 
+            "name": "pco.edge", 
+            "triggerType": 0,
+	    "recorder": "binary",
+	    "CamStimTrigger": {"port":"COM5"}
         }
+
 
     ],
     "recorder_frames_per_file": 0,
