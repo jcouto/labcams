@@ -478,6 +478,17 @@ class FFMPEGWriter(GenericWriterProcess):
             elif hwaccel == 'nvidia':
                 self.doutputs = {'-vcodec':'h264_nvenc',
                                  '-pix_fmt':'yuv420p',
+                                 '-tune': 'hq',
+                                 '-qmin': '0',
+                                 '-g': '250',
+                                 '-bf': '3',
+                                 '-b_ref_mode':'middle',
+                                 '-temporal-aq': '1',
+                                 '-rc-lookahead':'20',
+                                 '-i_qfactor': '0.75',
+                                 '-b_qfactor': '1.1',
+                                 '-maxrate':'10M',
+                                 '-b:v':'5M',
                                  '-threads':str(1)}
                 preset = 'NA'
                 if not self.preset is None:
@@ -496,6 +507,7 @@ class FFMPEGWriter(GenericWriterProcess):
                     #self.doutputs['-rc:v'] = 'vbr_hq'
                     if len(comp)>1:
                         self.doutputs['-b:v'] = comp[1]
+                        
                     
         self.hwaccel = hwaccel
         display('Using compression (preset {0}) {1} for the {2} FFMPEG encoder.'.format(
