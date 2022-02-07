@@ -416,8 +416,15 @@ Available serials are:
             display('[PointGrey] - no cameras connected.')
             self.drv.ReleaseInstance()
             raise ValueError
+        
         self.cam = self.cam_list[self.cam_id]
         self.cam.Init()
+        # set the buffer to read olderst first
+        s_node_map = self.cam.GetTLStreamNodeMap()
+        handling_mode = PySpin.CEnumerationPtr(s_node_map.GetNode('StreamBufferHandlingMode'))
+        handling_mode_entry = handling_mode.GetEntryByName('OldestFirst')
+        handling_mode.SetIntValue(handling_mode_entry.GetValue())
+
         # Set the trigger and exposure off so to be able to set other parameters
         self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
         self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
@@ -509,14 +516,14 @@ Available serials are:
                 self.cam.TriggerSource.SetValue(eval('PySpin.TriggerSource_Line' + d))
                 self.cam.TriggerActivation.SetValue(
                     PySpin.TriggerActivation_FallingEdge) # Exposure line is inversed
-                self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed) #PySpin.ExposureMode_TriggerWidth)
-                self.cam.TriggerSource.SetValue(eval('PySpin.TriggerSource_Line'+d))
-                self.cam.TriggerSelector.SetValue(1) # this is exposure active in CM3
-                self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
                 try:
                     self.cam.TriggerOverlap.SetValue(PySpin.TriggerOverlap_ReadOut)
                 except:
                     display('PointGrey [{0}] - TriggerOverlap could not be set.')
+                self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed) #PySpin.ExposureMode_TriggerWidth)
+                self.cam.TriggerSource.SetValue(eval('PySpin.TriggerSource_Line'+d))
+                self.cam.TriggerSelector.SetValue(PySpin.TriggerSelector_FrameStart) # in CM3
+                self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
                 display('PointGrey [{0}] - External trigger mode ON on line {1}.'.format(self.cam_id, d))    
             if 'out_line' in self.hardware_trigger:
                 display('This is a master camera, sleeping .5 sec.')
@@ -550,17 +557,31 @@ Available serials are:
             if self.hardware_trigger[-1].isdigit():
                 d = self.hardware_trigger[-1]
             if 'out_line' in self.hardware_trigger:
-                
+                # Reading the last image and stopping the camera (To clear the buffer).
+                if hasattr(self,'img'): # or not self.cam.AcquisitionStatus.GetValue():
+                    frame,metadata = self._cam_loop()
+                    if not frame is None:
+                        self._handle_frame(frame,metadata)
                 if not 'Blackfly S' in self.cammodel: # can't set line 1 to input on Blackfly S
                     self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line' + d))
                     self.cam.LineMode.SetValue(PySpin.LineMode_Input) # stop output
                 self.cam.EndAcquisition()
                 return
             if 'in_line' in self.hardware_trigger:
-                time.sleep(0.5) # to make sure all triggers are acquired.
+                # to make sure all triggers are acquired (stop only when all frames have been received).
+                is_done = False
+                while not is_done:
+                    if not hasattr(self,'img'):# or not self.cam.AcquisitionStatus.GetValue():
+                        break
+                    frame,metadata = self._cam_loop()
+                    if frame is None:
+                        is_done=True
+                        break
+                    else:
+                        # Send it to the recorder
+                        self._handle_frame(frame,metadata)
         self.cam.EndAcquisition()
         self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
-
 
     def _cam_loop(self):
         try:
