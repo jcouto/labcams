@@ -55,6 +55,18 @@ pg.setConfigOption('crashWarning', True)
 from .utils import *
 cv2.setNumThreads(1)
 
+colors = ['#d62728',
+          '#1f77b4',
+          '#ff7f0e',
+          '#2ca02c',
+          '#9467bd',
+          '#8c564b',
+          '#e377c2',
+          '#7f7f7f',
+          '#bcbd22'] 
+penwidth = 1.
+
+
 def sleep(dur = 1):
     tstart = time.time()
     while not (time.time()-tstart) > dur:
@@ -1056,17 +1068,6 @@ class CamSettingsDialog(QWidget):
             l = QLabel(k)
             self.b1_lay.addRow(l,par)
             self.b1_w.append([l,par])
-
-colors = ['#d62728',
-          '#1f77b4',
-          '#ff7f0e',
-          '#2ca02c',
-          '#9467bd',
-          '#8c564b',
-          '#e377c2',
-          '#7f7f7f',
-          '#bcbd22'] 
-penwidth = 1.
 
 class DAQPlotWidget(QWidget):
     def __init__(self,

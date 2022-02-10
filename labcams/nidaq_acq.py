@@ -48,7 +48,7 @@ class NIDAQ(object):
         self.triggered = triggered
         self.recorderpar = recorderpar
         self.srate = srate
-        self.samps_per_chan = 1000
+        self.samps_per_chan = int(self.srate/5)
         self.was_saving = False
         
         self.task_clock = nidaqmx.Task()

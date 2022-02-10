@@ -3,7 +3,7 @@
 	{
             "description": "sync", 
             "driver": "nidaq", 
-            "srate": 25000,
+            "srate": 30000,
 	    "device":"dev3",
             "digital": {
 		"P0.0":"left_camera",
