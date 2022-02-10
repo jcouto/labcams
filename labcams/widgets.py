@@ -766,7 +766,7 @@ class ROIPlotWidget(QWidget):
 
     def add_roi(self,roi = None):
         pencolor = colors[
-            np.mod(len(self.plots),len(self.colors))]
+            np.mod(len(self.plots),len(colors))]
         if not type(roi) is list:
             roi = pg.RectROI(pos=[100,100],
                              size=100,
