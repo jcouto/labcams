@@ -17,7 +17,7 @@ data_path = pjoin(os.path.expanduser('~'), 'labcams')
 
 setup(
     name = 'labcams',
-    version = '0.3.2',
+    version = '0.4.0',
     author = 'Joao Couto',
     author_email = 'jpcouto@gmail.com',
     description = 'Multicamera video acquisition,online compression and automation',
