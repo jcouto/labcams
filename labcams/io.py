@@ -478,6 +478,17 @@ class FFMPEGWriter(GenericWriterProcess):
             elif hwaccel == 'nvidia':
                 self.doutputs = {'-vcodec':'h264_nvenc',
                                  '-pix_fmt':'yuv420p',
+                                 '-tune': 'hq',
+                                 '-qmin': '0',
+                                 '-g': '250',
+                                 '-bf': '3',
+                                 '-b_ref_mode':'middle',
+                                 '-temporal-aq': '1',
+                                 '-rc-lookahead':'20',
+                                 '-i_qfactor': '0.75',
+                                 '-b_qfactor': '1.1',
+                                 '-maxrate':'10M',
+                                 '-b:v':'5M',
                                  '-threads':str(1)}
                 preset = 'NA'
                 if not self.preset is None:
@@ -496,6 +507,7 @@ class FFMPEGWriter(GenericWriterProcess):
                     #self.doutputs['-rc:v'] = 'vbr_hq'
                     if len(comp)>1:
                         self.doutputs['-b:v'] = comp[1]
+                        
                     
         self.hwaccel = hwaccel
         display('Using compression (preset {0}) {1} for the {2} FFMPEG encoder.'.format(
@@ -757,7 +769,98 @@ class BinaryCamWriter(GenericWriter):
 
     def _write(self,frame,frameid,timestamp):
         self.fd.write(frame)
+
+class BinaryDAQWriter(GenericWriter):
+    def __init__(self,
+                 daq,
+                 filename = pjoin('dummy','run'),
+                 dataname = 'daq',
+                 datafolder=pjoin(os.path.expanduser('~'),'data'),
+                 pathformat = pjoin('{datafolder}','{dataname}','{filename}',
+                                    '{today}_{run}_{nfiles}'),
+                 inQ = None,
+                 incrementruns=True):
+        self.extension = '_{nchannels}_{dtype}.nidq.bin'
+        self.daq = daq
+        super(BinaryDAQWriter,self).__init__(filename=filename,
+                                             datafolder=datafolder,
+                                             dataname=dataname,
+                                             inQ = inQ,
+                                             pathformat = pathformat,
+                                             framesperfile=-1,
+                                             incrementruns=incrementruns)
+        self.nchannels = daq.ai_num_channels + daq.di_num_channels
+        self.nbytes = 0
         
+    def close_file(self):
+        if not self.fd is None:
+            self.fd.close()
+            print("------->>> Closed nidq.bin file.")
+            # create the metadata:
+            with open(self.parsed_filename.replace('.bin','.meta'),'w') as f:
+                f.write('fileSizeBytes={0}\n'.format(self.nbytes))
+                f.write('fileTimeSecs={0}\n'.format(self.nsamples/self.daq.srate))
+                f.write('niSampRate={0}\n'.format(self.daq.srate))
+                f.write('niAiRangeMax={0}\n'.format(self.daq.ai_range[1]))
+                f.write('niAiRangeMin={0}\n'.format(self.daq.ai_range[0]))
+                f.write('niMAGain={0}\n'.format(1))
+                f.write('niMNGain={0}\n'.format(1))
+                f.write('snsMnMaXaDw=0,0,{0},{1}\n'.format(self.daq.ai_num_channels,
+                                                            self.daq.ai_num_channels))                
+                f.write('nSavedChans={0}\n'.format(self.nchannels))
+                f.write('typeThis=nidq\n')
+                p = []
+                for k in self.daq.digital_channels.keys():
+                    p.append('({0},{1})'.format(k,self.daq.digital_channels[k]))
+                f.write('digitalChannelNames={0}\n'.format(','.join(p)))
+                p = []
+                for k in self.daq.analog_channels.keys():
+                    p.append('({0},{1})'.format(k,self.daq.analog_channels[k]))
+                f.write('analogChannelNames={0}\n'.format(','.join(p)))
+                
+        self.fd = None
+
+    def open_file(self,nfiles = None,data = None):
+        filename = self.get_filename_path()
+        if not self.fd is None:
+            self.close_file()
+        self._open_file(filename,data)
+        self.nFiles += 1
+        if hasattr(self,'parsed_filename'):
+            filename = self.parsed_filename
+        display('Opened: '+ filename)
+
+    def _open_file(self,filename,data = None):
+        dtype = data.dtype
+        if dtype == np.float32:
+            dtype='float32'
+        elif dtype == np.int16:
+            dtype='int16'
+        elif dtype == np.uint8:
+            dtype='uint8'
+        else:
+            dtype='uint16'
+        filename = filename.format(nchannels = self.nchannels,
+                                   dtype=dtype)
+        self.parsed_filename = filename
+        self.fd = open(filename,'wb')
+        self.nsamples = 0
+        self.nbytes = 0
+
+    def save(self, data,metadata = None):
+        if self.fd is None:
+            self.open_file(data = data)
+        return self._write(data)
+    
+    def _write(self,data):
+        self.fd.write(data)
+        self.nbytes += data.nbytes
+        self.nsamples += data.shape[1]
+        
+    def close_run(self):
+        self.close_file()
+        self.runs += 1
+    
 class TiffCamWriter(GenericWriter):
     def __init__(self,
                  cam,
