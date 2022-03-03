@@ -55,6 +55,23 @@ pg.setConfigOption('crashWarning', True)
 from .utils import *
 cv2.setNumThreads(1)
 
+colors = ['#d62728',
+          '#1f77b4',
+          '#ff7f0e',
+          '#2ca02c',
+          '#9467bd',
+          '#8c564b',
+          '#e377c2',
+          '#7f7f7f',
+          '#bcbd22'] 
+penwidth = 1.
+
+
+def sleep(dur = 1):
+    tstart = time.time()
+    while not (time.time()-tstart) > dur:
+        QApplication.processEvents()
+
 class QActionCheckBox(QWidgetAction):
     ''' Check box for the right mouse button dropdown menu'''
     def __init__(self,parent,label='',value=True):
@@ -181,12 +198,14 @@ If the camera is saving this stops the camera.'''
         def saveButton():
             if not self.saveOnStartToggle.isChecked():
                 self.softTriggerToggle.setChecked(False)
-                time.sleep(0.1)
+                sleep(0.1)
                 self.saveOnStartToggle.setChecked(True)
-                time.sleep(0.1)
+                sleep(0.1)
                 self.softTriggerToggle.setChecked(True)
                 self.saveButton.setText('Stop')                
-            else:
+            else:                
+                self.softTriggerToggle.setChecked(False)
+                sleep(0.1)
                 self.saveOnStartToggle.setChecked(False)
                 self.saveButton.setText('Acquire')
         self.saveButton.clicked.connect(saveButton)
@@ -240,8 +259,14 @@ If the camera is saving this stops the camera.'''
                 display('Cam stim trigger armed.')
             for cam in self.parent.cams:
                 cam.start_trigger.set()
+                if hasattr(cam,'analog_channels'):
+                    display('Sleeping for 1 second for the DAQ to record.')
+                    sleep(1)
         else:
-            for cam in self.parent.cams:
+            for cam in self.parent.cams[::-1]:
+                if hasattr(cam,'analog_channels'):
+                    display('Sleeping for 1 second for the DAQ to record.')
+                    sleep(1)
                 cam.start_trigger.clear()
             if hasattr(self.parent,'camstim_widget'):
                 self.parent.camstim_widget.ino.disarm()
@@ -259,11 +284,14 @@ If the camera is saving this stops the camera.'''
                 self.saveOnStart = False
                 self.saveOnStartToggle.setCheckState(Qt.Unchecked)
             self.parent.triggered.clear()
-        for cam in self.parent.cams:
+        for cam in self.parent.cams[::-1]:
+            if hasattr(cam,'analog_channels'):
+                display('Sleeping for 1 second for the DAQ to record.')
+                sleep(1)
             cam.stop_acquisition()
         if self.parent.saveOnStart:
             self.checkUpdateFilename()
-        time.sleep(.5)
+        sleep(.5)
         self.parent.triggerCams(save = self.parent.saveOnStart)
         tstart[0] = time.time()
         
@@ -371,6 +399,10 @@ class CamWidget(QWidget):
         self.addActions()
 
         #self.show()
+    def update(self):
+        frame = self.cam.get_img()
+        if not frame is None:
+            self.image(frame,self.cam.nframes.value) #frame
     def addActions(self):
         self.setContextMenuPolicy(Qt.ActionsContextMenu)
         saveImg = QAction("Take camera shot",self)
@@ -727,16 +759,6 @@ class CamWidget(QWidget):
 
 
 class ROIPlotWidget(QWidget):
-    colors = ['#d62728',
-              '#1f77b4',
-              '#ff7f0e',
-              '#2ca02c',
-              '#9467bd',
-              '#8c564b',
-              '#e377c2',
-              '#7f7f7f',
-              '#bcbd22'] 
-    penwidth = 1.
     def __init__(self, roi_target= None,view=None,npoints = 1200,parent = None):
         super(ROIPlotWidget,self).__init__()	
         layout = QGridLayout()
@@ -755,8 +777,8 @@ class ROIPlotWidget(QWidget):
         self.buffers = []
 
     def add_roi(self,roi = None):
-        pencolor = self.colors[
-            np.mod(len(self.plots),len(self.colors))]
+        pencolor = colors[
+            np.mod(len(self.plots),len(colors))]
         if not type(roi) is list:
             roi = pg.RectROI(pos=[100,100],
                              size=100,
@@ -764,7 +786,7 @@ class ROIPlotWidget(QWidget):
             self.roi_target.addItem(roi)
         self.rois.append(roi)
         self.plots.append(pg.PlotCurveItem(pen=pg.mkPen(
-        color=pencolor, width=self.penwidth)))
+        color=pencolor, width=penwidth)))
         self.p1.addItem(self.plots[-1])
         buf = np.zeros([2,self.N],dtype=np.float32)
         buf[0,:] = np.nan
@@ -855,7 +877,7 @@ class CamStimTriggerWidget(QWidget):
     def setMode(self,i):
         self.ino.set_mode(i+1)
         self.ino.check_nchannels()
-        time.sleep(0.1)
+        sleep(0.1)
         if not self.cam is None:
             self.cam.nchan = self.ino.nchannels.value
         
@@ -1021,8 +1043,6 @@ class CamSettingsDialog(QWidget):
         print(self.camsettings)
         self.set_camera_widgets()
         
-
-
     def set_camera_widgets(self):
         if len(self.b1_w):
             for i in self.b1_w:
@@ -1048,3 +1068,43 @@ class CamSettingsDialog(QWidget):
             l = QLabel(k)
             self.b1_lay.addRow(l,par)
             self.b1_w.append([l,par])
+
+class DAQPlotWidget(QWidget):
+    def __init__(self,
+                 daq,
+                 parent = None,
+                 parameters = None):
+        super(DAQPlotWidget,self).__init__()
+        self.parent = parent
+        self.daq = daq
+        self.parameters = parameters
+        layout = QGridLayout()
+        self.setLayout(layout)
+
+        win = pg.GraphicsLayoutWidget()
+        self.p1 = win.addPlot()
+        self.p1.getAxis('bottom').setPen('k') 
+        self.p1.getAxis('left').setPen('k') 
+        layout.addWidget(win,0,0)
+        self.plots = []
+        self.N = self.daq.data_buffer.shape[1]
+        for i in range(self.daq.data_buffer.shape[0]):
+            
+            pencolor = colors[np.mod(i,len(colors))]
+            self.plots.append(pg.PlotCurveItem(pen=pg.mkPen(
+                color=pencolor, width=penwidth)))
+            self.p1.addItem(self.plots[-1])
+
+        chan = [self.daq.analog_channels[k] for k in self.daq.analog_channels.keys()]
+        chan += [self.daq.digital_channels[k] for k in self.daq.digital_channels.keys()]
+        self.p1.getAxis('left').setTicks([[
+            ((1*i),p) for i,p in enumerate(chan)]])
+
+    def update(self):
+        for i, plot in enumerate(self.plots):
+            Y = self.daq.data_buffer[i]
+            if i<self.daq.ai_num_channels:
+                # divide by int16:
+                Y = Y.astype('float32')/32767
+            plot.setData(x = np.arange(0,self.N),
+                         y = Y*0.7 + i)

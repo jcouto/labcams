@@ -146,7 +146,6 @@ class LabCamsGUI(QMainWindow):
                     if 'preset' in cam.keys():
                         recorderpar['preset'] = cam['preset']
             else:
-                display('Using the queue for recording.')
                 recorderpar = None # Use a queue recorder
             if cam['driver'].lower() == 'avt':
                 try:
@@ -379,8 +378,31 @@ class LabCamsGUI(QMainWindow):
                                               triggered = self.triggered,
                                               recorderpar = recorderpar,
                                               hardware_trigger = cam['hardware_trigger']))
+            elif cam['driver'].lower() == 'nidaq':
+                try:
+                    from .nidaq_acq import NIDAQ
+                except Exception as err:
+                    print(err)
+                    print('''
+    Could not load the NIDAQ driver.
+
+Please install nidaqmx using pip and NIDAQmx from the National Instruments website.
+
+                    ''')
+                self.cams.append(NIDAQ(**cam,recorderpar = dict(
+                    datafolder = self.parameters['recorder_path'],
+                    framesperfile = self.parameters['recorder_frames_per_file'],
+                    pathformat = self.parameters['recorder_path_format'],
+                    filename = expName,
+                    dataname = cam['description'])))
+                display('\t DAQ device recording: {0}'.format(cam['name']))
+                for k in np.sort(list(cam.keys())):
+                    if not k == 'name' and not k == 'recorder':
+                        display('\t\t - {0} {1}'.format(k,cam[k]))
+                cam['recorder'] = 'daq'
+
             else: 
-                display('[WARNING] -----> Unknown camera driver' +
+                display('[WARNING] -----> Unknown camera driver ' +
                         cam['driver'])
                 self.camQueues.pop()
                 self.saveflags.pop()
@@ -417,6 +439,8 @@ class LabCamsGUI(QMainWindow):
                 elif cam['recorder'] == 'opencv':
                     display('Recording opencv')
                     self.writers.append(OpenCVWriter(compression = cam['compress'],**towriter))
+                elif cam['recorder'] == 'daq':
+                    self.writers.append(None)
                 else:
                     print(''' 
 
@@ -540,7 +564,7 @@ The recorders can be specified with the '"recorder":"ffmpeg"' option in each cam
         display("Waiting for the cameras to be ready.")
         for c,cam in enumerate(self.cams):
             while not cam.camera_ready.is_set():
-                time.sleep(0.001)
+                sleep(0.001)
             display('Camera [{0}] ready.'.format(c))
         display('Doing save ({0}) and trigger'.format(save))
         if save:
@@ -561,8 +585,11 @@ The recorders can be specified with the '"recorder":"ffmpeg"' option in each cam
                     #writer.write.clear() # cam stops writer
         #time.sleep(2)
         if soft_trigger:
-            for c,cam in enumerate(self.cams):
+            for c,cam in enumerate(self.cams):                    
                 cam.start_trigger.set()
+                if hasattr(cam,'analog_channels'):
+                    display('Sleeping for 1 second for the DAQ to record.')
+                    sleep(1)
             display('Software triggered cameras.')
         
     def experimentMenuTrigger(self,q):
@@ -600,11 +627,18 @@ The recorders can be specified with the '"recorder":"ffmpeg"' option in each cam
             if self.saveflags[c]:
                 tt +=  ' - ' + self.cam_descriptions[c]['description'] +' ' 
             self.tabs.append(QDockWidget("Camera: "+str(c) + tt,self))
-            self.camwidgets.append(CamWidget(frame = np.zeros((cam.h,cam.w,cam.nchan),
-                                                              dtype=cam.dtype),
-                                             iCam = c,
-                                             parent = self,
-                                             parameters = self.cam_descriptions[c]))
+            if hasattr(cam,"h") and hasattr(cam,"w"): # then it must be a camera
+                self.camwidgets.append(CamWidget(frame = np.zeros((cam.h,cam.w,cam.nchan),
+                                                                  dtype=cam.dtype),
+                                                 iCam = c,
+                                                 parent = self,
+                                                 parameters = self.cam_descriptions[c]))
+                self.camwidgets[-1].setMinimumHeight(300)
+
+            else: # NIDAQ is the only other camera so add that widget
+                self.camwidgets.append(DAQPlotWidget(daq = cam,
+                                                     parent = self,
+                                                     parameters = self.cam_descriptions[c]))
             self.tabs[-1].setWidget(self.camwidgets[-1])
             self.tabs[-1].setFloating(False)
             self.tabs[-1].setAllowedAreas(Qt.LeftDockWidgetArea |
@@ -616,7 +650,7 @@ The recorders can be specified with the '"recorder":"ffmpeg"' option in each cam
             self.addDockWidget(
                 Qt.BottomDockWidgetArea,
                 self.tabs[-1])
-            self.tabs[-1].setMinimumHeight(300)
+            
             # there can only be one of these for now?
             if hasattr(self,'camstim_widget'):
                 self.camstim_tab = QDockWidget("Camera excitation control",self)
@@ -634,10 +668,7 @@ The recorders can be specified with the '"recorder":"ffmpeg"' option in each cam
     def timerUpdate(self):
         for c,cam in enumerate(self.cams):
             try:
-                #self.camwidgets[c].image(frame,cam.nframes.value)
-                frame = cam.get_img()
-                if not frame is None:
-                    self.camwidgets[c].image(frame,cam.nframes.value) #frame
+                self.camwidgets[c].update()
             except Exception as e:
                 display('Could not draw cam: {0}'.format(c))
                 exc_type, exc_obj, exc_tb = sys.exc_info()
