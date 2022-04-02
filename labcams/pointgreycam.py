@@ -132,9 +132,12 @@ def pg_image_settings(nodemap,X=None,Y=None,W=None,H=None,pxformat='Mono8'):
 
 class PointGreyCam(GenericCam):
     def __init__(self,
-                 camId = None,
+                 cam_id,
+                 start_trigger = None,
+                 stop_trigger = None,
+                 save_trigger = None,    
                  serial = None,
-                 outQ = None,
+                 out_q = None,
                  binning = None,
                  frameRate = None,
                  exposure = None,
@@ -142,17 +145,19 @@ class PointGreyCam(GenericCam):
                  gamma = None,
                  roi = [],
                  pxformat = 'Mono8',
-                 triggerSource = np.uint16(0),
+                 trigger_source = np.uint16(0),
                  outputs = [],
-                 triggered = Event(),
                  hardware_trigger = None,
                  recorderpar=None,
                  **kwargs):
-        super(PointGreyCam,self).__init__(outQ = outQ, recorderpar=recorderpar)
+        super(PointGreyCam,self).__init__(cam_id = cam_id,
+                                          out_q = out_q,
+                                          start_trigger = start_trigger,
+                                          stop_trigger = stop_trigger,
+                                          save_trigger = save_trigger,                 
+                                          recorderpar=recorderpar)
         self.drivername = 'PointGrey'
         self.hardware_trigger = hardware_trigger
-        if camId is None:
-            display('[PointGrey] - Need to supply a camera ID.')
         self.serial = serial
         if not serial is None:
             self.serial = int(serial)
@@ -172,7 +177,7 @@ class PointGreyCam(GenericCam):
             cam_list.Clear()
             drv.ReleaseInstance()
             try:
-                camId = int(np.where(np.array(serials)==self.serial)[0][0])
+                cam_id = int(np.where(np.array(serials)==self.serial)[0][0])
             except:
                 txt = '''
                 
@@ -184,16 +189,16 @@ Available serials are:
                 raise(OSError(txt))
                 
         self.drv = None
-        self.cam_id = camId
         if not len(roi):
             roi = [None,None,None,None]
         self.pxformat = pxformat
         self.gamma = gamma
-        self.triggered = triggered
         self.outputs = outputs
         self.binning = binning
         self.exposure = exposure
         self.frame_rate = frameRate
+        self.fs.value = self.frame_rate
+
         self.gain = gain
         self.roi = roi
         frame = self.get_one()
@@ -292,12 +297,14 @@ Available serials are:
     
     def set_framerate(self,framerate = 120):
         '''Set the exposure time is in us'''
-        if self.triggered.is_set():
+        if 'in_line' in self.hardware_trigger:
             display('Camera in trigger mode, skipping frame rate setting.')
             return
         if framerate is None:
            return 
         self.frame_rate = float(framerate)
+        self.fs.value = self.frame_rate
+
         if not self.cam is None:
             self.frame_rate = min(self.cam.AcquisitionFrameRate.GetMax(),
                                   self.frame_rate)
@@ -488,13 +495,13 @@ Available serials are:
         node_acquisition_mode.SetIntValue(node_acquisition_mode_continuous.GetValue())
 
         self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
-        if self.triggered.is_set(): # One can use the hardware_trigger option for these cameras
-            # Line 3 for triggering (hardcoded for now)
-            self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
-            self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
-            display('PointGrey [{0}] - Triggered mode ON.'.format(self.cam_id))            
-        else:
-            display('PointGrey [{0}] - Triggered mode OFF.'.format(self.cam_id))
+        #if self.triggered.is_set(): # One can use the hardware_trigger option for these cameras
+        # Line 3 for triggering (hardcoded for now)
+        #   self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
+        #   self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
+        #   display('PointGrey [{0}] - Triggered mode ON.'.format(self.cam_id))            
+        #else:
+        #   display('PointGrey [{0}] - Triggered mode OFF.'.format(self.cam_id))
             
         # Set GPIO lines 2 and 3 to input by default 
         self.cam.LineSelector.SetValue(PySpin.LineSelector_Line2)

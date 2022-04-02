@@ -18,17 +18,28 @@ from .cams import *
 from datetime import datetime
 class PCOCam(GenericCam):
     time_modes = {0:"ns", 1: "us", 2: "ms"}
-    def __init__(self, camId = None, outQ = None,
+    def __init__(self,
+                 cam_id = None,
+                 start_trigger = None,
+                 stop_trigger = None,
+                 save_trigger = None,                 
+                 out_q = None,
                  binning = None,
                  exposure = 100,
                  dtype = np.uint16,
-                 useCameraParameters = True,
-                 triggerSource = np.uint16(2),
-                 triggered = Event(),
+                 use_camera_parameters = True,
+                 trigger_source = np.uint16(2),
+                 hardware_trigger = None,
                  acquisition_stim_trigger = None,
                  dllpath = None,
-                 recorderpar = None,**kwargs):
-        super(PCOCam,self).__init__(outQ = outQ, recorderpar=recorderpar)
+                 recorderpar = None,
+                 **kwargs):
+        super(PCOCam,self).__init__(cam_id = cam_id,
+                                    out_q = out_q,
+                                    start_trigger = start_trigger,
+                                    stop_trigger = stop_trigger,
+                                    save_trigger = save_trigger,
+                                    recorderpar=recorderpar)
         self.armed = False
         self.drivername = 'PCO'
         if dllpath is None:
@@ -51,12 +62,8 @@ class PCOCam(GenericCam):
         self.trigerMode = 0
         self.exposure = exposure
         self.binning = binning
-        if camId is None:
-            display('Need to supply a camera ID.')
-        self.camId = camId
-        self.queue = outQ
         self.dtype = dtype
-        ret = self.camopen(self.camId)
+        ret = self.camopen(self.cam_id)
         assert ret == 0, "PCO: Could not open camera {0}".format(camId)
         self.useCameraParameters = useCameraParameters
         if self.useCameraParameters:
@@ -79,7 +86,7 @@ class PCOCam(GenericCam):
         if not acquisition_stim_trigger is None:
             
             self.acquisition_stim_trigger = True
-            acquisition_stim_trigger.is_saving = self.saving
+            acquisition_stim_trigger.is_saving = self.save_trigger
             self.refresh_period = -1
             # refresh every frame
             self.nchan = acquisition_stim_trigger.nchannels.value
@@ -87,9 +94,14 @@ class PCOCam(GenericCam):
             self.acquisition_stim_trigger = None
             self.nchan = 1 #frame.shape[2]
         self._init_variables(dtype)
-        self.triggered = triggered
+        self.hardware_trigger = hardware_trigger
+        if self.hardware_trigger is None:
+            self.hardware_trigger = Event()
+
         self.triggerSource = triggerSource
         self.frame_rate = 1000.0/float(self.exposure)
+        self.fs.value = self.frame_rate
+
         self._dll = None
         for c in range(self.nchan):
             self.img[:,:,c] = frame[:]
@@ -473,14 +485,14 @@ class PCOCam(GenericCam):
         self._dll = ctypes.WinDLL(self.dllpath)
         self.nframes.value = 0
         self.lastframeid = -1
-        ret = self.camopen(self.camId)
+        ret = self.camopen(self.cam_id)
         if self.useCameraParameters:
             if not self.binning is None:
                 ret = self.set_binning(self.binning,self.binning)
                 display('PCO - Binning: {0}'.format(ret))
             ret = self.set_exposure_time(self.exposure)
             display('PCO - Exposure: {0} {1}'.format(*ret))
-        if self.triggered.is_set():
+        if self.hardware_trigger.is_set():
             display('PCO - Trigger mode settting to: {0}'.format(self.triggerSource))
             display('\t\t\tPCO - {0}'.format(self.set_trigger_mode(self.triggerSource)))
         else:
@@ -495,7 +507,7 @@ class PCOCam(GenericCam):
         self.datestart = datetime.now()
         
     def _cam_startacquisition(self):
-        display('PCO [{0}] - Started acquisition.'.format(self.camId))
+        display('PCO [{0}] - Started acquisition.'.format(self.cam_id))
         self.arm()        
         self._prepare_to_mem()
         (self.dw1stImage, self.dwLastImage, self.wBitsPerPixel, self.dwStatusDll,
@@ -634,14 +646,14 @@ class PCOCam(GenericCam):
             self.img[:] = np.reshape(frame,self.img.shape)[:]
     
     def _cam_close(self):
-        display('PCO [{0}] - Stopping acquisition.'.format(self.camId))
+        display('PCO [{0}] - Stopping acquisition.'.format(self.cam_id))
         self.acquisitionstop()
         self.disarm()
         ret = self.camclose()
         display('PCO - returned {0} on close'.format(ret))
-        self.saving.clear()
+        self.save_trigger.clear()
         if self.was_saving:
             self.was_saving = False
             self.queue.put(['STOP'])
-        display('PCO {0} - Close event: {1}'.format(self.camId,
+        display('PCO {0} - Close event: {1}'.format(self.cam_id,
                                                     self.close_event.is_set()))

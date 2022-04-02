@@ -18,7 +18,9 @@
 import time
 import sys
 from multiprocessing import Process,Queue,Event,Array,Value
+from multiprocessing.shared_memory import SharedMemory # this breaks compatibility with python < 3.8
 from ctypes import c_long, c_char_p
+import ctypes
 from datetime import datetime
 import time
 import sys
@@ -33,11 +35,13 @@ import pandas as pd
 from skvideo.io import FFmpegWriter
 import cv2
 
-VERSION = '0.6'
+
+# TODO: check if ffmpeg is working when initializing and using the ffmpeg writer.
+VERSION = '0.7'
 
 class GenericWriter(object):
     def __init__(self,
-                 inQ = None,
+                 cam = None,
                  loggerQ = None,
                  filename = pjoin('dummy','run'),
                  dataname = 'eyecam',
@@ -61,7 +65,6 @@ class GenericWriter(object):
         self.foldername = None
         self.incrementruns = incrementruns
         self.fd = None
-        self.inQ = inQ
         self.parQ = None
         self.today = datetime.today().strftime('%Y%m%d')
         self.nchannels = Value('i',1)
@@ -69,9 +72,9 @@ class GenericWriter(object):
         self.nFiles = 0
         runname = 'run{0:03d}'.format(self.runs)
         self.path_format = pathformat
-        self.path_keys =  dict(datafolder=self.datafolder,
-                               dataname=self.dataname,
-                               filename=self.filename,
+        self.path_keys =  dict(datafolder = self.datafolder,
+                               dataname = self.dataname,
+                               filename = self.filename,
                                today = self.today,
                                run = runname,
                                nfiles = '{0:08d}'.format(0),
@@ -80,14 +83,28 @@ class GenericWriter(object):
             if not '{nfiles}' in self.path_format:
                 self.path_format += '_{nfiles}'
 
-    def init(self,cam):
+        if not cam is None:
+            self._init_cam(cam)
+
+    def _init_cam(self,cam):
         ''' Sets camera specific variables - happens after camera load'''
         self.frame_rate = None
-        if hasattr(cam,'frame_rate'):
-            self.frame_rate = cam.frame_rate
-        self.nchannels.value = 1
-        if hasattr(cam,'nchan'):
-            self.nchannels.value = cam.nchan
+        if not cam is None:
+            self.cam = dict(buffer_name = cam.membuffer_name,
+                            buffer_len = cam.membuffer_len,
+                            queue = cam.queue,
+                            dtype = cam.dtype,
+                            h = cam.h,
+                            w = cam.w,
+                            nchannels = cam.nchan,
+                            frame_rate = cam.fs)
+            self.inQ = self.cam['queue']
+            if hasattr(cam,'frame_rate'):
+                self.frame_rate = cam.fs.value
+            self.nchannels = self.cam['nchannels']
+            self.h = self.cam['h']
+            self.w = self.cam['w']
+        
     def _stop_write(self):
         self.write = False
     def stop(self):
@@ -142,7 +159,7 @@ class GenericWriter(object):
         filename = self.get_filename_path()
         logfname = filename.replace('{extension}'.format(
             **self.path_keys),'.camlog')
-
+        
         self.logfile = open(logfname,'w')
         self.logfile.write('# Camera: {0} log file'.format(
             self.dataname) + '\n')
@@ -164,7 +181,7 @@ class GenericWriter(object):
     def _handle_frame(self,buff):
         if buff[0] is None:
             # Then parameters were passed to the queue
-            display('[Writer] - Received None...')
+            display('[Recorder] - Received None...')
             return None,None
         if len(buff) == 1:
            # check message:
@@ -229,7 +246,7 @@ class GenericWriter(object):
 
 class GenericWriterProcess(Process,GenericWriter):
     def __init__(self,
-                 inQ = None,
+                 cam = None,
                  loggerQ = None,
                  filename = pjoin('dummy','run'),
                  dataname = 'eyecam',
@@ -238,8 +255,10 @@ class GenericWriterProcess(Process,GenericWriter):
                  datafolder=pjoin(os.path.expanduser('~'),'data'),
                  framesperfile=0,
                  sleeptime = 1./30,
-                 incrementruns=True):
-        GenericWriter.__init__(self,inQ = inQ,
+                 incrementruns=True,
+                 save_trigger = None):
+        GenericWriter.__init__(self,
+                               cam = cam,
                                loggerQ=loggerQ,
                                filename=filename,
                                datafolder=datafolder,
@@ -249,10 +268,11 @@ class GenericWriterProcess(Process,GenericWriter):
                                sleeptime=sleeptime,
                                incrementruns=incrementruns)
         Process.__init__(self)
-        self.write = Event()
+        self.write = save_trigger
+        if self.write is None:
+            self.write = Event()
         self.close = Event()
         self.filename = Array('u',' ' * 1024)
-        self.inQ = inQ
         self.parQ = Queue()
         self.daemon = True
 
@@ -277,14 +297,38 @@ class GenericWriterProcess(Process,GenericWriter):
     
     def get_from_queue_and_save(self):
         buff = self.inQ.get()
+        if not buff[0] is None:
+            if len(buff) > 1:
+                buff[0] = self.get_frame(buff[0])
         return self._handle_frame(buff)
 
+    def _init_shared_mem(self):
+        dtype = self.cam['dtype']
+        if dtype == np.uint8:
+            cdtype = ctypes.c_ubyte
+        else:
+            cdtype = ctypes.c_ushort
+        self.membuffer = SharedMemory(name = self.cam['buffer_name'])
+        buffsize = [self.h.value,self.w.value,self.nchannels.value]
+        self.nbuffers = int(self.cam['buffer_len'] // np.prod(buffsize+[dtype.itemsize]))
+        buffsize = [self.nbuffers] + buffsize
+ 
+        self.imgs = np.ndarray(buffsize,
+                               buffer = self.membuffer.buf,
+                               dtype = cdtype)
+
+    def get_frame(self,frame_index = None):
+        if frame_index is None:
+            frame_index = self.nframes.value
+        return self.imgs[frame_index//self.nbuffers]
+        
     def run(self):
         while not self.close.is_set():
             self.saved_frame_count = 0
             self.nFiles = 0
             if not self.parQ.empty():
                 self.getFromParQueue()
+            self._init_shared_mem()
             while self.write.is_set() and not self.close.is_set():
                 while self.inQ.qsize():
                     frameid,frame = self.get_from_queue_and_save()
@@ -300,7 +344,7 @@ class GenericWriterProcess(Process,GenericWriter):
         
 class TiffWriter(GenericWriterProcess):
     def __init__(self,
-                 inQ = None,
+                 cam,
                  loggerQ = None,
                  filename = pjoin('dummy','run'),
                  dataname = 'cam',
@@ -310,9 +354,10 @@ class TiffWriter(GenericWriterProcess):
                  framesperfile=256,
                  sleeptime = 1./30,
                  incrementruns=True,
-                 compression=None):
+                 compression=None,
+                 **kwargs):
         self.extension = '.tif'
-        super(TiffWriter,self).__init__(inQ = inQ,
+        super(TiffWriter,self).__init__(cam = cam,
                                         loggerQ=loggerQ,
                                         datafolder=datafolder,
                                         filename=filename,
@@ -351,7 +396,7 @@ class TiffWriter(GenericWriterProcess):
 ################################################################################
 class BinaryWriter(GenericWriterProcess):
     def __init__(self,
-                 inQ = None,
+                 cam,
                  loggerQ = None,
                  filename = pjoin('dummy','run'),
                  dataname = 'eyecam',
@@ -360,9 +405,9 @@ class BinaryWriter(GenericWriterProcess):
                                     '{today}_{run}_{nfiles}'),
                  framesperfile=0,
                  sleeptime = 1./300,
-                 incrementruns=True):
+                 incrementruns=True,**kwargs):
         self.extension = '_{nchannels}_{H}_{W}_{dtype}.dat'
-        super(BinaryWriter,self).__init__(inQ = inQ,
+        super(BinaryWriter,self).__init__(
                                           loggerQ=loggerQ,
                                           filename=filename,
                                           datafolder=datafolder,
@@ -371,8 +416,6 @@ class BinaryWriter(GenericWriterProcess):
                                           framesperfile=framesperfile,
                                           sleeptime=sleeptime,
                                           incrementruns=incrementruns)
-        self.w = None
-        self.h = None
         self.buf = []
 
     def close_file(self):
@@ -381,8 +424,6 @@ class BinaryWriter(GenericWriterProcess):
         self.fd = None
 
     def _open_file(self,filename,frame = None):
-        self.w = frame.shape[1]
-        self.h = frame.shape[0]
         dtype = frame.dtype
         if dtype == np.float32:
             dtype='float32'
@@ -391,8 +432,8 @@ class BinaryWriter(GenericWriterProcess):
         else:
             dtype='uint16'
         filename = filename.format(nchannels = self.nchannels.value,
-                                   W=self.w,
-                                   H=self.h,
+                                   W=self.w.value,
+                                   H=self.h.value,
                                    dtype=dtype) 
         self.parsed_filename = filename
         self.fd = open(filename,'wb')
@@ -418,7 +459,7 @@ nvenc_presets = {0:'default (medium)',
                  11:'losslesshp'}
 class FFMPEGWriter(GenericWriterProcess):
     def __init__(self,
-                 inQ = None,
+                 cam,
                  loggerQ = None,
                  filename = pjoin('dummy','run'),
                  dataname = 'eyecam',
@@ -429,11 +470,10 @@ class FFMPEGWriter(GenericWriterProcess):
                  sleeptime = 1./30,
                  incrementruns=True,
                  hwaccel = None,
-                 frame_rate = None,
                  preset = None,
-                 compression=0):
+                 compression=0,**kwargs):
         self.extension = '.avi'
-        super(FFMPEGWriter,self).__init__(inQ = inQ,
+        super(FFMPEGWriter,self).__init__(cam = cam,
                                           loggerQ=loggerQ,
                                           filename=filename,
                                           datafolder=datafolder,
@@ -452,9 +492,6 @@ class FFMPEGWriter(GenericWriterProcess):
             frame_rate = 0
         if frame_rate <= 0:
             frame_rate = 30.
-        self.frame_rate = frame_rate
-        self.w = None
-        self.h = None
         if hwaccel is None:
             if self.compression == 0:
                 self.compression = 25
@@ -523,11 +560,8 @@ class FFMPEGWriter(GenericWriterProcess):
     def _open_file(self,filename,frame = None):
         if frame is None:
             raise ValueError('[Recorder] Need to pass frame to open a file.')
-        self.w = frame.shape[1]
-        self.h = frame.shape[0]
-        if self.frame_rate is None:
-            self.frame_rate = 0
-        if self.frame_rate == 0:
+        self.frame_rate = self.fs.value
+        if self.frame_rate is None or self.frame_rate == 0:
             display('Using 30Hz frame rate for ffmpeg')
             self.frame_rate = 30
         
@@ -558,7 +592,7 @@ class FFMPEGWriter(GenericWriterProcess):
 ################################################################################
 class OpenCVWriter(GenericWriter):
     def __init__(self,
-                 inQ = None,
+                 cam,
                  loggerQ = None,
                  filename = pjoin('dummy','run'),
                  dataname = 'eyecam',
@@ -569,9 +603,9 @@ class OpenCVWriter(GenericWriter):
                  sleeptime = 1./30,
                  incrementruns=True,
                  compression=None,
-                 fourcc = 'X264'):
+                 fourcc = 'X264',**kwargs):
         self.extension = '.avi'
-        super(OpenCVWriter,self).__init__(inQ = inQ,
+        super(OpenCVWriter,self).__init__(cam = cam,
                                           loggerQ=loggerQ,
                                           filename=filename,
                                           datafolder=datafolder,
@@ -586,8 +620,6 @@ class OpenCVWriter(GenericWriter):
             if compression > 0:
                 self.compression = compression
         self.fourcc = cv2.VideoWriter_fourcc(*fourcc)
-        self.w = None
-        self.h = None
         
     def close_file(self):
         if not self.fd is None:
@@ -595,14 +627,12 @@ class OpenCVWriter(GenericWriter):
         self.fd = None
 
     def _open_file(self,filename,frame = None):
-        self.w = frame.shape[1]
-        self.h = frame.shape[0]
         self.isColor = False
         if len(frame.shape) < 2:
             self.isColor = True
         self.fd = cv2.VideoWriter(filename,
                                   cv2.CAP_FFMPEG,#cv2.CAP_DSHOW,#cv2.CAP_INTEL_MFX,
-                                  self.fourcc,120,(self.w,self.h),self.isColor)
+                                  self.fourcc,120,(self.w.value,self.h.value),self.isColor)
 
     def _write(self,frame,frameid,timestamp):
         if len(frame.shape) < 2:
@@ -623,21 +653,20 @@ class FFMPEGCamWriter(GenericWriter):
                  pathformat = pjoin('{datafolder}','{dataname}','{filename}',
                                     '{today}_{run}_{nfiles}'),
                  framesperfile=0,
-                 inQ = None,
                  incrementruns=True,
                  compression=None,
-                 hwaccel = None):
+                 hwaccel = None,**kwargs):
         self.extension = '.avi'
         self.cam = cam
         self.nchannels = cam.nchan
 
-        super(FFMPEGCamWriter,self).__init__(filename=filename,
+        super(FFMPEGCamWriter,self).__init__(cam = cam,
+                                             filename=filename,
                                              datafolder=datafolder,
                                              dataname=dataname,
                                              pathformat = pathformat,
                                              framesperfile=framesperfile,
-                                             incrementruns=incrementruns,
-                                             inQ = inQ)
+                                             incrementruns=incrementruns)
 
         self.compression = compression
         if self.compression is None:
@@ -647,9 +676,6 @@ class FFMPEGCamWriter(GenericWriter):
             frame_rate = 0
         if frame_rate <= 0:
             frame_rate = 30.
-        self.frame_rate = frame_rate
-        self.w = None
-        self.h = None
         if hwaccel is None:
             self.doutputs = {'-format':'h264',
                              '-pix_fmt':'gray',
@@ -689,11 +715,8 @@ class FFMPEGCamWriter(GenericWriter):
     def _open_file(self,filename,frame = None):
         if frame is None:
             raise ValueError('[Recorder] Need to pass frame to open a file.')
-        self.w = frame.shape[1]
-        self.h = frame.shape[0]
-        if self.frame_rate is None:
-            self.frame_rate = 0
-        if self.frame_rate == 0:
+        self.frame_rate = self.fs.value
+        if self.frame_rate is None or self.frame_rate == 0:
             display('Using 30Hz frame rate for ffmpeg')
             self.frame_rate = 30
         
@@ -729,20 +752,17 @@ class BinaryCamWriter(GenericWriter):
                  pathformat = pjoin('{datafolder}','{dataname}','{filename}',
                                     '{today}_{run}_{nfiles}'),
                  framesperfile=0,
-                 inQ = None,
-                 incrementruns=True):
+                 incrementruns=True,**kwargs):
         self.extension = '_{nchannels}_{H}_{W}_{dtype}.dat'
         self.cam = cam
         self.nchannels.value = cam.nchan
-        super(BinaryCamWriter,self).__init__(filename=filename,
+        super(BinaryCamWriter,self).__init__(cam = cam,
+                                             filename=filename,
                                              datafolder=datafolder,
                                              dataname=dataname,
-                                             inQ = inQ,
                                              pathformat = pathformat,
                                              framesperfile=framesperfile,
                                              incrementruns=incrementruns)
-        self.w = None
-        self.h = None
 
     def close_file(self):
         if not self.fd is None:
@@ -751,8 +771,6 @@ class BinaryCamWriter(GenericWriter):
         self.fd = None
 
     def _open_file(self,filename,frame = None):
-        self.w = frame.shape[1]
-        self.h = frame.shape[0]
         dtype = frame.dtype
         if dtype == np.float32:
             dtype='float32'
@@ -762,8 +780,8 @@ class BinaryCamWriter(GenericWriter):
             dtype='uint16'
         self.nchannels.value = self.cam.nchan
         filename = filename.format(nchannels = self.nchannels.value,
-                                   W=self.w,
-                                   H=self.h, dtype=dtype)
+                                   W=self.w.value,
+                                   H=self.h.value, dtype=dtype)
         self.parsed_filename = filename
         self.fd = open(filename,'wb')
 
@@ -778,14 +796,13 @@ class BinaryDAQWriter(GenericWriter):
                  datafolder=pjoin(os.path.expanduser('~'),'data'),
                  pathformat = pjoin('{datafolder}','{dataname}','{filename}',
                                     '{today}_{run}_{nfiles}'),
-                 inQ = None,
-                 incrementruns=True):
+                 incrementruns=True,**kwargs):
         self.extension = '_{nchannels}_{dtype}.nidq.bin'
         self.daq = daq
-        super(BinaryDAQWriter,self).__init__(filename=filename,
+        super(BinaryDAQWriter,self).__init__(cam = None,
+                                             filename=filename,
                                              datafolder=datafolder,
                                              dataname=dataname,
-                                             inQ = inQ,
                                              pathformat = pathformat,
                                              framesperfile=-1,
                                              incrementruns=incrementruns)
@@ -871,14 +888,13 @@ class TiffCamWriter(GenericWriter):
                                     '{today}_{run}_{nfiles}'),
                  framesperfile=256,
                  sleeptime = 1./300,
-                 inQ = None,
                  incrementruns=True,
-                 compression = None):
+                 compression = None,**kwargs):
         self.extension = '.tif'
         self.cam = cam
-        super(TiffCamWriter,self).__init__(datafolder=datafolder,
+        super(TiffCamWriter,self).__init__(cam = cam,
+                                           datafolder=datafolder,
                                            filename=filename,
-                                           inQ = inQ,
                                            dataname=dataname,
                                            pathformat=pathformat,
                                            framesperfile=framesperfile,

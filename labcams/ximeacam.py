@@ -19,25 +19,34 @@ from .cams import *
 
 class XimeaCam(GenericCam):
     def __init__(self,
-                 camId = None,
-                 outQ = None,
+                 cam_id = None,
+                 start_trigger = None,
+                 stop_trigger = None,
+                 save_trigger = None,                 
+                 out_q = None,
                  binning = 2,
                  exposure = 20000,
                  triggerSource = np.uint16(2),
                  outputs = ['XI_GPO_EXPOSURE_ACTIVE'],
-                 triggered = Event(),
+                 hardware_trigger = None,
                  recorderpar = None,
                  **kwargs):
-        super(XimeaCam,self).__init__(outQ = outQ, recorderpar = recorderpar)
+        super(XimeaCam,self).__init__(cam_id = cam_id,
+                                      out_q = out_q,
+                                      start_trigger = None,
+                                      stop_trigger = None,
+                                      save_trigger = None,
+                                      recorderpar = recorderpar)
         self.drivername = 'Ximea'
-        if camId is None:
-            display('[Ximea] - Need to supply a camera ID.')
-        self.cam_id = camId
-        self.triggered = triggered
+        self.hardware_trigger = hardware_trigger
+        if self.hardware_trigger is None:
+            self.hardware_trigger = Event()
         self.outputs = outputs
         self.binning = binning
         self.exposure = exposure
         self.frame_rate = 1000./float(self.exposure)
+        self.fs.value = self.frame_rate
+
         frame = self.get_one()
 
         self.h = frame.shape[0]
@@ -76,6 +85,9 @@ class XimeaCam(GenericCam):
     def set_exposure(self,exposure = 20000):
         '''Set the exposure time is in us'''
         self.exposure = exposure
+        self.frame_rate = 1000./float(self.exposure)
+        self.fs.value = self.frame_rate
+
         if not self.cam is None:
             if self.cam_is_running:
                 self.start_trigger.set()
@@ -97,7 +109,7 @@ class XimeaCam(GenericCam):
             self.cam.set_gpo_selector('XI_GPO_PORT1')
             # for now set the GPO to blink in software (port1 will do that for sync purposes, the test cam does not support XI_GPO_EXPOSURE_PULSE)
             self.cam.set_gpo_mode('XI_GPO_ON'); #XI_GPO_EXPOSURE_PULSE
-            if self.triggered.is_set():
+            if self.hardware_trigger.is_set():
                 self.cam.set_gpi_mode('XI_GPI_TRIGGER')
                 self.cam.set_trigger_source('XI_TRG_EDGE_RISING')
         self.cam.set_led_selector('XI_LED_SEL1')

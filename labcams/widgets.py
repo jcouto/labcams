@@ -159,7 +159,7 @@ class RecordingControlWidget(QWidget):
         l = QFormLayout()
         w.setLayout(l)
         self.camTriggerToggle = QCheckBox()
-        self.camTriggerToggle.setChecked(self.parent.triggered.is_set())
+        self.camTriggerToggle.setChecked(self.parent.hardware_trigger_event.is_set())
         self.camTriggerToggle.stateChanged.connect(self.toggleTriggered)
         label = QLabel("Hardware trigger: ")
         label.setToolTip(info)
@@ -247,7 +247,7 @@ If the camera is saving this stops the camera.'''
         if filename is None:
             filename = str(self.experimentNameEdit.text())
         if not self.expname == filename:
-            self.parent.setExperimentName(filename)
+            self.parent.set_experiment_name(filename)
             self.expname = filename
 
         
@@ -276,14 +276,14 @@ If the camera is saving this stops the camera.'''
     def toggleTriggered(self,value):
         display('Hardware trigger mode pressed [{0}]'.format(value))
         if value:
-            self.parent.triggered.set()
+            self.parent.hardware_trigger_event.set()
         else:
             #self.toggleSaveOnStart(False)
             # save button does not get unticked (this is a bug)
             if self.saveOnStartToggle.isChecked():
                 self.saveOnStart = False
                 self.saveOnStartToggle.setCheckState(Qt.Unchecked)
-            self.parent.triggered.clear()
+            self.parent.hardware_trigger_event.clear()
         for cam in self.parent.cams[::-1]:
             if hasattr(cam,'analog_channels'):
                 display('Sleeping for 1 second for the DAQ to record.')
@@ -292,7 +292,7 @@ If the camera is saving this stops the camera.'''
         if self.parent.saveOnStart:
             self.checkUpdateFilename()
         sleep(.5)
-        self.parent.triggerCams(save = self.parent.saveOnStart)
+        self.parent.trigger_cams(save = self.parent.saveOnStart)
         tstart[0] = time.time()
         
     #def setExpName(self):
@@ -335,9 +335,6 @@ class CamWidget(QWidget):
         self.parent = parent
         self.iCam = iCam
         self.cam = self.parent.cams[self.iCam]
-        h,w = frame.shape[:2]
-        self.w = w
-        self.h = h
         self.nchan = frame.shape[-1]
         self.displaychannel = 0
         self.roiwidget = None
@@ -381,7 +378,7 @@ class CamWidget(QWidget):
             parameters['TrackEye'] = False
         self.parameters = parameters
         self.parameters['reference_channel'] = None
-        self.lastFrame = frame.copy().astype(np.float32)
+        self.lastFrame = 0
         if not 'NBackgroundFrames' in parameters.keys() or not parameters['SubtractBackground']:
             self.nAcum = 0
         else:
@@ -392,10 +389,10 @@ class CamWidget(QWidget):
             self.string = 'no save -{0}'
         #self.image(np.array(frame),-1)
         size = 600
-        ratio = h/float(w)
+        #ratio = h/float(w)
         self.hist = None
 ###        self.setFixedSize(size,int(size*ratio))
-        self.resize(size,int(size*ratio))
+        #self.resize(size,int(size*ratio))
         self.addActions()
 
         #self.show()
@@ -716,12 +713,13 @@ class CamWidget(QWidget):
                     tmp = cv2.equalizeHist(tmp).reshape(image.shape)
                 except:
                     pass
-            if self.nAcum > 0:
+            if self.nAcum > 0:                    
                 tmp = tmp.astype(np.float32)
                 frame = (tmp - self.lastFrame)
-                self.lastFrame = ((1.-1./self.nAcum)*(self.lastFrame.astype(np.float32)) +
+                self.lastFrame = ((1.-1./self.nAcum)*self.lastFrame +
                                   (1./self.nAcum)*tmp)
             else:
+                self.lastFrame = 0
                 frame = tmp
             if not self.roiwidget is None:
                 self.roiwidget.update(frame,iFrame=nframe)
