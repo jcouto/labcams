@@ -176,12 +176,11 @@ If the camera is saving this stops the camera.'''
         self.snapshotButton = QPushButton('Snapshot')
         def snapshot():
             self.checkUpdateFilename()
-            for cam,writer,wid in zip(self.parent.cams,
-                                      self.parent.writers,
+            for cam,wid in zip(self.parent.cams,
                                       self.parent.camwidgets):
-                if not writer is None:
-                    fname = writer.get_filename_path()
-                    dataname = writer.dataname
+                if not cam.writer is None:
+                    fname = cam.writer.get_filename_path()
+                    dataname = cam.writer.dataname
                 elif not cam.recorder is None:
                     fname = cam.recorder.get_filename_path()
                     dataname = cam.recorder.dataname
@@ -219,7 +218,7 @@ If the camera is saving this stops the camera.'''
         self.softTriggerToggle.setToolTip(info)
         l.addRow(label,self.softTriggerToggle)
 
-        self.saveOnStartToggle.setChecked(self.parent.saveOnStart)
+        self.saveOnStartToggle.setChecked(self.parent.save_on_start)
         self.saveOnStartToggle.stateChanged.connect(self.toggleSaveOnStart)
 
         label = QLabel("Manual save: ")
@@ -254,8 +253,8 @@ If the camera is saving this stops the camera.'''
     def toggleSoftwareTriggered(self,value):
         display('Software trigger pressed [{0}]'.format(value))
         if value:
-            if hasattr(self.parent,'camstim_widget'):
-                self.parent.camstim_widget.ino.arm()
+            if hasattr(self.parent,'excitation_trigger'):
+                self.parent.excitation_trigger.arm()
                 display('Cam stim trigger armed.')
             for cam in self.parent.cams:
                 cam.start_trigger.set()
@@ -268,8 +267,8 @@ If the camera is saving this stops the camera.'''
                     display('Sleeping for 1 second for the DAQ to record.')
                     sleep(1)
                 cam.start_trigger.clear()
-            if hasattr(self.parent,'camstim_widget'):
-                self.parent.camstim_widget.ino.disarm()
+            if hasattr(self.parent,'excitation_trigger'):
+                self.parent.excitation_trigger.disarm()
                 display('Cam stim trigger disarmed.')
         tstart[0] = time.time()
 
@@ -281,7 +280,7 @@ If the camera is saving this stops the camera.'''
             #self.toggleSaveOnStart(False)
             # save button does not get unticked (this is a bug)
             if self.saveOnStartToggle.isChecked():
-                self.saveOnStart = False
+                self.save_on_start = False
                 self.saveOnStartToggle.setCheckState(Qt.Unchecked)
             self.parent.hardware_trigger_event.clear()
         for cam in self.parent.cams[::-1]:
@@ -289,10 +288,10 @@ If the camera is saving this stops the camera.'''
                 display('Sleeping for 1 second for the DAQ to record.')
                 sleep(1)
             cam.stop_acquisition()
-        if self.parent.saveOnStart:
+        if self.parent.save_on_start:
             self.checkUpdateFilename()
         sleep(.5)
-        self.parent.trigger_cams(save = self.parent.saveOnStart)
+        self.parent.trigger_cams(save = self.parent.save_on_start)
         tstart[0] = time.time()
         
     #def setExpName(self):
@@ -300,23 +299,22 @@ If the camera is saving this stops the camera.'''
         #self.parent.setExperimentName(str(name))
 
     def toggleSaveOnStart(self,state):
-        self.parent.saveOnStart = state
+        self.parent.save_on_start = state
         #display('[Controller] - Warning: The save button is no longer restarting the cameras.')
         #for cam in self.parent.cams:
         #    cam.stop_acquisition()
         #time.sleep(.5)
         # Set the experiment name
         self.checkUpdateFilename()
-        for c,(cam,flg,writer) in enumerate(zip(self.parent.cams,
-                                                self.parent.saveflags,
-                                                self.parent.writers)):
+        for c,(cam,flg) in enumerate(zip(self.parent.cams,
+                                                self.parent.saveflags)):
             if flg:
                 if state:
                     display('[Controller] Sending start saving command to camera [{0}].'.format(c))
-                    cam.saving.set()
-                    if not writer is None:
-                        writer.init(cam)
-                        writer.write.set()
+                    cam.save_trigger.set()
+                    if not cam.writer is None:
+                        cam.writer.init_cam(cam.cam)
+                        cam.writer.write.set()
                     self.experimentNameEdit.setDisabled(True)
                 else:
                     display('[Controller] Sending stop command to camera [{0}].'.format(c))
@@ -385,7 +383,7 @@ class CamWidget(QWidget):
             self.nAcum = float(parameters['NBackgroundFrames'])
         self.eyeTracker = None
         self.string = '{0}'
-        if not self.parameters['Save']:
+        if not self.parameters['save_data']:
             self.string = 'no save -{0}'
         #self.image(np.array(frame),-1)
         size = 600
@@ -505,10 +503,10 @@ class CamWidget(QWidget):
         # Save
         ts = QActionCheckBox(self,'Save camera',  self.parent.saveflags[self.iCam])
         def toggleSaveCam():
-            self.parameters['Save'] = not self.parameters['Save']
-            self.parent.saveflags[self.iCam] = self.parameters['Save']
-            ts.checkbox.setChecked(self.parameters['Save'])
-            if not self.parameters['Save']:
+            self.parameters['save_data'] = not self.parameters['save_data']
+            self.parent.saveflags[self.iCam] = self.parameters['save_data']
+            ts.checkbox.setChecked(self.parameters['save_data'])
+            if not self.parameters['save_data']:
                 self.string = 'no save - {0}'
             else:
                 self.string = '{0}'            
@@ -675,7 +673,7 @@ class CamWidget(QWidget):
         self.trackerpar = MptrackerParameters(self.eyeTracker,image,eyewidget=self.tracker_roi)
         if self.parent.saveflags[self.iCam]:
             self.trackerToggle = QCheckBox()
-            if not self.parent.writers[self.iCam] is None:
+            if not self.parent.cams[self.iCam].writer is None:
                 pass
                 #self.trackerToggle.setChecked(self.parent.writers[self.iCam].trackerFlag.is_set())
             #self.trackerToggle.stateChanged.connect(self.trackerSaveToggle)
@@ -696,7 +694,7 @@ class CamWidget(QWidget):
         self.parent.addDockWidget(Qt.LeftDockWidgetArea
                                   ,self.trackerTab)
     def trackerSaveToggle(self,value):
-        writer = self.parent.writers[self.iCam]
+        writer = self.parent.cams[self.iCam].writer
         if not writer is None:
             if self.parent.saveflags[self.iCam]:
                 if value:

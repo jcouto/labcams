@@ -144,9 +144,15 @@ class LabCamsGUI(QMainWindow):
             if hasattr(self.cams[-1],'excitation_trigger'):
                 self.cams[-1].excitation_trigger.start()
                 self.cams[-1].excitation_trigger.disarm()
+                self.excitation_trigger = self.cams[-1].excitation_trigger
                 self.excitation_trigger_widget = CamStimTriggerWidget(
                     ino = self.cams[-1].excitation_trigger,
                     cam = self.cams[-1].cam)
+                self.camstim_tab = QDockWidget("Camera excitation control",self)
+                self.camstim_tab.setWidget(self.excitation_trigger_widget)
+                self.addDockWidget(
+                    Qt.LeftDockWidgetArea,
+                    self.camstim_tab)
             # Print parameters
             display('\t Camera: {0}'.format(cam['name']))
             for k in np.sort(list(cam.keys())):
@@ -155,6 +161,8 @@ class LabCamsGUI(QMainWindow):
         self.initUI()
         
         self.camerasRunning = False
+        if hasattr(self.cams[-1],'excitation_trigger'):
+            self.cams[-1].excitation_trigger.arm()
 
         for cam in self.cams[::-1]:
             cam.start()
@@ -343,9 +351,9 @@ class LabCamsGUI(QMainWindow):
         if hasattr(self,'server_timer'):
             self.server_timer.stop()
         self.timer.stop()
-        if hasattr(self,'camstim_widget'):
-            self.camstim_widget.ino.disarm()
-            self.camstim_widget.close()
+        if hasattr(self,'excitation_trigger'):
+            self.excitation_trigger.disarm()
+            self.excitation_trigger.close()
             
         display('Acquisition stopped (close event).')
         for cam in self.cams:

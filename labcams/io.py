@@ -82,11 +82,10 @@ class GenericWriter(object):
         if self.framesperfile > 0:
             if not '{nfiles}' in self.path_format:
                 self.path_format += '_{nfiles}'
-
         if not cam is None:
-            self._init_cam(cam)
-
-    def _init_cam(self,cam):
+            self.init_cam(cam)
+            
+    def init_cam(self,cam):
         ''' Sets camera specific variables - happens after camera load'''
         self.frame_rate = None
         if not cam is None:
@@ -304,18 +303,13 @@ class GenericWriterProcess(Process,GenericWriter):
 
     def _init_shared_mem(self):
         dtype = self.cam['dtype']
-        if dtype == np.uint8:
-            cdtype = ctypes.c_ubyte
-        else:
-            cdtype = ctypes.c_ushort
         self.membuffer = SharedMemory(name = self.cam['buffer_name'])
         buffsize = [self.h.value,self.w.value,self.nchannels.value]
-        self.nbuffers = int(self.cam['buffer_len'] // np.prod(buffsize+[dtype.itemsize]))
+        self.nbuffers = int(self.cam['buffer_len'] // np.prod(buffsize+[dtype().itemsize]))
         buffsize = [self.nbuffers] + buffsize
- 
         self.imgs = np.ndarray(buffsize,
                                buffer = self.membuffer.buf,
-                               dtype = cdtype)
+                               dtype = dtype)
 
     def get_frame(self,frame_index = None):
         if frame_index is None:

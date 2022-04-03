@@ -93,7 +93,7 @@ class GenericCam(Process):
         self.refresh_period = refreshperiod
         self._tupdate = time.time()
         self.daemon = True
-        self.membuffer_len = membuffer_len
+        self.membuffer_len = int(membuffer_len)
         self.membuffer_name = '{0}_{1}_{2}'.format(int(np.random.rand()*1e9),
                                                    self.name,
                                                    self.cam_id)
@@ -173,18 +173,13 @@ class GenericCam(Process):
             for c in self.ctrevents.keys():
                 self.ctrevents[c]['call'] ='self.'+self.ctrevents[c]['function']    
     def _init_variables(self, dtype=np.uint8):
-        if dtype == np.uint8:
-            cdtype = ctypes.c_ubyte
-        else:
-            cdtype = ctypes.c_ushort
         self.membuffer = SharedMemory(name = self.membuffer_name)
         buffsize = [self.h.value,self.w.value,self.nchan.value]
-        self.nbuffers.value = int(self.membuffer_len // np.prod(buffsize+[dtype.itemsize]))
+        self.nbuffers.value = int(self.membuffer_len // np.prod(buffsize+[dtype().itemsize]))
         buffsize = [self.nbuffers.value] + buffsize
- 
         self.imgs = np.ndarray(buffsize,
                                buffer = self.membuffer.buf,
-                               dtype = cdtype)
+                               dtype = dtype)
         
     def run(self):
         self._init_ctrevents()
@@ -252,8 +247,11 @@ class GenericCam(Process):
     def _update_buffer(self,frame,frameID):
         ''' Updates buffer for a specific frame ID''' 
         self.nframes.value = frameID
-        self.imgs[frameID//self.nbuffers.value] = frame[:]
-
+        if len(frame.shape) == 2:
+            self.imgs[frameID//self.nbuffers.value,:,:,0] = frame[:]
+        else:
+            self.imgs[frameID//self.nbuffers.value] = frame[:]
+            
     def _parse_command_queue(self):
         if not self.eventsQ.empty():
             cmd = self.eventsQ.get()
@@ -611,7 +609,7 @@ The recorders can be specified with the '"format":"ffmpeg"' option in each camer
             camstim = self.cam_stim
         
         self.cam = PCOCam(cam_id=self.cam_id,
-                          out_q = self.recorder_queue,
+                          out_q = self.recorder_q,
                           start_trigger = self.start_trigger,
                           stop_trigger = self.stop_trigger,
                           save_trigger = self.save_trigger,
@@ -684,7 +682,7 @@ Please install nidaqmx using pip and NIDAQmx from the National Instruments websi
                             start_trigger = self.start_trigger,
                             stop_trigger = self.stop_trigger,
                             save_trigger = self.save_trigger,
-                            out_q = self.recorder_queue,
+                            out_q = self.recorder_q,
                             hardware_trigger = self.hardware_trigger_event,
                             **parameters)
 
@@ -716,7 +714,7 @@ Please install nidaqmx using pip and NIDAQmx from the National Instruments websi
                                     start_trigger = self.start_trigger,
                                     stop_trigger = self.stop_trigger,
                                     save_trigger = self.save_trigger,
-                                    out_q = self.recorder_queue,
+                                    out_q = self.recorder_q,
                                     **parameters)
         
     def _init_basler_cam(self, parameters):
@@ -736,7 +734,7 @@ Please install nidaqmx using pip and NIDAQmx from the National Instruments websi
 ''')
 
         self.cam = BaslerCam(cam_id = self.cam_id,
-                             out_q = self.recorder_queue,
+                             out_q = self.recorder_q,
                              **parameters)
 
     def _init_avt_cam(self, parameters):
@@ -771,7 +769,7 @@ Please install nidaqmx using pip and NIDAQmx from the National Instruments websi
                           start_trigger = self.start_trigger,
                           stop_trigger = self.stop_trigger,
                           save_trigger = self.save_trigger,
-                          out_q = self.recorder_queue,
+                          out_q = self.recorder_q,
                           hardware_trigger = self.hardware_trigger_event,
                           **parameters)
     def close(self):
