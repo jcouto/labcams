@@ -30,7 +30,6 @@ class PCOCam(GenericCam):
                  use_camera_parameters = True,
                  trigger_source = np.uint16(2),
                  hardware_trigger = None,
-                 acquisition_stim_trigger = None,
                  dllpath = None,
                  recorderpar = None,
                  **kwargs):
