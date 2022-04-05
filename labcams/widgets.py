@@ -410,14 +410,14 @@ class CamWidget(QWidget):
         self.addAction(sep)
         self.functs = []
         # add camera controls
-        if hasattr(self.cam,'ctrevents'):
+        if hasattr(self.cam.cam,'ctrevents'):
             self.ctract = dict()
             def vchanged(the):
                 val = the['action'].value()
                 self.cam.eventsQ.put(the['name']+'='+str(val))
 
-            for k in  self.cam.ctrevents.keys():
-                self.ctract[k] = dict(**self.cam.ctrevents[k])
+            for k in  self.cam.cam.ctrevents.keys():
+                self.ctract[k] = dict(**self.cam.cam.ctrevents[k])
                 ev = self.ctract[k]
                 val = eval('self.cam.' + ev['variable'])
                 ev['name'] = k
