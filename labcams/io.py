@@ -296,16 +296,20 @@ class GenericWriterProcess(Process,GenericWriter):
     
     def get_from_queue_and_save(self):
         buff = self.inQ.get()
+        buf = None
         if not buff[0] is None:
             if len(buff) > 1:
-                buff[0] = self.get_frame(buff[0])
+                buf = self.get_frame(buff[0])
+                buff = [buf, *buff[1:]]
         return self._handle_frame(buff)
 
     def _init_shared_mem(self):
         dtype = self.cam['dtype']
+        if not type(dtype) is np.dtype:
+            dtype = dtype()
         self.membuffer = SharedMemory(name = self.cam['buffer_name'])
         buffsize = [self.h.value,self.w.value,self.nchannels.value]
-        self.nbuffers = int(self.cam['buffer_len'] // np.prod(buffsize+[dtype().itemsize]))
+        self.nbuffers = int(self.cam['buffer_len'] // np.prod(buffsize+[dtype.itemsize]))
         buffsize = [self.nbuffers] + buffsize
         self.imgs = np.ndarray(buffsize,
                                buffer = self.membuffer.buf,
@@ -324,13 +328,13 @@ class GenericWriterProcess(Process,GenericWriter):
                 self.getFromParQueue()
             self._init_shared_mem()
             while self.write.is_set() and not self.close.is_set():
-                while self.inQ.qsize():
+                while self.inQ.qsize() > 0:
                     frameid,frame = self.get_from_queue_and_save()
                 # spare the processor just in case...
                 time.sleep(self.sleeptime)
             time.sleep(self.sleeptime)
             # If queue is not empty, empty if to disk.
-            while self.inQ.qsize():
+            while self.inQ.qsize() > 0:
                 frameid,frame = self.get_from_queue_and_save()
             #display('Queue is empty. Proceding with close.')
             # close the run
@@ -465,7 +469,8 @@ class FFMPEGWriter(GenericWriterProcess):
                  incrementruns=True,
                  hwaccel = None,
                  preset = None,
-                 compression=0,**kwargs):
+                 compression=0,
+                 **kwargs):
         self.extension = '.avi'
         super(FFMPEGWriter,self).__init__(cam = cam,
                                           loggerQ=loggerQ,
@@ -482,10 +487,6 @@ class FFMPEGWriter(GenericWriterProcess):
         if type(preset) == str:
             preset =[nvenc_presets[k] for k in  nvenc_presets.keys()].index(preset)
         self.preset = preset
-        if frame_rate is None:
-            frame_rate = 0
-        if frame_rate <= 0:
-            frame_rate = 30.
         if hwaccel is None:
             if self.compression == 0:
                 self.compression = 25
@@ -554,7 +555,7 @@ class FFMPEGWriter(GenericWriterProcess):
     def _open_file(self,filename,frame = None):
         if frame is None:
             raise ValueError('[Recorder] Need to pass frame to open a file.')
-        self.frame_rate = self.fs.value
+        self.frame_rate = self.cam['frame_rate'].value
         if self.frame_rate is None or self.frame_rate == 0:
             display('Using 30Hz frame rate for ffmpeg')
             self.frame_rate = 30
@@ -665,11 +666,6 @@ class FFMPEGCamWriter(GenericWriter):
         self.compression = compression
         if self.compression is None:
             self.compression = 0
-        frame_rate = cam.frame_rate
-        if frame_rate is None:
-            frame_rate = 0
-        if frame_rate <= 0:
-            frame_rate = 30.
         if hwaccel is None:
             self.doutputs = {'-format':'h264',
                              '-pix_fmt':'gray',
@@ -709,7 +705,7 @@ class FFMPEGCamWriter(GenericWriter):
     def _open_file(self,filename,frame = None):
         if frame is None:
             raise ValueError('[Recorder] Need to pass frame to open a file.')
-        self.frame_rate = self.fs.value
+        self.frame_rate = self.cam['fs'].value
         if self.frame_rate is None or self.frame_rate == 0:
             display('Using 30Hz frame rate for ffmpeg')
             self.frame_rate = 30

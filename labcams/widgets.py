@@ -309,16 +309,16 @@ If the camera is saving this stops the camera.'''
         for c,(cam,flg) in enumerate(zip(self.parent.cams,
                                                 self.parent.saveflags)):
             if flg:
+                cam.set_saving(state)
+                
+                #display('[Controller] Sending start saving command to camera [{0}].'.format(c))
+                #save_trigger.set()
+                #if not cam.writer is None:
+                #    cam.writer.init_cam(cam.cam)
+                #    cam.writer.write.set()
                 if state:
-                    display('[Controller] Sending start saving command to camera [{0}].'.format(c))
-                    cam.save_trigger.set()
-                    if not cam.writer is None:
-                        cam.writer.init_cam(cam.cam)
-                        cam.writer.write.set()
                     self.experimentNameEdit.setDisabled(True)
                 else:
-                    display('[Controller] Sending stop command to camera [{0}].'.format(c))
-                    cam.stop_saving()
                     self.experimentNameEdit.setDisabled(False)
                     #writer.write.clear()
         
@@ -1020,7 +1020,6 @@ class CamSettingsDialog(QWidget):
     def set_camera(self,idx):
         self.current = idx
         self.camsettings = self.settings['cams'][self.current]
-        print(self.camsettings['driver'])
         self.set_driver(self.camsettings['driver'])
         
     def set_driver(self,value=None):
@@ -1036,7 +1035,6 @@ class CamSettingsDialog(QWidget):
             # check that what is in the settings is not overwritten.
             self.drivername.setCurrentIndex(drivers.index(camdriver)) 
         self.camsettings['driver'] = camdriver
-        print(self.camsettings)
         self.set_camera_widgets()
         
     def set_camera_widgets(self):

@@ -71,8 +71,6 @@ class LabCamsGUI(QMainWindow):
             self.hardware_trigger_event.clear()
 
         self.parameters = parameters
-        if not 'recorder_frames_per_file' in self.parameters.keys():
-            self.parameters['recorder_frames_per_file'] = 0
         self.app = app
         self.update_frequency = update_frequency
         self.save_on_start = save_on_start
@@ -113,6 +111,9 @@ class LabCamsGUI(QMainWindow):
         if not 'recorder_path' in self.parameters.keys():
             self.parameters['recorder_path'] = pjoin(os.path.expanduser('~'),'data'),
 
+        if not 'recorder_frames_per_file' in self.parameters.keys():
+            self.parameters['recorder_frames_per_file'] = 0
+
         camdrivers = [cam['driver'].lower() for cam in camDescriptions]
         if 'avt' in camdrivers:
             from .avt import AVT_get_ids
@@ -134,11 +135,12 @@ class LabCamsGUI(QMainWindow):
                        recorder_path = self.parameters['recorder_path'],
                        recorder_path_format = self.parameters['recorder_path_format'])
             # default recorder
-            cam['recorder'] = dict(format='tiff',  
-                                   method = 'queue',
-                                   compression = 0,
-                                   frames_per_file = 1024,
-                                   sleep_time = 0.3)
+            if not 'recorder' in cam.keys():
+                cam['recorder'] = dict(format='tiff',  
+                                       method = 'queue',
+                                       compression = 0,
+                                       frames_per_file = 1024,
+                                       sleep_time = 0.3)
             self.cams.append(Camera(**cam,
                                     hardware_trigger_event = self.hardware_trigger_event))
             if hasattr(self.cams[-1],'excitation_trigger'):

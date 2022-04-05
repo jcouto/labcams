@@ -66,7 +66,7 @@ class GenericCam(Process):
         self.close_event = Event()
         self.start_trigger = start_trigger
         self.stop_trigger = stop_trigger
-        self.save_trigger = stop_trigger
+        self.save_trigger = save_trigger
         if self.start_trigger is None:
             self.start_trigger = Event()
         if self.stop_trigger is None:
@@ -105,11 +105,10 @@ class GenericCam(Process):
 
         if not self.recorderpar is None:
             self._init_recorder = self._recorder_inline_init
-
+            self._handle_recorder = self._recorder_inline_handle
+        else:
+            self._handle_recorder = self._recorder_shared_mem_handle
     def _init_recorder(self):
-        pass
-
-    def _recorder_handle(self):
         pass
     
     def _recorder_inline_init(self):
@@ -173,9 +172,11 @@ class GenericCam(Process):
             for c in self.ctrevents.keys():
                 self.ctrevents[c]['call'] ='self.'+self.ctrevents[c]['function']    
     def _init_variables(self, dtype=np.uint8):
+        if not type(dtype) is np.dtype:
+            dtype = dtype()
         self.membuffer = SharedMemory(name = self.membuffer_name)
         buffsize = [self.h.value,self.w.value,self.nchan.value]
-        self.nbuffers.value = int(self.membuffer_len // np.prod(buffsize+[dtype().itemsize]))
+        self.nbuffers.value = int(self.membuffer_len // np.prod(buffsize+[dtype.itemsize]))
         buffsize = [self.nbuffers.value] + buffsize
         self.imgs = np.ndarray(buffsize,
                                buffer = self.membuffer.buf,
@@ -217,6 +218,14 @@ class GenericCam(Process):
                 break
         self.membuffer.close()
     def _handle_frame(self,frame,metadata):
+        if self.save_trigger.is_set():
+            self.was_saving = True
+            if not frame is None:
+                if not metadata[0] == self.lastframeid :
+                    self._handle_recorder(frame,metadata)
+        elif self.was_saving:
+            self._stop_recorder()
+            self.was_saving = False            
         if not frame is None:
             frameID,timestamp = metadata[:2]
             if not frameID == self.lastframeid:
@@ -226,23 +235,8 @@ class GenericCam(Process):
                 self._update_buffer(frame,frameID)
                 self._tupdate = t
                 #self.nframes.value += 1
-                self.lastframeid = frameID
                 #display('loop rate : {0}'.format(1./(timestamp - self.lasttime)))
                 self.lasttime = timestamp
-        if self.save_trigger.is_set():
-            self.was_saving = True
-            if not frame is None:
-                if not metadata[0] == self.lastframeid :
-                    self._handle_recorder(frame,metadata)
-
-        elif self.was_saving:
-            if self.recorder is None:
-                self.was_saving = False            
-                display('[Camera] Sending stop signal to the recorder.')
-                self.queue.put(['STOP'])
-            else:
-                self.was_saving = False            
-                self.recorder.close_run()
         
     def _update_buffer(self,frame,frameID):
         ''' Updates buffer for a specific frame ID''' 
@@ -395,15 +389,22 @@ class OpenCVCam(GenericCam):
                                                                   self.frame_rate))
             
     def _cam_init(self):
-        self.nframes.value = 0
         self.lastframeid = -1
-        self.cam = cv2.VideoCapture(self.cam_id)
-        self.set_framerate(self.frame_rate)        
+        self.cam = cv2.VideoCapture(self.cam_id) 
+        self.set_framerate(self.frame_rate)
+        self.cam.release() # like this the camera is not constantly running on software trigger
         self.camera_ready.set()
         self.nframes.value = 0
+
+    def _cam_startacquisition(self):
+        self.cam = cv2.VideoCapture(self.cam_id) # like this the camera is not constantly running
+        self.nframes.value = 0
+    def _cam_stopacquisition(self):
+        self.cam.release() 
+        
     def _cam_loop(self):
-        frameID = self.nframes.value
-        self.nframes.value = frameID + 1 
+        frameID = self.nframes.value + 1
+        self.nframes.value = frameID  
 
         ret_val, frame = self.cam.read()
         if not ret_val:
@@ -558,6 +559,7 @@ The recorders can be specified with the '"format":"ffmpeg"' option in each camer
     def set_saving(self,value):
         if value:
             if not self.writer is None:
+                self.writer.init_cam(self.cam)
                 self.writer.write.set()
             self.cam.save_trigger.set()
         else:
@@ -603,17 +605,12 @@ The recorders can be specified with the '"format":"ffmpeg"' option in each camer
             Edit the file in USERHOME/labcams/default.json and delete the PCO cam or use the -c option
 
 ''')
-
-        camstim = None
-        if hasattr(self,'cam_stim'):
-            camstim = self.cam_stim
         
         self.cam = PCOCam(cam_id=self.cam_id,
                           out_q = self.recorder_q,
                           start_trigger = self.start_trigger,
                           stop_trigger = self.stop_trigger,
                           save_trigger = self.save_trigger,
-                          acquisition_stim_trigger = camstim,
                           hardware_trigger = self.hardware_trigger_event,
                           **parameters)
 
