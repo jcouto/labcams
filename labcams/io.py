@@ -50,6 +50,7 @@ class GenericWriter(object):
                  datafolder=pjoin(os.path.expanduser('~'),'data'),
                  framesperfile=0,
                  sleeptime = 1./30,
+                 virtual_channels = None,
                  incrementruns=True):
         if not hasattr(self,'extension'):
             self.extension = '.nan'
@@ -72,6 +73,10 @@ class GenericWriter(object):
         self.logfile = None
         self.nFiles = 0
         runname = 'run{0:03d}'.format(self.runs)
+        self.virtual_channels = virtual_channels
+        if self.virtual_channels is None:
+            self.virtual_channels = Value('i',0)
+
         self.path_format = pathformat
         self.path_keys =  dict(datafolder = self.datafolder,
                                dataname = self.dataname,
@@ -104,6 +109,8 @@ class GenericWriter(object):
         self.nchannels = self.cam['nchannels']
         self.h = self.cam['h']
         self.w = self.cam['w']
+        if self.virtual_channels.value == 0:    # to set the filename in the binary file for instance.
+            self.virtual_channels.value = self.nchannels.value
         
     def _stop_write(self):
         self.write = False
@@ -308,7 +315,8 @@ class GenericWriterProcess(Process,GenericWriter):
         dtype = self.cam['dtype']
         if not type(dtype) is np.dtype:
             dtype = dtype()
-        self.membuffer = SharedMemory(name = self.cam['buffer_name'])
+        if not hasattr(self,'membuffer'):
+            self.membuffer = SharedMemory(name = self.cam['buffer_name'])
         buffsize = [self.h.value,self.w.value,self.nchannels.value]
         self.nbuffers = int(self.cam['buffer_len'] // np.prod(buffsize+[dtype.itemsize]))
         buffsize = [self.nbuffers] + buffsize
@@ -319,7 +327,7 @@ class GenericWriterProcess(Process,GenericWriter):
     def get_frame(self,frame_index = None):
         if frame_index is None:
             frame_index = self.nframes.value
-        return self.imgs[frame_index//self.nbuffers]
+        return self.imgs[frame_index//self.nbuffers].squeeze()
         
     def run(self):
         while not self.close.is_set():
@@ -405,7 +413,7 @@ class BinaryWriter(GenericWriterProcess):
                  framesperfile=0,
                  sleeptime = 1./300,
                  incrementruns=True,**kwargs):
-        self.extension = '_{nchannels}_{H}_{W}_{dtype}.dat'
+        self.extension = '_{nchannels}_{W}_{H}_{dtype}.dat'
         super(BinaryWriter,self).__init__(cam = cam,
                                           loggerQ=loggerQ,
                                           filename=filename,
@@ -416,7 +424,6 @@ class BinaryWriter(GenericWriterProcess):
                                           sleeptime=sleeptime,
                                           incrementruns=incrementruns)
         self.buf = []
-
     def close_file(self):
         if not self.fd is None:
             self.fd.close()
@@ -430,7 +437,7 @@ class BinaryWriter(GenericWriterProcess):
             dtype='uint8'
         else:
             dtype='uint16'
-        filename = filename.format(nchannels = self.nchannels.value,
+        filename = filename.format(nchannels = self.virtual_channels.value,
                                    W=self.w.value,
                                    H=self.h.value,
                                    dtype=dtype) 
@@ -766,7 +773,7 @@ class BinaryCamWriter(GenericWriter):
             dtype='uint8'
         else:
             dtype='uint16'
-        filename = filename.format(nchannels = self.nchannels.value,
+        filename = filename.format(nchannels = self.virtual_channels.value,
                                    W=self.w.value,
                                    H=self.h.value, dtype=dtype)
         self.parsed_filename = filename

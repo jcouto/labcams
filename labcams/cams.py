@@ -174,7 +174,8 @@ class GenericCam(Process):
     def _init_variables(self, dtype=np.uint8):
         if not type(dtype) is np.dtype:
             dtype = dtype()
-        self.membuffer = SharedMemory(name = self.membuffer_name)
+        if not hasattr(self,'membuffer'):
+            self.membuffer = SharedMemory(name = self.membuffer_name)
         buffsize = [self.h.value,self.w.value,self.nchan.value]
         self.nbuffers.value = int(self.membuffer_len // np.prod(buffsize+[dtype.itemsize]))
         buffsize = [self.nbuffers.value] + buffsize
@@ -417,8 +418,6 @@ class OpenCVCam(GenericCam):
     def _cam_close(self):
         self.cam.release()
         display('[OpenCV {0}] - Stopped acquisition.'.format(self.cam_id))
-        
-
 
 # incorporates a camera and a recorder, manages the start and stop of both
 class Camera(object): 
@@ -556,6 +555,9 @@ The recorders can be specified with the '"format":"ffmpeg"' option in each camer
         self.stop_acquisition = self.cam.stop_acquisition
         self.get_img = self.cam.get_img
         self.nframes = self.cam.nframes
+        if hasattr(self.writer,'virtual_channels'):    # set the number of channels from the excitation
+            if hasattr(self,'excitation_trigger'):
+                self.writer.virtual_channels.value = self.excitation_trigger.nchannels.value
 
     def set_saving(self,value):
         if value:
