@@ -245,6 +245,7 @@ class GenericCam(Process):
             self.imgs[frameID//self.nbuffers.value,:,:,0] = frame[:]
         else:
             self.imgs[frameID//self.nbuffers.value] = frame[:]
+        self.nframes.value = frameID
             
     def _parse_command_queue(self):
         if not self.eventsQ.empty():
@@ -404,7 +405,7 @@ class OpenCVCam(GenericCam):
         
     def _cam_loop(self):
         frameID = self.nframes.value + 1
-        self.nframes.value = frameID  
+        #self.nframes.value = frameID  
 
         ret_val, frame = self.cam.read()
         if not ret_val:
@@ -770,10 +771,10 @@ Please install nidaqmx using pip and NIDAQmx from the National Instruments websi
                           hardware_trigger = self.hardware_trigger_event,
                           **parameters)
     def close(self):
+        self.cam.close()
         self.cam.stop_saving()
         if not self.writer is None:
             self.writer.stop()
-            self.cam.close()
         self.cam.join()
         if not self.writer is None:
             self.writer.join()

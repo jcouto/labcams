@@ -53,6 +53,7 @@ class GenericWriter(object):
                  incrementruns=True):
         if not hasattr(self,'extension'):
             self.extension = '.nan'
+        self.cam = None
         self.saved_frame_count = 0
         self.runs = 0
         self.write = False
@@ -88,7 +89,7 @@ class GenericWriter(object):
     def init_cam(self,cam):
         ''' Sets camera specific variables - happens after camera load'''
         self.frame_rate = None
-        if not cam is None:
+        if self.cam is None:
             self.cam = dict(buffer_name = cam.membuffer_name,
                             buffer_len = cam.membuffer_len,
                             queue = cam.queue,
@@ -98,11 +99,11 @@ class GenericWriter(object):
                             nchannels = cam.nchan,
                             frame_rate = cam.fs)
             self.inQ = self.cam['queue']
-            if hasattr(cam,'frame_rate'):
-                self.frame_rate = cam.fs.value
-            self.nchannels = self.cam['nchannels']
-            self.h = self.cam['h']
-            self.w = self.cam['w']
+        if hasattr(cam,'frame_rate'):
+            self.frame_rate = cam.fs.value
+        self.nchannels = self.cam['nchannels']
+        self.h = self.cam['h']
+        self.w = self.cam['w']
         
     def _stop_write(self):
         self.write = False
@@ -405,7 +406,7 @@ class BinaryWriter(GenericWriterProcess):
                  sleeptime = 1./300,
                  incrementruns=True,**kwargs):
         self.extension = '_{nchannels}_{H}_{W}_{dtype}.dat'
-        super(BinaryWriter,self).__init__(
+        super(BinaryWriter,self).__init__(cam = cam,
                                           loggerQ=loggerQ,
                                           filename=filename,
                                           datafolder=datafolder,
@@ -652,7 +653,6 @@ class FFMPEGCamWriter(GenericWriter):
                  compression=None,
                  hwaccel = None,**kwargs):
         self.extension = '.avi'
-        self.cam = cam
         self.nchannels = cam.nchan
 
         super(FFMPEGCamWriter,self).__init__(cam = cam,
@@ -705,7 +705,7 @@ class FFMPEGCamWriter(GenericWriter):
     def _open_file(self,filename,frame = None):
         if frame is None:
             raise ValueError('[Recorder] Need to pass frame to open a file.')
-        self.frame_rate = self.cam['fs'].value
+        self.frame_rate = self.cam['frame_rate'].value
         if self.frame_rate is None or self.frame_rate == 0:
             display('Using 30Hz frame rate for ffmpeg')
             self.frame_rate = 30
@@ -744,8 +744,6 @@ class BinaryCamWriter(GenericWriter):
                  framesperfile=0,
                  incrementruns=True,**kwargs):
         self.extension = '_{nchannels}_{H}_{W}_{dtype}.dat'
-        self.cam = cam
-        self.nchannels.value = cam.nchan
         super(BinaryCamWriter,self).__init__(cam = cam,
                                              filename=filename,
                                              datafolder=datafolder,
@@ -768,7 +766,6 @@ class BinaryCamWriter(GenericWriter):
             dtype='uint8'
         else:
             dtype='uint16'
-        self.nchannels.value = self.cam.nchan
         filename = filename.format(nchannels = self.nchannels.value,
                                    W=self.w.value,
                                    H=self.h.value, dtype=dtype)
@@ -789,7 +786,7 @@ class BinaryDAQWriter(GenericWriter):
                  incrementruns=True,**kwargs):
         self.extension = '_{nchannels}_{dtype}.nidq.bin'
         self.daq = daq
-        super(BinaryDAQWriter,self).__init__(cam = None,
+        super(BinaryDAQWriter,self).__init__(cam = cam,
                                              filename=filename,
                                              datafolder=datafolder,
                                              dataname=dataname,
@@ -881,7 +878,6 @@ class TiffCamWriter(GenericWriter):
                  incrementruns=True,
                  compression = None,**kwargs):
         self.extension = '.tif'
-        self.cam = cam
         super(TiffCamWriter,self).__init__(cam = cam,
                                            datafolder=datafolder,
                                            filename=filename,

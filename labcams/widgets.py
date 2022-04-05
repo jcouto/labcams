@@ -300,22 +300,11 @@ If the camera is saving this stops the camera.'''
 
     def toggleSaveOnStart(self,state):
         self.parent.save_on_start = state
-        #display('[Controller] - Warning: The save button is no longer restarting the cameras.')
-        #for cam in self.parent.cams:
-        #    cam.stop_acquisition()
-        #time.sleep(.5)
-        # Set the experiment name
         self.checkUpdateFilename()
         for c,(cam,flg) in enumerate(zip(self.parent.cams,
                                                 self.parent.saveflags)):
             if flg:
                 cam.set_saving(state)
-                
-                #display('[Controller] Sending start saving command to camera [{0}].'.format(c))
-                #save_trigger.set()
-                #if not cam.writer is None:
-                #    cam.writer.init_cam(cam.cam)
-                #    cam.writer.write.set()
                 if state:
                     self.experimentNameEdit.setDisabled(True)
                 else:
@@ -334,6 +323,9 @@ class CamWidget(QWidget):
         self.iCam = iCam
         self.cam = self.parent.cams[self.iCam]
         self.nchan = frame.shape[-1]
+        if hasattr(self.cam,'excitation_trigger'):
+            self.nchan = self.cam.excitation_trigger.nchannels.value
+            self.frame_buffer = None
         self.displaychannel = 0
         self.roiwidget = None
         self.layout = QGridLayout()
@@ -395,9 +387,19 @@ class CamWidget(QWidget):
 
         #self.show()
     def update(self):
-        frame = self.cam.get_img()
+        # handle the excitation module
+        if hasattr(self.cam,'excitation_trigger'):
+            if self.frame_buffer is None:
+                self.frame_buffer = np.zeros([self.cam.cam.h.value,self.cam.cam.w.value,3],dtype = self.cam.cam.dtype)
+            cframe = self.cam.nframes.value
+            tmp = self.cam.get_img(cframe)
+            self.frame_buffer[:,:,np.mod(cframe,self.nchan)] = tmp.squeeze()
+            return self.image(self.frame_buffer,cframe)
+        else:
+            frame = self.cam.get_img()
         if not frame is None:
-            self.image(frame,self.cam.nframes.value) #frame
+            self.image(frame,self.cam.nframes.value)
+            
     def addActions(self):
         self.setContextMenuPolicy(Qt.ActionsContextMenu)
         saveImg = QAction("Take camera shot",self)
@@ -620,9 +622,6 @@ class CamWidget(QWidget):
             roiTab.closeEvent = closetab
         self.roiwidget.add_roi(roi)
 
-#    def toggleSubtract(self):
-#        self.parameters['SubtractBackground'] = not self.parameters[
-#            'SubtractBackground']
     def toggleEyeTracker(self):
         if self.parameters['TrackEye']:
             self.eyeTracker = None
@@ -705,13 +704,13 @@ class CamWidget(QWidget):
 
     def image(self,image,nframe):
         if self.lastnFrame != nframe:
-            tmp = image.copy()
-            if self.parameters['Equalize']:
-                try: # In case the type is messed up..
+            tmp = image.copy()                    
+            if self.parameters['Equalize']: # histogram equalization
+                try: 
                     tmp = cv2.equalizeHist(tmp).reshape(image.shape)
                 except:
                     pass
-            if self.nAcum > 0:                    
+            if self.nAcum > 0:  # subtraction 
                 tmp = tmp.astype(np.float32)
                 frame = (tmp - self.lastFrame)
                 self.lastFrame = ((1.-1./self.nAcum)*self.lastFrame +

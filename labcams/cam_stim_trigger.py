@@ -94,7 +94,7 @@ Could not open teensy on port {0}
                 arg = msg.index("NCHANNELS")
                 if not arg is None:
                     self.nchannels.value = int(msg[arg+1].strip('\n'))
-                    print('Got {0} channels from capabilities.'.format(self.nchannels.value))
+#                    print('Got {0} channels from capabilities.'.format(self.nchannels.value))
             if "MODES" in message:         
                 arg = msg.index("MODES")
                 if not arg is None:

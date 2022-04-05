@@ -610,7 +610,7 @@ Available serials are:
             #linestat = frameinfo.GetFrameID()
             #display('Line {0} {1}'.format(linestat,frameinfo.GetExposureLineStatusAll())) # 
             img.Release()
-            self.nframes.value = frameID
+            #self.nframes.value = frameID
             return frame,(frameID,timestamp,linestat)
         else:
             return None,(None,None,None)

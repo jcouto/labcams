@@ -296,7 +296,7 @@ class LabCamsGUI(QMainWindow):
         for c,cam in enumerate(self.cams):
             tt = ''
             if self.saveflags[c]:
-                tt +=  ' - ' + self.cam_descriptions[c]['description'] +' ' 
+                tt +=  ' - ' + self.cam_descriptions[c]['name'] +' ' 
             self.tabs.append(QDockWidget("Camera: "+str(c) + tt,self))
             if hasattr(cam.cam,"h") and hasattr(cam.cam,"w"): # then it must be a camera
                 self.camwidgets.append(CamWidget(frame = np.zeros((cam.cam.h.value,

@@ -508,7 +508,7 @@ class PCOCam(GenericCam):
         self._dll.PCO_SetTimestampMode(self.hCam,ctypes.c_uint16(1))
         self.camera_ready.set()
         self.nframes.value = 0
-        self.stop_trigger.clear()
+        #self.stop_trigger.clear()
         self.datestart = datetime.now()
         
     def _cam_startacquisition(self):
@@ -635,7 +635,6 @@ class PCOCam(GenericCam):
                 timestam = datetime.now()
             timestamp = (timestam - self.datestart).total_seconds()
             # Handle failed string decoding.
-            self.nframes.value = frameID
             return self.out.copy(),(frameID,timestamp)
         return None,(None,None)
     #    if not self.acquisition_stim_trigger is None:
