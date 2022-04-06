@@ -327,7 +327,7 @@ class GenericWriterProcess(Process,GenericWriter):
     def get_frame(self,frame_index = None):
         if frame_index is None:
             frame_index = self.nframes.value
-        return self.imgs[frame_index//self.nbuffers].squeeze()
+        return self.imgs[frame_index % self.nbuffers].squeeze()
         
     def run(self):
         while not self.close.is_set():

@@ -23,7 +23,7 @@ try:
     multiprocessing.set_start_method('spawn')
 except:
     pass
-from multiprocessing import Process, Queue, Event, Array, Value
+from multiprocessing import Process, Queue, Event, Array, Value, Lock
 from multiprocessing.shared_memory import SharedMemory # this breaks compatibility with python < 3.8
 
 BUFFER_SIZE = 0.5e9  # this is the buffer size allocation in shared memory 
@@ -100,6 +100,7 @@ class GenericCam(Process):
         self.membuffer = SharedMemory(name = self.membuffer_name,
                                       create = True,
                                       size = self.membuffer_len)
+        self.membuffer_lock = Lock()
         # fixed size, independent of the framesize
         self.lasttime = 0
 
@@ -156,9 +157,12 @@ class GenericCam(Process):
             self.recorder.close_run()
 
     def get_img(self,frame_index = None):
+        self.membuffer_lock.acquire()
         if frame_index is None:
             frame_index = self.nframes.value
-        return self.imgs[frame_index//self.nbuffers.value]#self.memlist[0]
+        img = self.imgs[frame_index % self.nbuffers.value]
+        self.membuffer_lock.release()
+        return img
     
     def stop_saving(self):
         # This will send a stop to stop saving and close the writer.
@@ -240,14 +244,17 @@ class GenericCam(Process):
                 self.lasttime = timestamp
         
     def _update_buffer(self,frame,frameID):
-        ''' Updates buffer for a specific frame ID''' 
+        ''' Updates buffer for a specific frame ID'''
+        self.membuffer_lock.acquire()
         self.nframes.value = frameID
+        idx = frameID % self.nbuffers.value
         if len(frame.shape) == 2:
-            self.imgs[frameID//self.nbuffers.value,:,:,0] = frame[:]
+            self.imgs[idx,:,:,0] = frame[:]
         else:
-            self.imgs[frameID//self.nbuffers.value] = frame[:]
+            self.imgs[idx] = frame[:]
         self.nframes.value = frameID
-            
+        self.membuffer_lock.release()
+
     def _parse_command_queue(self):
         if not self.eventsQ.empty():
             cmd = self.eventsQ.get()
