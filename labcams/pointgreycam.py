@@ -139,7 +139,7 @@ class PointGreyCam(GenericCam):
                  serial = None,
                  out_q = None,
                  binning = None,
-                 frameRate = None,
+                 frame_rate = None,
                  exposure = None,
                  gain = None,
                  gamma = None,
@@ -196,7 +196,7 @@ Available serials are:
         self.outputs = outputs
         self.binning = binning
         self.exposure = exposure
-        self.frame_rate = frameRate
+        self.frame_rate = frame_rate
         self.fs.value = self.frame_rate
 
         self.gain = gain

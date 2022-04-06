@@ -313,8 +313,10 @@ class GenericWriterProcess(Process,GenericWriter):
 
     def _init_shared_mem(self):
         dtype = self.cam['dtype']
-        if not type(dtype) is np.dtype:
+        try:
             dtype = dtype()
+        except:
+            pass
         if not hasattr(self,'membuffer'):
             self.membuffer = SharedMemory(name = self.cam['buffer_name'])
         buffsize = [self.h.value,self.w.value,self.nchannels.value]

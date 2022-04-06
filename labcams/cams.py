@@ -176,8 +176,10 @@ class GenericCam(Process):
             for c in self.ctrevents.keys():
                 self.ctrevents[c]['call'] ='self.'+self.ctrevents[c]['function']    
     def _init_variables(self, dtype=np.uint8):
-        if not type(dtype) is np.dtype:
+        try:
             dtype = dtype()
+        except:
+            pass
         if not hasattr(self,'membuffer'):
             self.membuffer = SharedMemory(name = self.membuffer_name)
         buffsize = [self.h.value,self.w.value,self.nchan.value]
