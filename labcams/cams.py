@@ -465,8 +465,8 @@ class Camera(object):
         self.recorder_parameters = recorder
         if not 'datafolder' in recorder.keys():
             self.recorder_parameters['datafolder'] = self.recorder_path 
-        if not 'path_format' in recorder.keys():
-            self.recorder_parameters['path_format'] = self.recorder_path_format 
+        if not 'pathformat' in recorder.keys():
+            self.recorder_parameters['pathformat'] = self.recorder_path_format 
         if not 'filename'  in recorder.keys():
             self.recorder_parameters['filename'] = self.filename
         if not 'dataname'  in recorder.keys():
@@ -509,9 +509,9 @@ class Camera(object):
         elif self.driver.lower() == 'ximea':
             self._init_ximea_cam(params)
         elif self.driver.lower() in ['pointgrey','flir']:
-            self._init_pointgrey_cam(parameters)
+            self._init_pointgrey_cam(params)
         elif self.driver.lower() in ['nidaq']:
-            self._init_nidaq_cam(parameters)
+            self._init_nidaq_cam(params)
             self.recorder_parameters['format'] = 'daq'
         else:
             display('[WARNING] -----> Unknown camera driver ' +
@@ -710,12 +710,12 @@ Please install nidaqmx using pip and NIDAQmx from the National Instruments websi
                         int(c.strip('[').strip(']')) for c in parameters['roi'].split(',')]
             else:
                 parameters['roi'] = []
-            self.cam = PointGreyCam(cam_id = cam['id'],
-                                    start_trigger = self.start_trigger,
-                                    stop_trigger = self.stop_trigger,
-                                    save_trigger = self.save_trigger,
-                                    out_q = self.recorder_q,
-                                    **parameters)
+        self.cam = PointGreyCam(cam_id = self.cam_id,
+                                start_trigger = self.start_trigger,
+                                stop_trigger = self.stop_trigger,
+                                save_trigger = self.save_trigger,
+                                out_q = self.recorder_q,
+                                **parameters)
         
     def _init_basler_cam(self, parameters):
         try:

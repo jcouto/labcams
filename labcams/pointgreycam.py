@@ -202,15 +202,14 @@ Available serials are:
         self.gain = gain
         self.roi = roi
         frame = self.get_one()
-        self.h = frame.shape[0]
-        self.w = frame.shape[1]
-        self.nchan = 1
+        self.h.value = frame.shape[0]
+        self.w.value = frame.shape[1]
+        self.nchan.value = 1
         if len(frame.shape) == 3:
-            self.nchan = frame.shape[2] 
+            self.nchan.value = frame.shape[2] 
         self.dtype = frame.dtype
         self._init_variables(self.dtype)
 
-        self.img[:] = np.reshape(frame,self.img.shape)[:]
         display("Point Grey [{0}] - got info from camera.".format(self.cam_id))
 
     def cam_info(self,cam):

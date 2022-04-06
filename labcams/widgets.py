@@ -414,12 +414,12 @@ class CamWidget(QWidget):
             self.ctract = dict()
             def vchanged(the):
                 val = the['action'].value()
-                self.cam.eventsQ.put(the['name']+'='+str(val))
+                self.cam.cam.eventsQ.put(the['name']+'='+str(val))
 
             for k in  self.cam.cam.ctrevents.keys():
                 self.ctract[k] = dict(**self.cam.cam.ctrevents[k])
                 ev = self.ctract[k]
-                val = eval('self.cam.' + ev['variable'])
+                val = eval('self.cam.cam.' + ev['variable'])
                 ev['name'] = k
                 ev['action'] = None
                 if ev['widget'] == 'slider':

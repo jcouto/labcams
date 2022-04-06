@@ -100,10 +100,10 @@ class LabCamsGUI(QMainWindow):
             self.server_timer = QTimer()
             self.server_timer.timeout.connect(self.server_actions)
             self.server_timer.start(self.parameters['server_refresh_time'])
-
-
+        
         # Init cameras
         if not 'recorder_path_format' in self.parameters.keys():
+            print('Using default recorder_path_format value.')
             self.parameters['recorder_path_format'] = pjoin('{datafolder}',
                                                             '{dataname}',
                                                             '{filename}',
@@ -205,7 +205,7 @@ class LabCamsGUI(QMainWindow):
                 message = dict(message,value=msg[1])
         #display('Server received message: {0}'.format(message))
         if message['action'].lower() == 'expname':
-            self.setExperimentName(message['value'])
+            self.set_experiment_name(message['value'])
             self.udpsocket.sendto(b'ok=expname',address)
         elif message['action'].lower() == 'softtrigger':
             self.recController.softTriggerToggle.setChecked(
@@ -230,8 +230,8 @@ class LabCamsGUI(QMainWindow):
                 int(message['value']))
             self.udpsocket.sendto(b'ok=save',address)
         elif message['action'].lower() == 'log':
-            for cam in self.cams:
-                cam.eventsQ.put('log={0}'.format(message['value']))
+            for c in self.cams:
+                c.cam.eventsQ.put('log={0}'.format(message['value']))
             # write on display
             #self.camwidgets[0].text_remote.setText(message['value'])
             self.udpsocket.sendto(b'ok=log',address)
@@ -267,10 +267,10 @@ class LabCamsGUI(QMainWindow):
         if q.text() == 'Set refresh time':
             self.timer.stop()
             res = QInputDialog().getDouble(self,"What refresh period do you want?","GUI refresh period",
-                                           self.updateFrequency)
+                                           self.update_frequency)
             if res[1]:
-                self.updateFrequency = res[0]
-            self.timer.start(self.updateFrequency)
+                self.update_frequency = res[0]
+            self.timer.start(self.update_frequency)
             #display(q.text()+ "clicked. ")
         
     def initUI(self):
