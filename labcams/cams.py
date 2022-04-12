@@ -713,12 +713,13 @@ Please install nidaqmx using pip and NIDAQmx from the National Instruments websi
 
 ''')
         if 'roi' in parameters.keys():
+            print(parameters['roi'])
             if parameters['roi'] is str:
                 if ',' in parameters['roi']:
                     parameters['roi'] = [
                         int(c.strip('[').strip(']')) for c in parameters['roi'].split(',')]
-            else:
-                parameters['roi'] = []
+                else:
+                    parameters['roi'] = []
         self.cam = PointGreyCam(cam_id = self.cam_id,
                                 start_trigger = self.start_trigger,
                                 stop_trigger = self.stop_trigger,
