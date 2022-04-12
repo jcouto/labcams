@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from .cams import GenericCam,OpenCVCam
+from .cams import Camera, GenericCam
 from .io import *
 from .utils import *
 

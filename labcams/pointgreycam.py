@@ -159,6 +159,7 @@ class PointGreyCam(GenericCam):
         self.drivername = 'PointGrey'
         self.hardware_trigger = hardware_trigger
         self.serial = serial
+        self.flirid = None
         if not serial is None:
             self.serial = int(serial)
             drv = PySpin.System.GetInstance()
@@ -177,7 +178,7 @@ class PointGreyCam(GenericCam):
             cam_list.Clear()
             drv.ReleaseInstance()
             try:
-                cam_id = int(np.where(np.array(serials)==self.serial)[0][0])
+                self.flirid = int(np.where(np.array(serials)==self.serial)[0][0])
             except:
                 txt = '''
                 
@@ -422,8 +423,9 @@ Available serials are:
             display('[PointGrey] - no cameras connected.')
             self.drv.ReleaseInstance()
             raise ValueError
-        
-        self.cam = self.cam_list[self.cam_id]
+        if self.flirid is None:
+            self.flirid = self.cam_id
+        self.cam = self.cam_list[self.flirid]
         self.cam.Init()
         # set the buffer to read olderst first
         s_node_map = self.cam.GetTLStreamNodeMap()

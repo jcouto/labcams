@@ -713,7 +713,6 @@ Please install nidaqmx using pip and NIDAQmx from the National Instruments websi
 
 ''')
         if 'roi' in parameters.keys():
-            print(parameters['roi'])
             if parameters['roi'] is str:
                 if ',' in parameters['roi']:
                     parameters['roi'] = [
