@@ -309,7 +309,7 @@ class LabCamsGUI(QMainWindow):
                 self.camwidgets[-1].setMinimumHeight(300)
 
             else: # NIDAQ is the only other camera so add that widget
-                self.camwidgets.append(DAQPlotWidget(daq = cam,
+                self.camwidgets.append(DAQPlotWidget(daq = cam.cam,
                                                      parent = self,
                                                      parameters = self.cam_descriptions[c]))
             self.tabs[-1].setWidget(self.camwidgets[-1])
@@ -352,6 +352,8 @@ class LabCamsGUI(QMainWindow):
     def closeEvent(self,event):
         if hasattr(self,'server_timer'):
             self.server_timer.stop()
+            if hasattr(self,'udpsocket'):
+                self.udpsocket.close()
         self.timer.stop()
         if hasattr(self,'excitation_trigger'):
             self.excitation_trigger.disarm()

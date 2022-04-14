@@ -93,6 +93,8 @@ class GenericWriter(object):
             
     def init_cam(self,cam):
         ''' Sets camera specific variables - happens after camera load'''
+        if not hasattr(cam,'membuffer_name'):
+            return
         self.frame_rate = None
         if self.cam is None:
             self.cam = dict(buffer_name = cam.membuffer_name,
@@ -795,7 +797,7 @@ class BinaryDAQWriter(GenericWriter):
                  incrementruns=True,**kwargs):
         self.extension = '_{nchannels}_{dtype}.nidq.bin'
         self.daq = daq
-        super(BinaryDAQWriter,self).__init__(cam = cam,
+        super(BinaryDAQWriter,self).__init__(cam = daq,
                                              filename=filename,
                                              datafolder=datafolder,
                                              dataname=dataname,

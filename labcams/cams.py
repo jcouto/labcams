@@ -520,6 +520,7 @@ class Camera(object):
         elif self.driver.lower() in ['pointgrey','flir']:
             self._init_pointgrey_cam(params)
         elif self.driver.lower() in ['nidaq']:
+            params['recorderpar'] = self.recorder_parameters
             self._init_nidaq_cam(params)
             self.recorder_parameters['format'] = 'daq'
         else:
@@ -562,8 +563,10 @@ The recorders can be specified with the '"format":"ffmpeg"' option in each camer
                     raise ValueError('Unknown recorder {0} '.format(self.recorder_parameters['format']))
         self.stop_saving = self.cam.stop_saving
         self.stop_acquisition = self.cam.stop_acquisition
-        self.get_img = self.cam.get_img
-        self.nframes = self.cam.nframes
+        if hasattr(self.cam,'get_img'):     
+            self.get_img = self.cam.get_img
+        if hasattr(self.cam,'nframes'):
+            self.nframes = self.cam.nframes
         if hasattr(self.writer,'virtual_channels'):    # set the number of channels from the excitation
             if hasattr(self,'excitation_trigger'):
                 self.writer.virtual_channels.value = self.excitation_trigger.nchannels.value
@@ -637,14 +640,11 @@ The recorders can be specified with the '"format":"ffmpeg"' option in each camer
 Please install nidaqmx using pip and NIDAQmx from the National Instruments website.
 
             ''')
-        self.cam = NIDAQ(**parameters,
-                         recorderpar = dict(
-                             datafolder = self.recorder_path,
-                             framesperfile = self.recorder_frames_per_file,
-                             pathformat = self.recorder_path_format,
-                             filename = self.filename,
-                             dataname = self.camera_description))
-        display('\t DAQ device recording: {0}'.format(cam['name']))
+        self.cam = NIDAQ(start_trigger = self.start_trigger,
+                         stop_trigger = self.stop_trigger,
+                         save_trigger = self.save_trigger,
+                         **parameters)
+        display('\t DAQ device recording: {0}'.format(self.name))
         #for k in np.sort(list(cam.keys())):
         #    if not k == 'name' and not k == 'recorder':
         #        display('\t\t - {0} {1}'.format(k,cam[k]))

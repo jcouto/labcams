@@ -22,6 +22,9 @@ class NIDAQ(object):
                  analog = {},
                  ai_range = [-5,5],
                  dtype = 'int16',
+                 start_trigger = None,
+                 stop_trigger = None,
+                 save_trigger = None,
                  triggered = Event(),
                  recorderpar = None,
                  **kwargs):
@@ -31,14 +34,21 @@ class NIDAQ(object):
         # Events to interface with cameras
         self.camera_ready = Event()
         self.close_event = Event()
-        self.start_trigger = Event()
-        self.stop_trigger = Event()
-        self.saving = Event()
         self.eventsQ = Queue() # not used now.
         self.recorder = None # not used now.
         self.device = device
         self.task_ai = None
         self.task_di = None
+        self.start_trigger = start_trigger
+        self.stop_trigger = stop_trigger
+        self.save_trigger = save_trigger
+
+        if self.start_trigger is None:
+            self.start_trigger = Event()
+        if self.stop_trigger is None:
+            self.stop_trigger = Event()
+        if self.save_trigger is None:
+            self.save_trigger = Event()
         self.ai_range = ai_range
         self.digital_channels = digital
         self.analog_channels = analog
@@ -198,7 +208,7 @@ class NIDAQ(object):
                         self.n_di_samples += di_nsamples
 
                     databuffer = np.hstack([ai_buffer.T,di_buffer.astype('int16').T])
-                    if self.saving.is_set():
+                    if self.save_trigger.is_set():
                         self.was_saving = True
                         if not self.recorder is None:
                             self.recorder.save(databuffer)
@@ -234,7 +244,12 @@ class NIDAQ(object):
                 self.camera_ready.clear()
                 if self.close_event.is_set():
                     break
-
+            if not self.task_di is None:
+                self.task_di.close()
+            if not self.task_ai is None:
+                self.task_ai.close()
+            if not self.task_clock is None:
+                self.task_clock.close()                
             display('Closed DAQ')
         self.thread_task = threading.Thread(target = run_thread)
         self.thread_task.start()
@@ -251,4 +266,4 @@ class NIDAQ(object):
         pass
 
     def stop_saving(self):
-        self.saving.clear()
+        self.save_trigger.clear()

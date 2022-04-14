@@ -258,12 +258,12 @@ If the camera is saving this stops the camera.'''
                 display('Cam stim trigger armed.')
             for cam in self.parent.cams:
                 cam.start_trigger.set()
-                if hasattr(cam,'analog_channels'):
+                if hasattr(cam.cam,'analog_channels'):
                     display('Sleeping for 1 second for the DAQ to record.')
                     sleep(1)
         else:
             for cam in self.parent.cams[::-1]:
-                if hasattr(cam,'analog_channels'):
+                if hasattr(cam.cam,'analog_channels'):
                     display('Sleeping for 1 second for the DAQ to record.')
                     sleep(1)
                 cam.start_trigger.clear()
