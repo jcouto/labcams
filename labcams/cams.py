@@ -541,12 +541,18 @@ class Camera(object):
                 self.writer = FFMPEGWriter(cam = self.cam, **self.recorder_parameters)
             elif self.recorder_parameters['format'] == 'binary':
                 from .io import BinaryWriter
+                vchans = None
+                if hasattr(self,'excitation_trigger'):
+                    vchans = self.excitation_trigger.nchannels
                 display('Recording in binary format.')
-                self.writer = BinaryWriter(cam = self.cam, **self.recorder_parameters)
+                self.writer = BinaryWriter(cam = self.cam,
+                                           virtual_channels = vchans,
+                                           **self.recorder_parameters)
             elif self.recorder_parameters['format'] == 'opencv':
                 from .io import OpenCVWriter
                 display('Recording with OpenCV.')
-                self.writer = OpenCVWriter(cam = self.cam, **self.recorder_parameters)
+                self.writer = OpenCVWriter(cam = self.cam,
+                                           **self.recorder_parameters)
             elif self.recorder_parameters['format'] == 'daq':
                 self.writer = None
             else:

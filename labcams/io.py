@@ -264,6 +264,7 @@ class GenericWriterProcess(Process,GenericWriter):
                  datafolder=pjoin(os.path.expanduser('~'),'data'),
                  framesperfile=0,
                  sleeptime = 1./30,
+                 virtual_channels = None,
                  incrementruns=True,
                  save_trigger = None):
         GenericWriter.__init__(self,
@@ -272,6 +273,7 @@ class GenericWriterProcess(Process,GenericWriter):
                                filename=filename,
                                datafolder=datafolder,
                                dataname=dataname,
+                               virtual_channels = virtual_channels,
                                pathformat=pathformat,
                                framesperfile=framesperfile,
                                sleeptime=sleeptime,
@@ -416,6 +418,7 @@ class BinaryWriter(GenericWriterProcess):
                                     '{today}_{run}_{nfiles}'),
                  framesperfile=0,
                  sleeptime = 1./300,
+                 virtual_channels = None,
                  incrementruns=True,**kwargs):
         self.extension = '_{nchannels}_{W}_{H}_{dtype}.dat'
         super(BinaryWriter,self).__init__(cam = cam,
@@ -426,6 +429,7 @@ class BinaryWriter(GenericWriterProcess):
                                           pathformat = pathformat,
                                           framesperfile=framesperfile,
                                           sleeptime=sleeptime,
+                                          virtual_channels = virtual_channels,
                                           incrementruns=incrementruns)
         self.buf = []
     def close_file(self):
@@ -753,6 +757,7 @@ class BinaryCamWriter(GenericWriter):
                  pathformat = pjoin('{datafolder}','{dataname}','{filename}',
                                     '{today}_{run}_{nfiles}'),
                  framesperfile=0,
+                 virtual_channels = None,
                  incrementruns=True,**kwargs):
         self.extension = '_{nchannels}_{H}_{W}_{dtype}.dat'
         super(BinaryCamWriter,self).__init__(cam = cam,
@@ -760,8 +765,9 @@ class BinaryCamWriter(GenericWriter):
                                              datafolder=datafolder,
                                              dataname=dataname,
                                              pathformat = pathformat,
+                                             virtual_channels = virtual_channels,
                                              framesperfile=framesperfile,
-                                             incrementruns=incrementruns)
+                                             incrementruns=incrementruns)                
 
     def close_file(self):
         if not self.fd is None:
