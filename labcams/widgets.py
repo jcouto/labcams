@@ -326,7 +326,7 @@ class CamWidget(QWidget):
         if hasattr(self.cam,'excitation_trigger'):
             self.nchan = self.cam.excitation_trigger.nchannels.value
             self.frame_buffer = None
-        self.displaychannel = 0
+        self.displaychannel = -1  # default show all channels
         self.roiwidget = None
         self.layout = QGridLayout()
         self.setLayout(self.layout)
@@ -390,10 +390,16 @@ class CamWidget(QWidget):
         # handle the excitation module
         if hasattr(self.cam,'excitation_trigger'):
             if self.frame_buffer is None:
-                self.frame_buffer = np.zeros([self.cam.cam.h.value,self.cam.cam.w.value,3],dtype = self.cam.cam.dtype)
+                self.frame_buffer = np.zeros([
+                    self.cam.cam.h.value,
+                    self.cam.cam.w.value,
+                    3], dtype = self.cam.cam.dtype)
             cframe = self.cam.nframes.value
             tmp = self.cam.get_img(cframe)
-            self.frame_buffer[:,:,np.mod(cframe,self.nchan)] = tmp.squeeze()
+            nchan = self.cam.excitation_trigger.nchannels.value
+            self.frame_buffer[:,:,
+                              np.mod(cframe,
+                                     nchan)] = tmp.squeeze()
             return self.image(self.frame_buffer,cframe)
         else:
             frame = self.cam.get_img()

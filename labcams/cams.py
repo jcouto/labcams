@@ -498,6 +498,7 @@ class Camera(object):
                     from .cam_stim_trigger import CamStimInterface
                     self.excitation_trigger = CamStimInterface(
                         port = params['excitation_trigger']['port'],
+                        saving = self.save_trigger,
                         outQ = self.recorder_q)
         # parse cameras
         if self.driver.lower() == 'avt':
