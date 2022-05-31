@@ -19,12 +19,12 @@ import time
 import sys
 from multiprocessing import Process,Queue,Event,Array,Value
 from multiprocessing.shared_memory import SharedMemory # this breaks compatibility with python < 3.8
-from ctypes import c_long, c_char_p
+from ctypes import c_long, c_char_p, c_wchar
 import ctypes
 from datetime import datetime
 import time
 import sys
-from .utils import display
+from .utils import display,shared_date
 import numpy as np
 import os
 from glob import glob
@@ -34,7 +34,6 @@ from tifffile import TiffWriter as twriter
 import pandas as pd
 from skvideo.io import FFmpegWriter
 import cv2
-
 
 # TODO: check if ffmpeg is working when initializing and using the ffmpeg writer.
 VERSION = '0.7'
@@ -82,6 +81,13 @@ class GenericWriter(object):
                                dataname = self.dataname,
                                filename = self.filename,
                                today = self.today,
+                               datetime = shared_date[:],
+                               year = shared_date[:4],
+                               month = shared_date[4:6],
+                               day = shared_date[6:8],
+                               hours = shared_date[9:11],
+                               minutes = shared_date[11:13],
+                               seconds = shared_date[13:],
                                run = runname,
                                nfiles = '{0:08d}'.format(0),
                                extension = self.extension)
@@ -130,6 +136,14 @@ class GenericWriter(object):
         self.path_keys['run'] = 'run{0:03d}'.format(self.runs)
         nfiles = self.nFiles
         self.path_keys['nfiles'] = '{0:08d}'.format(nfiles)
+        self.path_keys['datetime'] = shared_date[:]
+        self.path_keys['year'] = shared_date[:4]
+        self.path_keys['month'] = shared_date[4:6]
+        self.path_keys['day'] = shared_date[6:8]
+        self.path_keys['hours'] = shared_date[9:11]
+        self.path_keys['minutes'] = shared_date[11:13]
+        self.path_keys['seconds'] = shared_date[13:]
+        
         self.path_keys['filename'] = self.get_filename()
         filename = (self.path_format+'{extension}').format(**self.path_keys)
         folder = os.path.dirname(filename)

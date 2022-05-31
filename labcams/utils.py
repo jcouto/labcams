@@ -33,6 +33,12 @@ import pandas as pd
 
 tstart = [time.time()]
 
+from multiprocessing import Array
+from ctypes import c_wchar
+shared_date = Array(c_wchar,datetime.now().strftime('%Y%m%d_%H%M%S'))
+
+def update_shared_date():
+    shared_date[:] = datetime.now().strftime('%Y%m%d_%H%M%S')
 
 def display(msg):
     try:

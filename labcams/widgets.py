@@ -195,6 +195,7 @@ If the camera is saving this stops the camera.'''
         self.saveOnStartToggle = QCheckBox()
         self.softTriggerToggle = QCheckBox()
         def saveButton():
+            update_shared_date()
             if not self.saveOnStartToggle.isChecked():
                 self.softTriggerToggle.setChecked(False)
                 sleep(0.1)
@@ -273,6 +274,7 @@ If the camera is saving this stops the camera.'''
         tstart[0] = time.time()
 
     def toggleTriggered(self,value):
+        update_shared_date()
         display('Hardware trigger mode pressed [{0}]'.format(value))
         if value:
             self.parent.hardware_trigger_event.set()
@@ -299,6 +301,7 @@ If the camera is saving this stops the camera.'''
         #self.parent.setExperimentName(str(name))
 
     def toggleSaveOnStart(self,state):
+        update_shared_date()
         self.parent.save_on_start = state
         self.checkUpdateFilename()
         for c,(cam,flg) in enumerate(zip(self.parent.cams,
@@ -639,6 +642,7 @@ class CamWidget(QWidget):
         self.etrackercheck.checkbox.setChecked(self.parameters['TrackEye'])
 
     def saveImageFromCamera(self,filename=None):
+        update_shared_date()
         frame = self.parent.cams[self.iCam].get_img()
         if filename is None:
             self.parent.timer.stop()
