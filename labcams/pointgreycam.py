@@ -503,7 +503,7 @@ Available serials are:
             self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line2'))
             self.cam.V3_3Enable.SetValue(False)
             
-        if not self.hardware_trigger is '':
+        if not self.hardware_trigger == '':
             d = '3' # line 3 is the default hardware trigger
             if self.hardware_trigger[-1].isdigit():
                 d = self.hardware_trigger[-1]
@@ -526,7 +526,7 @@ Available serials are:
             if 'out_line' in self.hardware_trigger:
                 display('This is a master camera, sleeping .5 sec.')
                 time.sleep(0.2)
-        if not self.hardware_trigger is '':
+        if not self.hardware_trigger == '':
             if 'out_line' in self.hardware_trigger:
                 # Use line 1 for Blackfly S
                 # Use line 2 or 3 for Chamaeleon
@@ -540,7 +540,7 @@ Available serials are:
                     self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line2'))
                     self.cam.V3_3Enable.SetValue(True)
         self.cam.BeginAcquisition()
-        if not self.hardware_trigger is '': # start chameleon trigger after the cam because it is constantly on
+        if not self.hardware_trigger == '': # start chameleon trigger after the cam because it is constantly on
             if 'out_line' in self.hardware_trigger and 'Chameleon3' in self.cammodel:
                 self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line'+d))
                 self.cam.LineMode.SetValue(PySpin.LineMode_Output)
@@ -549,7 +549,7 @@ Available serials are:
         
     def _cam_stopacquisition(self):
         '''stop camera acq'''
-        if not self.hardware_trigger is '':
+        if not self.hardware_trigger == '':
             #if 'out_line' in self.hardware_trigger:
             d = '3'
             if self.hardware_trigger[-1].isdigit():
