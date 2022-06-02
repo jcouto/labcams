@@ -53,7 +53,7 @@ class LabCamsGUI(QMainWindow):
     def __init__(self,app = None, expName = 'test',
                  camDescriptions = [],
                  parameters = {},
-                 server = True,
+                 server = False,
                  save_on_start = False,
                  hardware_trigger = False,
                  software_trigger = True,
@@ -72,6 +72,7 @@ class LabCamsGUI(QMainWindow):
 
         self.parameters = parameters
         self.app = app
+        self.plugins = []
         self.update_frequency = update_frequency
         self.save_on_start = save_on_start
         self.cam_descriptions = camDescriptions
@@ -348,7 +349,16 @@ class LabCamsGUI(QMainWindow):
                 fname = os.path.split(
                     exc_tb.tb_frame.f_code.co_filename)[1]
                 print(e, fname, exc_tb.tb_lineno)
-
+        for p in self.plugins:  # update plugins
+            try:
+                p.update()
+            except Exception as err:
+                display('Could not update plugin')
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                fname = os.path.split(
+                    exc_tb.tb_frame.f_code.co_filename)[1]
+                print(e, fname, exc_tb.tb_lineno)
+            
     def closeEvent(self,event):
         if hasattr(self,'server_timer'):
             self.server_timer.stop()

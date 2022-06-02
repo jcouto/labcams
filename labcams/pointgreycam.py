@@ -16,7 +16,7 @@
 
 import PySpin
 from .cams import *
-# Adapted from point grey spinnaker examples
+# Adapted from point grey spinnaker examples 
 
 def pg_device_info(nodemap):
     """
@@ -63,33 +63,18 @@ def pg_image_settings(nodemap,X=None,Y=None,W=None,H=None,pxformat='Mono8'):
     :rtype: bool
     """
     try:
-        result = True
-
-        # Apply mono 8 pixel format
-        #
-        # *** NOTES ***
-        # Enumeration nodes are slightly more complicated to set than other
-        # nodes. This is because setting an enumeration node requires working
-        # with two nodes instead of the usual one.
-        #
-        # As such, there are a number of steps to setting an enumeration node:
-        # retrieve the enumeration node from the nodemap, retrieve the desired
-        # entry node from the enumeration node, retrieve the integer value from
-        # the entry node, and set the new value of the enumeration node with
-        # the integer value from the entry node.
-        #
-        # Retrieve the enumeration node from the nodemap
         node_pixel_format = PySpin.CEnumerationPtr(nodemap.GetNode('PixelFormat'))
         if PySpin.IsAvailable(node_pixel_format) and PySpin.IsWritable(node_pixel_format):
 
             # Retrieve the desired entry node from the enumeration node
-            node_pixel_format_mono8 = PySpin.CEnumEntryPtr(node_pixel_format.GetEntryByName(pxformat))
-            if PySpin.IsAvailable(node_pixel_format_mono8) and PySpin.IsReadable(node_pixel_format_mono8):
+            node_pixel_format_selected = PySpin.CEnumEntryPtr(node_pixel_format.GetEntryByName(pxformat))
+            if PySpin.IsAvailable(node_pixel_format_selected) and PySpin.IsReadable(node_pixel_format_selected):
                 # Retrieve the integer value from the entry node
-                pixel_format_mono8 = node_pixel_format_mono8.GetValue()
+                pixel_format_selected = node_pixel_format_selected.GetValue()
                 # Set integer as new value for enumeration node
-                node_pixel_format.SetIntValue(pixel_format_mono8)
-                # Set width
+                node_pixel_format.SetIntValue(pixel_format_selected)
+            else:
+                display('[PointGrey] -  Pixel format?')
         node_width = PySpin.CIntegerPtr(nodemap.GetNode('Width'))
         if PySpin.IsAvailable(node_width) and PySpin.IsWritable(node_width):
             if W is None:
@@ -126,8 +111,8 @@ def pg_image_settings(nodemap,X=None,Y=None,W=None,H=None,pxformat='Mono8'):
 
     except PySpin.SpinnakerException as ex:
         display('[PointGrey] Error: %s' % ex)
-        return False
-    return result
+        return
+    return
 
 
 class PointGreyCam(GenericCam):
@@ -158,6 +143,8 @@ class PointGreyCam(GenericCam):
                                           recorderpar=recorderpar)
         self.drivername = 'PointGrey'
         self.hardware_trigger = hardware_trigger
+        if self.hardware_trigger is None:
+            self.hardware_trigger = ''
         self.serial = serial
         self.flirid = None
         if not serial is None:
@@ -198,7 +185,8 @@ Available serials are:
         self.binning = binning
         self.exposure = exposure
         self.frame_rate = frame_rate
-        self.fs.value = self.frame_rate
+        if not self.frame_rate is None:
+            self.fs.value = self.frame_rate
 
         self.gain = gain
         self.roi = roi
@@ -303,37 +291,39 @@ Available serials are:
         if framerate is None:
            return 
         self.frame_rate = float(framerate)
-        self.fs.value = self.frame_rate
-
-        if not self.cam is None:
-            self.frame_rate = min(self.cam.AcquisitionFrameRate.GetMax(),
-                                  self.frame_rate)
-            # Need to have the trigger off to set the rate.
-            self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off) 
-            self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
-            try:
-                self.cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
+        if self.frame_rate is None:
+            pass
+        else:
+            self.fs.value = self.frame_rate
+            if not self.cam is None:
+                self.frame_rate = min(self.cam.AcquisitionFrameRate.GetMax(),
+                                      self.frame_rate)
+                # Need to have the trigger off to set the rate.
+                self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off) 
+                self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
                 try:
-                    self.cam.AcquisitionFrameRateEnable.SetValue(True)
-                except:
-                    framerate_enabled = PySpin.CBooleanPtr(
-                        self.nodemap.GetNode('AcquisitionFrameRateEnabled'))
-                    framerate_enabled.SetValue(True)
-            except Exception as err:
-                display('Point Grey [{0}] - Could not set frame rate enable.'.format(self.cam_id))
-                print(err)
-            if 'Chameleon3' in self.cammodel: 
-                framerate_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionFrameRateAuto'))
-                autooff = framerate_mode.GetEntryByName('Off')
-                framerate_mode.SetIntValue(autooff.GetValue())
-            try:
-                self.cam.AcquisitionFrameRate.SetValue(self.frame_rate)
-                display('PointGrey [{0}] - Frame rate: {1}'.format(
-                    self.cam_id,self.cam.AcquisitionFrameRate.GetValue()))
-            except Exception as err:
-                self.frame_rate = self.cam.AcquisitionFrameRate.GetValue()
-                display('PointGrey [{0}] - Could not set frame rate {1}'.format(self.cam_id,self.frame_rate))
-                print(err)
+                    self.cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
+                    try:
+                        self.cam.AcquisitionFrameRateEnable.SetValue(True)
+                    except:
+                        framerate_enabled = PySpin.CBooleanPtr(
+                            self.nodemap.GetNode('AcquisitionFrameRateEnabled'))
+                        framerate_enabled.SetValue(True)
+                except Exception as err:
+                    display('Point Grey [{0}] - Could not set frame rate enable.'.format(self.cam_id))
+                    print(err)
+                if 'Chameleon3' in self.cammodel: 
+                    framerate_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionFrameRateAuto'))
+                    autooff = framerate_mode.GetEntryByName('Off')
+                    framerate_mode.SetIntValue(autooff.GetValue())
+                try:
+                    self.cam.AcquisitionFrameRate.SetValue(self.frame_rate)
+                    display('PointGrey [{0}] - Frame rate: {1}'.format(
+                        self.cam_id,self.cam.AcquisitionFrameRate.GetValue()))
+                except Exception as err:
+                    self.frame_rate = self.cam.AcquisitionFrameRate.GetValue()
+                    display('PointGrey [{0}] - Could not set frame rate {1}'.format(self.cam_id,self.frame_rate))
+                    print(err)
                 
     def set_binning(self,binning = 1):
         if binning is None:
@@ -513,7 +503,7 @@ Available serials are:
             self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line2'))
             self.cam.V3_3Enable.SetValue(False)
             
-        if not self.hardware_trigger is None:
+        if not self.hardware_trigger is '':
             d = '3' # line 3 is the default hardware trigger
             if self.hardware_trigger[-1].isdigit():
                 d = self.hardware_trigger[-1]
@@ -536,7 +526,7 @@ Available serials are:
             if 'out_line' in self.hardware_trigger:
                 display('This is a master camera, sleeping .5 sec.')
                 time.sleep(0.2)
-        if not self.hardware_trigger is None:
+        if not self.hardware_trigger is '':
             if 'out_line' in self.hardware_trigger:
                 # Use line 1 for Blackfly S
                 # Use line 2 or 3 for Chamaeleon
@@ -550,7 +540,7 @@ Available serials are:
                     self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line2'))
                     self.cam.V3_3Enable.SetValue(True)
         self.cam.BeginAcquisition()
-        if not self.hardware_trigger is None: # start chameleon trigger after the cam because it is constantly on
+        if not self.hardware_trigger is '': # start chameleon trigger after the cam because it is constantly on
             if 'out_line' in self.hardware_trigger and 'Chameleon3' in self.cammodel:
                 self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line'+d))
                 self.cam.LineMode.SetValue(PySpin.LineMode_Output)
@@ -559,7 +549,7 @@ Available serials are:
         
     def _cam_stopacquisition(self):
         '''stop camera acq'''
-        if not self.hardware_trigger is None:
+        if not self.hardware_trigger is '':
             #if 'out_line' in self.hardware_trigger:
             d = '3'
             if self.hardware_trigger[-1].isdigit():
@@ -623,7 +613,11 @@ Available serials are:
                 display('PointGrey [{0}] - Stopped acquitition.'.format(self.cam_id))          
             except:
                 pass
-            self.cam.DeInit()
+            try:
+                self.cam.DeInit()
+            except:
+                # Could not de_init some cameras.
+                pass
             del self.cam
             
         if not self.drv is None:
