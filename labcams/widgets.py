@@ -643,7 +643,8 @@ class CamWidget(QWidget):
 
     def saveImageFromCamera(self,filename=None):
         update_shared_date()
-        frame = self.parent.cams[self.iCam].get_img()
+        frame = self.parent.cams[self.iCam].get_img_with_virtual_channels()
+        
         if filename is None:
             self.parent.timer.stop()
             filename = QFileDialog.getSaveFileName(self,

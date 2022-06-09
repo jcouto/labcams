@@ -163,7 +163,7 @@ class GenericCam(Process):
         img = self.imgs[frame_index % self.nbuffers.value]
         self.membuffer_lock.release()
         return img
-    
+
     def stop_saving(self):
         # This will send a stop to stop saving and close the writer.
         self.save_trigger.clear()
@@ -578,6 +578,25 @@ The recorders can be specified with the '"format":"ffmpeg"' option in each camer
             if hasattr(self,'excitation_trigger'):
                 self.writer.virtual_channels.value = self.excitation_trigger.nchannels.value
 
+    def get_img_with_virtual_channels(self,frame_index = None):
+        if hasattr(self,'excitation_trigger'):
+            vchans = self.excitation_trigger.nchannels.value
+        else:
+            vchans = 1
+        self.cam.membuffer_lock.acquire()
+        if frame_index is None:
+            frame_index = int(np.floor(self.cam.nframes.value/vchans)*vchans)
+        imgs = []
+        for i in np.arange(vchans)[::-1]:
+            imgs.append(self.cam.imgs[frame_index-i % self.cam.nbuffers.value].squeeze())
+        if len(imgs):
+            img = np.stack(imgs).transpose(1,2,0)
+        else:
+            img = imgs[0]
+        self.cam.membuffer_lock.release()
+        return img
+
+                
     def set_saving(self,value):
         if value:
             if not self.writer is None:
