@@ -1,10 +1,10 @@
 {
     "cams": [
 	{
-            "description": "sync", 
-            "driver": "nidaq", 
+            "driver": "nidaq",
+	    "cam_id":1,
             "srate": 30000,
-	    "device":"dev3",
+	    "device":"dev4",
             "digital": {
 		"P0.0":"left_camera",
 		"P0.1":"right_camera",
@@ -16,20 +16,22 @@
 		"P0.7":"audio"
 	    },
 	    "analog": {
-		"ai0":"bpod"
+		"ai0":"bpod",
+		"ai1":"bpod2"
 	    },
 	    "format":"int16",
-            "name": "nidaq"
+            "name": "sync"
         },
 	{
             "description": "1photon", 
             "driver": "PCO", 
             "exposure": 16, 
-            "id": 0, 
+            "cam_id": 0, 
             "name": "pco.edge", 
-            "triggerType": 0,
-	    "recorder": "binary",
-	    "CamStimTrigger": {"port":"COM5"}
+            "trigger_type": 0,
+	    "recorder": {"format":"binary",
+			 "frames_per_file": 0},
+	    "excitation_trigger": {"port":"COM5"}
         }
 
 
@@ -38,5 +40,5 @@
     "recorder_path": "D:\\data",
     "recorder_path_format":"{datafolder}\\{filename}",
     "server":"udp",
-    "server_port": 9998
+    "server_port": 9999
 }

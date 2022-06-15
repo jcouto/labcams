@@ -21,8 +21,11 @@ from .cams import *
 
 class BaslerCam(GenericCam):
     def __init__(self,
-                 camId = None,
-                 outQ = None,
+                 cam_id = None,
+                 start_trigger = None,
+                 stop_trigger = None,
+                 save_trigger = None,
+                 out_q = None,
                  binning = None,
                  frameRate = None,
                  exposure = None,
@@ -32,13 +35,15 @@ class BaslerCam(GenericCam):
                  pxformat = 'Mono8',
                  triggerSource = np.uint16(0),
                  outputs = [],
-                 triggered = Event(),
-                 hardware_trigger = None,
                  recorderpar=None,
                  **kwargs):
-        super(BaslerCam,self).__init__(outQ = outQ, recorderpar=recorderpar)
+        super(BaslerCam,self).__init__(cam_id = cam_id,
+                                       out_q = out_q,
+                                       start_trigger = start_trigger,
+                                       stop_trigger = stop_trigger,
+                                       save_trigger = save_trigger,
+                                       recorderpar=recorderpar)
         self.drivername = 'Basler'
-        self.hardware_trigger = hardware_trigger
         if camId is None:
             display('[Basler] - Need to supply a camera ID.')
         self.drv = None
@@ -47,11 +52,12 @@ class BaslerCam(GenericCam):
             roi = [None,None,None,None]
         self.pxformat = pxformat
         self.gamma = gamma
-        self.triggered = triggered
         self.outputs = outputs
         self.binning = binning
         self.exposure = exposure
         self.frame_rate = frameRate
+        self.fs.value = self.frame_rate
+
         self.gain = gain
         self.roi = roi
         frame = self.get_one()
@@ -144,9 +150,7 @@ class BaslerCam(GenericCam):
         
     def _cam_stopacquisition(self):
         '''stop camera acq'''
-        if not self.hardware_trigger is None:
-            #if 'out_line' in self.hardware_trigger:
-            self.cam.StopGrabbing()
+        self.cam.StopGrabbing()
 
     def _cam_loop(self):
         if self.cam.IsGrabbing():

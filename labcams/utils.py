@@ -33,6 +33,12 @@ import pandas as pd
 
 tstart = [time.time()]
 
+from multiprocessing import Array
+from ctypes import c_wchar
+shared_date = Array(c_wchar,datetime.now().strftime('%Y%m%d_%H%M%S'))
+
+def update_shared_date():
+    shared_date[:] = datetime.now().strftime('%Y%m%d_%H%M%S')
 
 def display(msg):
     try:
@@ -56,7 +62,7 @@ _SERVER_SETTINGS = {'server':['udp','zmq','none'],
                     'server_refresh_time_help':'How often to listen to messages (in ms)',
                     'server_port':9999}
 
-_OTHER_SETTINGS = dict(recorder_path = 'I:\\data',
+_OTHER_SETTINGS = dict(recorder_path = pjoin(os.path.expanduser('~'),'data'),
                        recorder_frames_per_file = 0,
                        recorder_frames_per_file_help = 'number of frames per file (0 is for a single large file)',
                        recorder_sleep_time = 0.03,
@@ -131,8 +137,8 @@ DEFAULTS = dict(cams = [{'description':'facecam',
                          'name':'pco.edge',
                          'triggerType':0,
                          'recorder':'binary'}],
-                recorder_path = 'I:\\data',
-                recorder_frames_per_file = 256,
+                recorder_path = pjoin(os.path.expanduser('~'),'data'),
+                recorder_frames_per_file = -1,
                 recorder_sleep_time = 0.05,
                 server_port = 100000,
                 compress = 0)
