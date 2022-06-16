@@ -18,39 +18,50 @@ from .cams import *
 # QImaging cameras
 from .qimaging_dll import *
 
+
+# I don't have access to a Rollera Emc2 Camera so can't test it.
+# Please let me know if this gives issues.
 class QImagingCam(GenericCam):
-    def __init__(self, camId = None,
-                 outQ = None,
+    def __init__(self,
+                 cam_id = None,
+                 start_trigger = None,
+                 stop_trigger = None,
+                 save_trigger = None,
+                 out_q = None,
                  exposure = 100000,
-                 gain = 3500,frameTimeout = 100,
-                 nFrameBuffers = 1,
+                 gain = 3500,frame_timeout = 100,
+                 n_frame_buffers = 1,
                  binning = 2,
-                 triggerType = 0,
-                 triggered = Event(),
+                 trigger_type = 0,
+                 hardware_trigger = Event(),
                  recorderpar = None):
         '''
         Qimaging camera (tested with the Emc2 only!)
-            triggerType (0=freerun,1=hardware,5=software)
+            trigger_type (0=freerun,1=hardware,5=software)
         '''
-        super(QImagingCam,self).__init__()
-        if camId is None:
-            display('Need to supply a camera ID.')
-            raise
-        self.queue = outQ
-        self.triggered = triggered
-        self.triggerType = 0
-        self.cam_id = camId
+        super(QImagingCam,self).__init__(cam_id = cam_id,
+                                         out_q = out_q,
+                                         start_trigger = start_trigger,
+                                         stop_trigger = stop_trigger,
+                                         save_trigger = save_trigger,    
+                                         recorderpar = recorderpar)
+        self.hardware_trigger = hardware_trigger
+        if self.hardware_trigger is None:
+            self.hardware_trigger = Event()
+        self.trigger_type = 0
         self.estimated_readout_lag = 1257 # microseconds
         self.binning = binning
         self.exposure = exposure
         self.gain = gain
         self.frame_rate = 1./(self.exposure/1000.)
-        self.frameTimeout = frameTimeout
-        self.nbuffers = nFrameBuffers
-        self.triggerType = triggerType
+        self.fs.value = self.frame_rate
+
+        self.frame_timeout = frame_timeout
+        self.nbuffers = n_frame_buffers
+        self.trigger_type = trigger_type
         ReleaseDriver()
         LoadDriver()
-        cam = OpenCamera(ListCameras()[camId])
+        cam = OpenCamera(ListCameras()[cam_id])
         cam.settings.readoutSpeed=0 # 0=20MHz, 1=10MHz, 7=40MHz
         cam.settings.imageFormat = 'mono16'
         cam.settings.binning = self.binning
@@ -71,13 +82,11 @@ class QImagingCam(GenericCam):
         cam.StopStreaming()
         cam.CloseCamera()
         ReleaseDriver()
-        display("Got info from camera (name: {0})".format(camId))
+        display("[QImaging] Got info from camera (name: {0})".format(camId))
         self.camera_ready = Event()
 
     def run(self):
-        #buf = np.frombuffer(self.frame.get_obj(),
-        #                    dtype = self.dtype).reshape([
-        #                        self.w,self.h,self.nchan])
+
         ReleaseDriver()
         self.close_event.clear()
         while not self.close_event.is_set():
@@ -93,8 +102,8 @@ class QImagingCam(GenericCam):
                 cam.settings.binning = self.binning
                 cam.settings.emGain = self.gain
                 cam.settings.exposure = self.exposure - self.estimated_readout_lag
-                if self.triggered.is_set():
-                    triggerType = self.triggerType
+                if self.hardware_trigger.is_set():
+                    triggerType = self.trigger_type
                 else:
                     triggerType = 0
                 cam.settings.triggerType = triggerType
@@ -135,7 +144,7 @@ class QImagingCam(GenericCam):
                 #tstart = time.time()
                 timestamp = f.timeStamp
                 frameID = f.frameNumber
-                if self.saving.is_set():
+                if self.save_trigger.is_set():
                     self.was_saving = True
                     self.queue.put((frame.reshape([self.h,self.w]),
                                     (frameID,timestamp)))
@@ -151,7 +160,7 @@ class QImagingCam(GenericCam):
             cam.settings.blackoutMode=False
             cam.settings.Flush()
             del cam
-            self.saving.clear()
+            self.save_trigger.clear()
             self.start_trigger.clear()
             self.stop_trigger.clear()
             ReleaseDriver()

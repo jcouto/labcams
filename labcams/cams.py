@@ -23,36 +23,65 @@ try:
     multiprocessing.set_start_method('spawn')
 except:
     pass
-from multiprocessing import Process,Queue,Event,Array,Value
+from multiprocessing import Process, Queue, Event, Array, Value, Lock
+from multiprocessing.shared_memory import SharedMemory # this breaks compatibility with python < 3.8
+
+BUFFER_SIZE = 0.5e9  # this is the buffer size allocation in shared memory 
+
 import numpy as np
 from datetime import datetime
-import time
-import sys
 from .utils import *
 import ctypes
-try:
-    import Image
-except:
-    from PIL import Image
+
 import cv2
+
+# Current changes have 2 goals
+#   1) faster initialization by moving the get 1 frame out (initializing the camera only inside the process)
+#   2) keep a rolling buffer for each camera (will use more memory)
+#   3) replace the outQ with a shared memory buffer
+#   4) remove the refresh period / buffer refresh
+#   5) Because of this, python needs to be >3.8
+
+        
 #
 # Generic class for interfacing with the cameras
-# Has last frame on multiprocessing array
-# 
+#
 class GenericCam(Process):
-    def __init__(self, outQ = None, recorderpar = None, refreshperiod = 1/20.):
+    def __init__(self, cam_id,
+                 out_q = None,
+                 recorderpar = None,
+                 refreshperiod = 1/20.,
+                 start_trigger = None,
+                 stop_trigger = None,
+                 save_trigger = None,
+                 recorder_mode = 'shared_mem_queue', # 'shared_mem','queue','inline' 
+                 membuffer_len = BUFFER_SIZE,
+                 **kwargs):
         super(GenericCam,self).__init__()
         self.name = ''
-        self.cam_id = None
-        self.h = None
-        self.w = None
-        self.nchan = 1
+        if cam_id is None:
+            display('Need to supply a camera ID.')
+        self.cam_id = cam_id
+        self.cam = None
         self.close_event = Event()
-        self.start_trigger = Event()
-        self.stop_trigger = Event()
-        self.saving = Event()
-        self.nframes = Value('i',0)
-        self.queue = outQ
+        self.start_trigger = start_trigger
+        self.stop_trigger = stop_trigger
+        self.save_trigger = save_trigger
+        if self.start_trigger is None:
+            self.start_trigger = Event()
+        if self.stop_trigger is None:
+            self.stop_trigger = Event()
+        if self.save_trigger is None:
+            self.save_trigger = Event()
+        self.nframes = Value('i',-1)
+
+        self.h = Value('i',-1)
+        self.w = Value('i',-1)
+        self.fs = Value('d',-1)
+        self.nchan = Value('i',1)
+        self.nbuffers = Value('i',0)
+
+        self.queue = out_q
         self.camera_ready = Event()
         self.eventsQ = Queue()
         self._init_controls()
@@ -64,37 +93,26 @@ class GenericCam(Process):
         self.refresh_period = refreshperiod
         self._tupdate = time.time()
         self.daemon = True
-        #self.memmanager = Manager()
-        #self.memlist = self.memmanager.list()
-        #self.memlist.append(None)
+        self.membuffer_len = int(membuffer_len)
+        self.membuffer_name = '{0}_{1}_{2}'.format(int(np.random.rand()*1e9),
+                                                   self.name,
+                                                   self.cam_id)
+        self.membuffer = SharedMemory(name = self.membuffer_name,
+                                      create = True,
+                                      size = self.membuffer_len)
+        self.membuffer_lock = Lock()
+        # fixed size, independent of the framesize
         self.lasttime = 0
-    def get_img(self):
-        return self.img#self.memlist[0]
-    
-    def stop_saving(self):
-        # This will send a stop to stop saving and close the writer.
-        #if self.saving.is_set():
-        self.saving.clear()
-        
-    def _init_controls(self):
-        return
 
-    def _init_ctrevents(self):
-        if hasattr(self,'ctrevents'):
-            for c in self.ctrevents.keys():
-                self.ctrevents[c]['call'] ='self.'+self.ctrevents[c]['function']    
-    def _init_variables(self, dtype=np.uint8):
-        if dtype == np.uint8:
-            cdtype = ctypes.c_ubyte
+        if not self.recorderpar is None:
+            self._init_recorder = self._recorder_inline_init
+            self._handle_recorder = self._recorder_inline_handle
         else:
-            cdtype = ctypes.c_ushort
-        self.frame = Array(cdtype,np.zeros([self.h,self.w,self.nchan],
-                                           dtype = dtype).flatten())
-        self.img = np.frombuffer(
-            self.frame.get_obj(),
-            dtype = cdtype).reshape([self.h, self.w, self.nchan])
-
-    def _start_recorder(self):
+            self._handle_recorder = self._recorder_shared_mem_handle
+    def _init_recorder(self):
+        pass
+    
+    def _recorder_inline_init(self):
         if not self.recorderpar is None:
             extrapar = {}
             if 'binary' in self.recorderpar['recorder'].lower():
@@ -112,22 +130,70 @@ class GenericCam(Process):
                 display('Recorder {0} not implemented'.format(
                     self.recorderpar['recorder']))
             if 'rec' in dir():
-                self.recorder = rec(self,
-                                    inQ = self.queue,
+                self.recorder = rec(self.cam,
                                     filename = self.recorderpar['filename'],
                                     pathformat = self.recorderpar['pathformat'],
                                     dataname = self.recorderpar['dataname'],
                                     datafolder = self.recorderpar['datafolder'],
                                     framesperfile = self.recorderpar['framesperfile'],
                                     incrementruns = True,**extrapar)
-            
+
+    def _recorder_inline_handle(self,frame,metadata):
+        if not self.recorder is None:
+            self.recorder.save(frame, metadata)
+
+    def _recorder_queue_handle(self,frame,metadata):
+        self.queue.put((frame, metadata))
+
+    def _recorder_shared_mem_handle(self,frame,metadata):
+        self.queue.put((metadata[0], metadata))
+
+    
+    def _stop_recorder(self):
+        if self.recorder is None:
+            display('[Camera {0}] Sending stop signal to the recorder.'.format(self.cam_id))
+            self.queue.put(['STOP'])
+        else:
+            self.recorder.close_run()
+
+    def get_img(self,frame_index = None):
+        self.membuffer_lock.acquire()
+        if frame_index is None:
+            frame_index = self.nframes.value
+        img = self.imgs[frame_index % self.nbuffers.value]
+        self.membuffer_lock.release()
+        return img
+
+    def stop_saving(self):
+        # This will send a stop to stop saving and close the writer.
+        self.save_trigger.clear()
+        
+    def _init_controls(self):
+        return
+
+    def _init_ctrevents(self):
+        if hasattr(self,'ctrevents'):
+            for c in self.ctrevents.keys():
+                self.ctrevents[c]['call'] ='self.'+self.ctrevents[c]['function']    
+    def _init_variables(self, dtype=np.uint8):
+        try:
+            dtype = dtype()
+        except:
+            pass
+        if not hasattr(self,'membuffer'):
+            self.membuffer = SharedMemory(name = self.membuffer_name)
+        buffsize = [self.h.value,self.w.value,self.nchan.value]
+        self.nbuffers.value = int(self.membuffer_len // np.prod(buffsize+[dtype.itemsize]))
+        buffsize = [self.nbuffers.value] + buffsize
+        self.imgs = np.ndarray(buffsize,
+                               buffer = self.membuffer.buf,
+                               dtype = dtype)
+        
     def run(self):
         self._init_ctrevents()
-        self.img = np.frombuffer(self.frame.get_obj(),
-                                 dtype = self.dtype).reshape(
-                                     [self.h,self.w,self.nchan])
+        self._init_variables(dtype = self.dtype)
         self.close_event.clear()
-        self._start_recorder()
+        self._init_recorder()
         while not self.close_event.is_set():
             self._cam_init()
             if self.stop_trigger.is_set():
@@ -153,47 +219,44 @@ class GenericCam(Process):
             self.cam_is_running = False
             if self.was_saving:
                 self.was_saving = False
-                if self.recorder is None:
-                    display('[Camera {0}] Sending stop signal to the recorder.'.format(self.cam_id))
-                    self.queue.put(['STOP'])
-                else:
-                    self.recorder.close_run()
+                self._stop_recorder()
             self.stop_trigger.clear()
             if self.close_event.is_set():
                 break
-
+        self.membuffer.close()
     def _handle_frame(self,frame,metadata):
-        #display('loop rate : {0}'.format(1./(timestamp - self.lasttime)))
-        if self.saving.is_set():
+        if self.save_trigger.is_set():
             self.was_saving = True
             if not frame is None:
                 if not metadata[0] == self.lastframeid :
-                    if not self.recorder is None:
-                        self.recorder.save(frame,metadata)
-                    else:
-                        self.queue.put((frame,metadata))
+                    self._handle_recorder(frame,metadata)
         elif self.was_saving:
-            if self.recorder is None:
-                self.was_saving = False            
-                display('[Camera] Sending stop signal to the recorder.')
-                self.queue.put(['STOP'])
-            else:
-                self.was_saving = False            
-                self.recorder.close_run()
+            self._stop_recorder()
+            self.was_saving = False            
         if not frame is None:
             frameID,timestamp = metadata[:2]
             if not frameID == self.lastframeid:
                 t = time.time()
-                if (t - self._tupdate) > self.refresh_period:
-                    self._update_buffer(frame,frameID)
-                    self._tupdate = t
+                #if (t - self._tupdate) > self.refresh_period:
+                #update the buffer at every time.
+                self._update_buffer(frame,frameID)
+                self._tupdate = t
                 #self.nframes.value += 1
-            self.lastframeid = frameID
-            self.lasttime = timestamp
+                #display('loop rate : {0}'.format(1./(timestamp - self.lasttime)))
+                self.lasttime = timestamp
         
     def _update_buffer(self,frame,frameID):
-        self.img[:] = np.reshape(frame,self.img.shape)[:]
-        #self.memlist[0] = np.reshape(frame,[self.h,self.w,self.nchan])
+        ''' Updates buffer for a specific frame ID'''
+        self.membuffer_lock.acquire()
+        self.nframes.value = frameID
+        idx = frameID % self.nbuffers.value
+        if len(frame.shape) == 2:
+            self.imgs[idx,:,:,0] = frame[:]
+        else:
+            self.imgs[idx] = frame[:]
+        self.nframes.value = frameID
+        self.membuffer_lock.release()
+
     def _parse_command_queue(self):
         if not self.eventsQ.empty():
             cmd = self.eventsQ.get()
@@ -205,7 +268,8 @@ class GenericCam(Process):
                     if not self.recorder is None:
                         if hasattr(self,'recorder'):
                             self.recorder.set_filename(cmd[1])
-                    self.recorderpar['filename'] = cmd[1]
+                        else:
+                            self.recorderpar['filename'] = cmd[1]
                 elif cmd[0] == 'log':
                     msg = '# {0},{1} - {2}'.format(
                         self.lastframeid,
@@ -215,7 +279,7 @@ class GenericCam(Process):
                     else:
                         if not self.recorder.logfile is None:
                             self.recorder.logfile.write(msg)
-                    
+                            
     def _call_event(self,eventname,eventvalue):
         if eventname in self.ctrevents.keys():
             val = eval(self.ctrevents[eventname]['type']+'('+str(eventvalue)+')')
@@ -263,40 +327,44 @@ class GenericCam(Process):
     def close(self):
         self.close_event.set()
         self.stop_acquisition()
+        self.membuffer.close()
+        self.membuffer.unlink()
+
         
 # OpenCV camera; some functionality limited (like hardware triggers)
 class OpenCVCam(GenericCam):    
     def __init__(self,
-                 camId = None,
-                 outQ = None,
-                 frameRate = 0.,
-                 triggered = Event(),
+                 cam_id = None,
+                 start_trigger = None,
+                 stop_trigger = None,
+                 save_trigger = None,
+                 out_q = None,
+                 frame_rate = 0.,
                  recorderpar = None,
                  **kwargs):
-        super(OpenCVCam,self).__init__(outQ = outQ, recorderpar = recorderpar)
+        super(OpenCVCam,self).__init__(cam_id = cam_id,
+                                       out_q = out_q,
+                                       start_trigger = start_trigger,
+                                       stop_trigger = stop_trigger,
+                                       save_trigger = save_trigger,
+                                       recorderpar = recorderpar)
         self.drivername = 'openCV'
-        if camId is None:
-            display('Need to supply a camera ID.')
-        self.cam_id = camId
-        self.frame_rate = float(frameRate)
+        self.frame_rate = float(frame_rate)
+        self.fs.value = self.frame_rate
         self.cam = cv2.VideoCapture(self.cam_id)
         self.set_framerate(self.frame_rate)
         ret_val, frame = self.cam.read()
         frame = frame
-        self.h = frame.shape[0]
-        self.w = frame.shape[1]
+        self.h.value = frame.shape[0]
+        self.w.value = frame.shape[1]
         if len(frame.shape) > 2:
-            self.nchan = frame.shape[2]
+            self.nchan.value = frame.shape[2]
         self.dtype = frame.dtype
 
         self._init_variables(dtype = self.dtype)
 
         self.cam.release()
         self.cam = None
-        self.triggered = triggered
-        if self.triggered.is_set():
-            display('[OpenCV {0}] Triggered mode ON.'.format(self.cam_id))
-            self.triggerSource = triggerSource
     def _init_controls(self):
         self.ctrevents = dict(
             framerate=dict(
@@ -321,24 +389,33 @@ class OpenCVCam(GenericCam):
                 display('[OpenCV] Setting auto exposure.')
                 res = self.cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.75)
                 self.cam.set(cv2.CAP_PROP_EXPOSURE, 100) 
+                self.fs.value = self.frame_rate
 
             if self.cam_is_running:
                 self.stop_trigger.set()
+                time.sleep()
                 self.start_trigger.set()
 
             display('[OpenCV {0}] Set frame_rate to: {1}.'.format(self.cam_id,
                                                                   self.frame_rate))
             
     def _cam_init(self):
-        self.nframes.value = 0
         self.lastframeid = -1
-        self.cam = cv2.VideoCapture(self.cam_id)
-        self.set_framerate(self.frame_rate)        
+        self.cam = cv2.VideoCapture(self.cam_id) 
+        self.set_framerate(self.frame_rate)
+        self.cam.release() # like this the camera is not constantly running on software trigger
         self.camera_ready.set()
         self.nframes.value = 0
+
+    def _cam_startacquisition(self):
+        self.cam = cv2.VideoCapture(self.cam_id) # like this the camera is not constantly running
+        self.nframes.value = 0
+    def _cam_stopacquisition(self):
+        self.cam.release() 
+        
     def _cam_loop(self):
-        frameID = self.nframes.value
-        self.nframes.value = frameID + 1 
+        frameID = self.nframes.value + 1
+        #self.nframes.value = frameID  
 
         ret_val, frame = self.cam.read()
         if not ret_val:
@@ -350,4 +427,393 @@ class OpenCVCam(GenericCam):
     def _cam_close(self):
         self.cam.release()
         display('[OpenCV {0}] - Stopped acquisition.'.format(self.cam_id))
+
+# incorporates a camera and a recorder, manages the start and stop of both
+class Camera(object): 
+    def __init__(self, cam_id, driver, name,
+                 start_trigger = None,
+                 stop_trigger = None,
+                 save_trigger = None,
+                 hardware_trigger_event = None,
+                 filename = 'labcams',
+                 recorder_path = pjoin(os.path.expanduser('~'),'data'),
+                 recorder_path_format = pjoin('{datafolder}',
+                                              '{dataname}',
+                                              '{filename}',
+                                              '{today}_{run}_{nfiles}'),
+                 recorder = dict(format='tiff',  # default recorder
+                                 method = 'queue',
+                                 compression = 0,
+                                 frames_per_file = 1024),
+                 **kwargs):
+        # parse camera based on the driver
+        self.cam_id = cam_id
+        self.driver = driver
+        self.name = name
+        self.start_trigger = start_trigger
+        self.stop_trigger = stop_trigger
+        self.save_trigger = save_trigger
+        if self.start_trigger is None:
+            self.start_trigger = Event()
+        if self.stop_trigger is None:
+            self.stop_trigger = Event()
+        if self.save_trigger is None:
+            self.save_trigger = Event()
+
+        self.hardware_trigger_event = hardware_trigger_event
+        if self.hardware_trigger_event is None: # to control the hardware triggering of the cameras
+            self.hardware_trigger_event = Event()
+        
+        self.recorder_path = recorder_path 
+        self.recorder_path_format = recorder_path_format
+        self.filename = filename
+        self.camera_description = self.name
+                    
+        self.recorder_q = Queue() # queue to talk to the recorder.
+        # recorder options
+        self.recorder_parameters = recorder
+        if not 'datafolder' in recorder.keys():
+            self.recorder_parameters['datafolder'] = self.recorder_path 
+        if not 'pathformat' in recorder.keys():
+            self.recorder_parameters['pathformat'] = self.recorder_path_format 
+        if not 'filename'  in recorder.keys():
+            self.recorder_parameters['filename'] = self.filename
+        if not 'dataname'  in recorder.keys():
+            self.recorder_parameters['dataname'] = self.camera_description
+        if not 'method' in recorder.keys():
+            self.recorder_parameters['method'] = 'queue'
+        if not 'format' in recorder.keys():
+            self.recorder_parameters['format'] = 'tiff'
+            
+        if 'noqueue' in recorder['method']:
+            recorderpar = self.recorder_parameters
+        else:
+            recorderpar = None # Use a queue recorder
+                
+        params = dict(kwargs,recorderpar = recorderpar)
+        # add an arduino if needed
+        if 'excitation_trigger' in params.keys():
+            if not params['excitation_trigger'] is None:
+                if 'port' in params['excitation_trigger'].keys():
+                    from .cam_stim_trigger import CamStimInterface
+                    self.excitation_trigger = CamStimInterface(
+                        port = params['excitation_trigger']['port'],
+                        saving = self.save_trigger,
+                        outQ = self.recorder_q)
+        # parse cameras
+        if self.driver.lower() == 'avt':
+            self._init_avt_cam(params)
+        elif self.driver.lower() == 'qimaging':
+            self._init_qimaging_cam(params)
+        elif self.driver.lower() == 'opencv':
+            self.cam = OpenCVCam(cam_id = self.cam_id,
+                                 start_trigger = self.start_trigger,
+                                 stop_trigger = self.stop_trigger,
+                                 save_trigger = self.save_trigger,
+                                 out_q = self.recorder_q,
+                                 **params)
+        elif self.driver.lower() == 'pco':
+            self._init_pco_cam(params)            
+        elif self.driver.lower() == 'basler':
+            self._init_basler_cam(params)
+        elif self.driver.lower() == 'ximea':
+            self._init_ximea_cam(params)
+        elif self.driver.lower() in ['pointgrey','flir']:
+            self._init_pointgrey_cam(params)
+        elif self.driver.lower() in ['nidaq']:
+            params['recorderpar'] = self.recorder_parameters
+            self._init_nidaq_cam(params)
+            self.recorder_parameters['format'] = 'daq'
+        else:
+            display('[WARNING] -----> Unknown camera driver ' +
+                    cam['driver'])
+            raise(ValueError('Unknown camera driver ' +
+                             cam['driver']))
+        self.camera_ready = self.cam.camera_ready
+        self.writer = None
+        if recorderpar is None:
+            if self.recorder_parameters['format'] == 'tiff':
+                display('Recording to TIFF.')
+                from .io import TiffWriter
+                self.writer = TiffWriter(cam = self.cam, **self.recorder_parameters)
+            elif self.recorder_parameters['format'] == 'ffmpeg':
+                display('Recording with FFMPEG.')
+                from .io import FFMPEGWriter
+                self.writer = FFMPEGWriter(cam = self.cam, **self.recorder_parameters)
+            elif self.recorder_parameters['format'] == 'binary':
+                from .io import BinaryWriter
+                vchans = None
+                if hasattr(self,'excitation_trigger'):
+                    vchans = self.excitation_trigger.nchannels
+                display('Recording in binary format.')
+                self.writer = BinaryWriter(cam = self.cam,
+                                           virtual_channels = vchans,
+                                           **self.recorder_parameters)
+            elif self.recorder_parameters['format'] == 'opencv':
+                from .io import OpenCVWriter
+                display('Recording with OpenCV.')
+                self.writer = OpenCVWriter(cam = self.cam,
+                                           **self.recorder_parameters)
+            elif self.recorder_parameters['format'] == 'daq':
+                self.writer = None
+            else:
+                    print(''' 
+
+The available recorders are:
+    - tiff (multiple tiffstacks - the default)   
+    - binary 
+    - ffmpeg  Records video format using ffmpeg (hwaccel options: intel, nvidia - remove for no hardware acceleration)
+    - opencv  Records video format using openCV
+
+The recorders can be specified with the '"format":"ffmpeg"' option in each camera "recorder" setting of the config file.
+''')
+                    raise ValueError('Unknown recorder {0} '.format(self.recorder_parameters['format']))
+        self.stop_saving = self.cam.stop_saving
+        self.stop_acquisition = self.cam.stop_acquisition
+        if hasattr(self.cam,'get_img'):     
+            self.get_img = self.cam.get_img
+        if hasattr(self.cam,'nframes'):
+            self.nframes = self.cam.nframes
+        if hasattr(self.writer,'virtual_channels'):    # set the number of channels from the excitation
+            if hasattr(self,'excitation_trigger'):
+                self.writer.virtual_channels.value = self.excitation_trigger.nchannels.value
+
+    def get_img_with_virtual_channels(self,frame_index = None):
+        if hasattr(self,'excitation_trigger'):
+            vchans = self.excitation_trigger.nchannels.value
+        else:
+            vchans = 1
+        self.cam.membuffer_lock.acquire()
+        if frame_index is None:
+            frame_index = int(np.floor(self.cam.nframes.value/vchans)*vchans)
+        imgs = []
+        for i in np.arange(vchans)[::-1]:
+            imgs.append(self.cam.imgs[frame_index-i % self.cam.nbuffers.value].squeeze())
+        if len(imgs):
+            img = np.stack(imgs).transpose(1,2,0)
+        else:
+            img = imgs[0]
+        self.cam.membuffer_lock.release()
+        return img
+
+                
+    def set_saving(self,value):
+        if value:
+            if not self.writer is None:
+                self.writer.init_cam(self.cam)
+                self.writer.write.set()
+            self.cam.save_trigger.set()
+        else:
+            self.stop_saving()
+
+    def start_acquisition(self):
+        self.start_trigger.set()
+        
+    def start(self):
+        if hasattr(self,'cam_stim'):
+            self.cam_stim.start()
+            self.cam_stim.disarm()
+        if hasattr(self,'writer'):
+            if not self.writer is None:
+                self.writer.start()
+        if hasattr(self,'cam'):
+            self.cam.start()
+        while not self.camera_ready.is_set():
+            time.sleep(0.01)
+        if hasattr(self,'cam_stim'):
+            self.cam_stim.arm()
+
+    def set_filename(self,name):
+        if not self.writer is None:
+            self.writer.set_filename(name)
+        else:
+            display('[Camera] Setting serial recorder filename.')
+            self.cam.eventsQ.put('filename='+name)
+
+        
+    def _init_pco_cam(self,parameters):
+        try:
+            from .pco import PCOCam
+        except Exception as err:
+            print(err)
+            print(''' 
+            
+                    Could not load the PCO driver. 
+
+    If you want to record from PCO cameras install the PCO.sdk driver.
+    If not you have the wrong config file.
+
+            Edit the file in USERHOME/labcams/default.json and delete the PCO cam or use the -c option
+
+''')
+        
+        self.cam = PCOCam(cam_id=self.cam_id,
+                          out_q = self.recorder_q,
+                          start_trigger = self.start_trigger,
+                          stop_trigger = self.stop_trigger,
+                          save_trigger = self.save_trigger,
+                          hardware_trigger = self.hardware_trigger_event,
+                          **parameters)
+
+    def _init_nidaq_cam(self,parameters):
+        try:
+            from .nidaq_acq import NIDAQ
+        except Exception as err:
+            print(err)
+            print('''
+    Could not load the NIDAQ driver.
+
+Please install nidaqmx using pip and NIDAQmx from the National Instruments website.
+
+            ''')
+        self.cam = NIDAQ(start_trigger = self.start_trigger,
+                         stop_trigger = self.stop_trigger,
+                         save_trigger = self.save_trigger,
+                         **parameters)
+        display('\t DAQ device recording: {0}'.format(self.name))
+        #for k in np.sort(list(cam.keys())):
+        #    if not k == 'name' and not k == 'recorder':
+        #        display('\t\t - {0} {1}'.format(k,cam[k]))
+        #    cam['recorder'] = 'daq'
+    
+        
+    def _init_qimaging_cam(self, parameters):
+        try:
+            from .qimaging import QImagingCam
+        except Exception as err:
+            print(err)
+            print(''' 
+            
+                    Could not load the QImaging driver. 
+    If you want to record from QImaging cameras install the QImaging driver.
+    If not you have the wrong config file.
+
+            Edit the file in USERHOME/labcams/default.json and delete the QImaging cam or use the -c option 
+
+''')
+        self.cam = QImagingCam(cam_id=self.cam_id,
+                               out_q = self.recorder_q,
+                               start_trigger = self.start_trigger,
+                               stop_trigger = self.stop_trigger,
+                               save_trigger = self.save_trigger,
+                               hardware_trigger = self.hardware_trigger_event,
+                               **parameters)
+    def _init_ximea_cam(self,parameters):
+        try:
+            from .ximeacam import XimeaCam
+        except Exception as err:
+            print(''' 
+            
+            Could not load the Ximea driver. 
+
+    If you want to record from Ximea cameras install the Ximea driver.
+    If not you have the wrong config file.
+
+            Edit the file in USERHOME/labcams/default.json and delete the ximea cam or use the -c option
+
+''')
+            raise(err)
+        self.cam = XimeaCam(cam_id = self.cam_id,
+                            start_trigger = self.start_trigger,
+                            stop_trigger = self.stop_trigger,
+                            save_trigger = self.save_trigger,
+                            out_q = self.recorder_q,
+                            hardware_trigger = self.hardware_trigger_event,
+                            **parameters)
+
+
+    def _init_pointgrey_cam(self,parameters):
+        try:
+            from .pointgreycam import PointGreyCam
+        except Exception as err:
+            print(err)
+            
+            print(''' 
+            
+                    Could not load the PointGrey driver.
+ 
+    If you want to record from PointGrey/FLIR cameras install the Spinaker SDK.
+    If not you have the wrong config file.
+
+            Edit the file in USERHOME/labcams/default.json and delete the PointGrey cam or use the -c option
+
+''')
+        if 'roi' in parameters.keys():
+            if parameters['roi'] is str:
+                if ',' in parameters['roi']:
+                    parameters['roi'] = [
+                        int(c.strip('[').strip(']')) for c in parameters['roi'].split(',')]
+                else:
+                    parameters['roi'] = []
+        self.cam = PointGreyCam(cam_id = self.cam_id,
+                                start_trigger = self.start_trigger,
+                                stop_trigger = self.stop_trigger,
+                                save_trigger = self.save_trigger,
+                                out_q = self.recorder_q,
+                                **parameters)
+        
+    def _init_basler_cam(self, parameters):
+        try:
+            from .basler import BaslerCam
+        except Exception as err:
+            print(err)
+            print(''' 
+            
+                    Could not load the Basler driver. 
+
+    If you want to record from BASLER cameras install the pypylon driver (pip install).
+    If not you have the wrong config file.
+
+            Edit the file in USERHOME/labcams/default.json and delete the Basler cam or use the -c option
+
+''')
+
+        self.cam = BaslerCam(cam_id = self.cam_id,
+                             out_q = self.recorder_q,
+                             **parameters)
+
+    def _init_avt_cam(self, parameters):
+        ''' Exposed parameters for AVT cams
+        exposure = 29000
+        frame_rate = 30.
+        gain = 10
+        frame_timeout = 100
+        n_frame_buffers = 10
+        trigger_source = 'Line1'
+        trigger_mode = 'LevelHigh'
+        trigger_selector = 'FrameStart'
+        acquisition_mode = 'Continuous'
+        n_triggered_frames = 1000
+        frame_timeout = 100
+        '''
+        try:
+            from .avt import AVTCam
+        except Exception as err:
+            print(''' 
+            
+            Could not load the Allied Vision Technologies driver. 
+            
+    If you want to record from AVT cameras install the Vimba SDK and pimba.
+    If not you have the wrong config file.
+
+            Edit the file in USERHOME/labcams/default.json
+
+            ''')
+            raise(err)
+        self.cam = AVTCam(cam_id = self.cam_id,
+                          start_trigger = self.start_trigger,
+                          stop_trigger = self.stop_trigger,
+                          save_trigger = self.save_trigger,
+                          out_q = self.recorder_q,
+                          hardware_trigger = self.hardware_trigger_event,
+                          **parameters)
+    def close(self):
+        self.cam.close()
+        self.cam.stop_saving()
+        if not self.writer is None:
+            self.writer.stop()
+        self.cam.join()
+        if not self.writer is None:
+            self.writer.join()
+
         

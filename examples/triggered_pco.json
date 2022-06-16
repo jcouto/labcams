@@ -2,20 +2,18 @@
     "_comment1": "this is an example for using labcams with the pco edge for widefield imaging. Change the recorder to binary to record binary files.",
     "cams": [
 	{
-            "description": "1photon", 
             "driver": "PCO", 
             "exposure": 33, 
-            "id": 0, 
-            "name": "pco.edge", 
-            "triggerType": 0,
-	    "recorder": "tiff",
-	    "CamStimTrigger": {"port":"COM3"}
-        }
+            "cam_id": 0, 
+            "name": "1photon", 
+            "trigger_type": 0,
+	    "recorder": {"format":"tiff",
+			 "frames_per_file": 1024},
+	    "excitation_trigger":{"port":"COM3"}
     ],
     "_comment2":"Remove the recorder_frames_per_file to record a single file. filename is what ever path is in the gui. The filename can be set via UDP port 9998.",
-    "recorder_frames_per_file": 1024,
     "recorder_path": "C:\\data",
-    "recorder_path_format":"{datafolder}\\{filename}",
+    "recorder_path_format":"{datafolder}\\{filename}_{dataname}_{nfiles}",
     "server":"udp",
     "server_port": 9998
 }

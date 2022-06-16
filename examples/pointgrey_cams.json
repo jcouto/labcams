@@ -3,41 +3,44 @@
     "cams": [
         {
             "Save": true,
-            "description": "cam0",
             "driver": "PointGrey",
-            "frameRate": 100.0,
+            "frame_rate": 100.0,
             "gain": 1,
 	    "exposure":5000,
 	    "gamma":2.3,
 	    "pxformat":"Mono8",
-	    "id": 0,
+	    "cam_id": 0,
 	    "serial":20073107,
-            "name": "pointgrey0",
-	    "hwaccel":"nvidia",
-	    "recorder":"ffmpeg",
+            "name": "cam0",
+	    "recorder":{
+		"format":"ffmpeg",
+		"hwaccel":"nvidia",
+		"compress": "30:3M"		
+	    },
 	    "hardware_trigger":"out_line3",
 	    "roi": [264,230,752,566]
         },
 	{
             "Save": true,
-            "description": "cam1",
             "driver": "PointGrey",
-            "frameRate": 100.0,
+            "frame_rate": 100.0,
             "gain": 1,
 	    "exposure":5000,
 	    "gamma":2.3,
 	    "pxformat":"Mono8",
-	    "id": 1,
+	    "cam_id": 1,
 	    "serial":20073110,
-            "name": "pointgrey0",
-	    "hwaccel":"nvidia",
-	    "recorder":"ffmpeg",
+            "name": "cam1",
+	    "recorder":{
+		"format":"ffmpeg",
+		"hwaccel":"nvidia"
+		"compress": "17:3M"		
+	    },
 	    "hardware_trigger":"in_line3",
 	    "roi": [0,280,1040,512]
 	}
     ],
     "_comment2":"{datafolder} is the folder in recorder_path. Change the recorder path format to write to another place. ",
-    "recorder_frames_per_file": 0,
     "recorder_path": "C:\\data",
     "recorder_path_format":"{datafolder}\\{filename}_{dataname}_{nfiles}",
     "recorder_sleep_time": 0.05,
