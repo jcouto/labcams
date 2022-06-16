@@ -42,25 +42,34 @@ def AVT_get_ids():
     return camsIds,camsModel
 
 class AVTCam(GenericCam):    
-    def __init__(self, camId = None, outQ = None,
+    def __init__(self, cam_id = None, out_q = None,
+                 start_trigger = None,
+                 stop_trigger = None,
+                 save_trigger = None,
                  exposure = 29000,
-                 frameRate = 30., gain = 10,frameTimeout = 100,
-                 nFrameBuffers = 10,
-                 triggered = Event(),
-                 triggerSource = 'Line1',
-                 triggerMode = 'LevelHigh',
-                 triggerSelector = 'FrameStart',
-                 acquisitionMode = 'Continuous',
-                 nTriggeredFrames = 1000,
+                 frame_rate = 30.,
+                 gain = 10,
+                 frame_timeout = 100,
+                 n_frame_buffers = 10,
+                 hardware_trigger = Event(),
+                 trigger_source = 'Line1',
+                 trigger_mode = 'LevelHigh',
+                 trigger_selector = 'FrameStart',
+                 acquisition_mode = 'Continuous',
+                 n_triggered_frames = 1000,
                  frame_timeout = 100,
                  recorderpar = None):
         self.drivername = 'AVT'
-        super(AVTCam,self).__init__(outQ=outQ,recorderpar=recorderpar)
-        if camId is None:
-            display('Need to supply a camera ID.')
-        self.cam_id = camId
+        super(AVTCam,self).__init__(self,
+                                    cam_id = cam_id,
+                                    out_q = out_q,
+                                    start_trigger = start_trigger,
+                                    stop_trigger = stop_trigger,
+                                    save_trigger = save_trigger,
+                                    recorderpar=recorderpar)
         self.exposure = ((1000000/int(frameRate)) - 150)/1000.
         self.frame_rate = frameRate
+        self.fs.value = self.frame_rate
         self.gain = gain
         self.frameTimeout = frameTimeout
         self.triggerSource = triggerSource
@@ -76,7 +85,7 @@ class AVTCam(GenericCam):
             if system.GeVTLIsPresent:
                 system.runFeatureCommand("GeVDiscoveryAllOnce")
             time.sleep(0.01)
-            self.cam = vimba.getCamera(camId)
+            self.cam = vimba.getCamera(cam_id)
             self.cam.openCamera()
             names = self.cam.getFeatureNames()
             # get a frame
@@ -109,9 +118,11 @@ class AVTCam(GenericCam):
             self.cam.endCapture()
             self.cam.revokeAllFrames()
             self.cam = None
-        self.triggered = triggered
-        if self.triggered.is_set():
-            display('AVT [{0}] - Triggered mode ON.'.format(self.cam_id))
+        self.hardware_trigger = hardware_trigger
+        if self.hardware_trigger is None:
+            self.hardware_trigger = Event()
+        if self.hardware_trigger.is_set():
+            display('AVT [{0}] - Hardware triggered mode ON.'.format(self.cam_id))
             self.triggerSource = triggerSource
     def _init_controls(self):
         self.ctrevents = dict(
@@ -156,6 +167,7 @@ class AVTCam(GenericCam):
         self.frame_rate = frame_rate
         if not self.cam is None:
             self.cam.AcquisitionFrameRateAbs = self.frame_rate
+            self.fs.value = self.frame_rate
             if self.cam_is_running:
                 self.start_trigger.set()
                 self.stop_trigger.set()
@@ -192,7 +204,7 @@ class AVTCam(GenericCam):
         
         self.cam.SyncOutSelector = 'SyncOut1'
         self.cam.SyncOutSource = 'FrameReadout'#'Exposing'
-        if self.triggered.is_set():
+        if self.hardware_trigger.is_set():
             self.cam.TriggerSource = self.triggerSource#'Line1'#self.triggerSource
             self.cam.TriggerMode = 'On'
             #cam.TriggerOverlap = 'Off'
@@ -227,7 +239,7 @@ class AVTCam(GenericCam):
     def _cam_startacquisition(self):
         self.cam.runFeatureCommand("GevTimestampControlReset")
         self.cam.runFeatureCommand('AcquisitionStart')
-        if self.triggered.is_set():
+        if self.hardware_trigger.is_set():
             self.cam.TriggerSelector = self.triggerSelector
             self.cam.TriggerMode = 'On'
         #tstart = time.time()
@@ -276,7 +288,7 @@ class AVTCam(GenericCam):
                                    dtype = self.dtype,
                                    shape = (f.height,
                                             f.width)).copy()
-                if self.saving.is_set():
+                if self.save_trigger.is_set():
                     self.was_saving = True
                     if not frameID in self.lastframeid :
                         self.queue.put((frame.copy(),(frameID,timestamp)))
