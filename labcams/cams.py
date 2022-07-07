@@ -588,7 +588,7 @@ The recorders can be specified with the '"format":"ffmpeg"' option in each camer
             frame_index = int(np.floor(self.cam.nframes.value/vchans)*vchans)
         imgs = []
         for i in np.arange(vchans)[::-1]:
-            imgs.append(self.cam.imgs[frame_index-i % self.cam.nbuffers.value].squeeze())
+            imgs.append(self.cam.imgs[(frame_index-i) % self.cam.nbuffers.value].squeeze())
         if len(imgs):
             img = np.stack(imgs).transpose(1,2,0)
         else:
