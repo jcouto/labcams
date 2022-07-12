@@ -27,7 +27,7 @@ class BaslerCam(GenericCam):
                  save_trigger = None,
                  out_q = None,
                  binning = None,
-                 frameRate = None,
+                 frame_rate = None,
                  exposure = None,
                  gain = None,
                  gamma = None,
@@ -44,10 +44,10 @@ class BaslerCam(GenericCam):
                                        save_trigger = save_trigger,
                                        recorderpar=recorderpar)
         self.drivername = 'Basler'
-        if camId is None:
+        if cam_id is None:
             display('[Basler] - Need to supply a camera ID.')
         self.drv = None
-        self.cam_id = camId
+        self.cam_id = cam_id
         if not len(roi):
             roi = [None,None,None,None]
         self.pxformat = pxformat
@@ -55,7 +55,7 @@ class BaslerCam(GenericCam):
         self.outputs = outputs
         self.binning = binning
         self.exposure = exposure
-        self.frame_rate = frameRate
+        self.frame_rate = frame_rate
         self.fs.value = self.frame_rate
 
         self.gain = gain

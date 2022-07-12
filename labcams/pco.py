@@ -63,7 +63,7 @@ class PCOCam(GenericCam):
         self.binning = binning
         self.dtype = dtype
         ret = self.camopen(self.cam_id)
-        assert ret == 0, "PCO: Could not open camera {0}".format(camId)
+        assert ret == 0, "PCO: Could not open camera {0}".format(cam_id)
         self.use_camera_parameters = use_camera_parameters
         if self.use_camera_parameters:
             if not self.binning is None:
