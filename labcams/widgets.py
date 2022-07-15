@@ -527,26 +527,27 @@ class CamWidget(QWidget):
         self.reference_toggle.link(self.toggle_reference)
         self.addAction(self.reference_toggle)
         
-    def toggle_reference(self,filename):
+    def toggle_reference(self,filename = None):
         if self.parameters['reference_channel'] is None:
             if filename is None:
-                reffile = str(QFileDialog().getOpenFileName(self,'Load reference image')[0])
+                filename = str(QFileDialog().getOpenFileName(self,'Load reference image')[0])
+                print('Selected {0}'.format(filename))
             else:
-                reffile = filename
                 self.reference_toggle.checkbox.setChecked(True)
                 self.reference_toggle.value = True
-            if not reffile == '':
-                print('Selected {0}'.format(reffile))
-                from tifffile import imread
-                reference = imread(reffile).squeeze()
-                if len(reference.shape) > 2:
-                    reference = reference.mean(axis = 0)
-                self.parameters['reference_channel'] = reference
-                self.reference_toggle.checkbox.setChecked(True)
         else:
             self.reference_toggle.checkbox.setChecked(False)
             self.reference_toggle.value = False
             self.parameters['reference_channel'] = None
+            return
+        if type(filename) is str and os.path.exists(filename):
+            from tifffile import imread
+            display(filename)
+            reference = imread(filename).squeeze()
+            if len(reference.shape) > 2:
+                reference = reference.mean(axis = 0)
+            self.parameters['reference_channel'] = reference
+            self.reference_toggle.checkbox.setChecked(True)
 
     def toggleAutoRange(self,value):
         self.autoRange = value #not self.autoRange

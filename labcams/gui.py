@@ -267,10 +267,11 @@ class LabCamsGUI(QMainWindow):
                 self.server_reply(msg = 'no_folder',msgtype = 'error',address = address) 
                 return
             for icam,cam in enumerate(self.cams):
-                files = glob(pjoin(foldername,'*_{0}.tif').format(cam.recorder_parameters['dataname']))
+                files = glob(pjoin(foldername,'*_{0}.tif').format(
+                    cam.recorder_parameters['dataname']))
                 if len(files):
+                    display('{0} NOW'.format(files))
                     self.camwidgets[icam].toggle_reference(files[0])
-                display(files)
             self.server_reply(msg = 'load_reference',address = address)
         elif message['action'].lower() == 'hide_reference':
             for icam,cam in enumerate(self.cams):
