@@ -523,21 +523,31 @@ class CamWidget(QWidget):
                 self.string = '{0}'            
         ts.link(toggleSaveCam)
         self.addAction(ts)
-        tr = QActionCheckBox(self,'alignment reference',  False)
-        def toggleReference():
-            if self.parameters['reference_channel'] is None:
-                reffile = str(QFileDialog().getOpenFileName(self,'Load reference image')[0])
-                if not reffile == '':
-                    print('Selected {0}'.format(reffile))
-                    from tifffile import imread
-                    reference = imread(reffile).squeeze()
-                    if len(reference.shape) > 2:
-                        reference = reference.mean(axis = 0)
-                    self.parameters['reference_channel'] = reference
+        self.reference_toggle = QActionCheckBox(self,'alignment reference',  False)
+        self.reference_toggle.link(self.toggle_reference)
+        self.addAction(self.reference_toggle)
+        
+    def toggle_reference(self,filename = None):
+        if self.parameters['reference_channel'] is None:
+            if filename is None:
+                filename = str(QFileDialog().getOpenFileName(self,'Load reference image')[0])
+                print('Selected {0}'.format(filename))
             else:
-                self.parameters['reference_channel'] = None
-        tr.link(toggleReference)
-        self.addAction(tr)
+                self.reference_toggle.checkbox.setChecked(True)
+                self.reference_toggle.value = True
+        else:
+            self.reference_toggle.checkbox.setChecked(False)
+            self.reference_toggle.value = False
+            self.parameters['reference_channel'] = None
+            return
+        if type(filename) is str and os.path.exists(filename):
+            from tifffile import imread
+            display(filename)
+            reference = imread(filename).squeeze()
+            if len(reference.shape) > 2:
+                reference = reference.mean(axis = 0)
+            self.parameters['reference_channel'] = reference
+            self.reference_toggle.checkbox.setChecked(True)
 
     def toggleAutoRange(self,value):
         self.autoRange = value #not self.autoRange
