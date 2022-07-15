@@ -76,9 +76,11 @@ class LabCamsGUI(QMainWindow):
         self.update_frequency = update_frequency
         self.save_on_start = save_on_start
         self.cam_descriptions = camDescriptions
+        self.zmqsocket = None
+        self.udpsocket = None
         if server:
             if not 'server_refresh_time' in self.parameters.keys():
-                self.parameters['server_refresh_time'] = 30
+                self.parameters['server_refresh_time'] = 5
             if not 'server' in self.parameters.keys():
                 self.parameters['server'] = 'zmq'
             if self.parameters['server'] == 'udp':
@@ -93,8 +95,8 @@ class LabCamsGUI(QMainWindow):
             else:
                 import zmq
                 self.zmqContext = zmq.Context()
-                self.zmqSocket = self.zmqContext.socket(zmq.REP)
-                self.zmqSocket.bind('tcp://0.0.0.0:{0}'.format(
+                self.zmqsocket = self.zmqContext.socket(zmq.REP)
+                self.zmqsocket.bind('tcp://0.0.0.0:{0}'.format(
                     self.parameters['server_port']))
                 display('Listening to ZMQ port: {0}'.format(
                     self.parameters['server_port']))
@@ -187,14 +189,20 @@ class LabCamsGUI(QMainWindow):
             if flg:
                 cam.set_filename(expname)
         self.recController.experimentNameEdit.setText(expname)
-        
-    def server_actions(self):
-        if self.parameters['server'] == 'zmq':
+
+    def server_reply(self,msg, msgtype = 'ok',address = None):
+        if not self.zmqsocket is None:
+            self.zmqsocket.send_pyobj(dict(action=msgtype,
+                                           value = msg))
+        if not self.udpsocket is None and not address is None:
+            self.udpsocket.sendto('{0}={1}'.format(msgtype,msg).encode(),address)
+                
+    def server_actions(self): # all this should be moved to a class somewhere else.
+        if not self.zmqsocket is None:
             try:
-                message = self.zmqSocket.recv_pyobj(flags=zmq.NOBLOCK)
+                message = self.zmqsocket.recv_pyobj(flags=zmq.NOBLOCK)
             except:
                 return
-            self.zmqSocket.send_pyobj(dict(action='handshake'))
         elif self.parameters['server'] == 'udp':
             try:
                 msg,address = self.udpsocket.recvfrom(N_UDP)
@@ -204,45 +212,78 @@ class LabCamsGUI(QMainWindow):
             message = dict(action=msg[0])
             if len(msg) > 1:
                 message = dict(message,value=msg[1])
-        #display('Server received message: {0}'.format(message))
+            #display('Server received message: {0}'.format(message))
+            
         if message['action'].lower() == 'expname':
             self.set_experiment_name(message['value'])
-            self.udpsocket.sendto(b'ok=expname',address)
-        elif message['action'].lower() == 'softtrigger':
+            self.server_reply(msg = message['action'].lower(),address = address)
+        elif message['action'].lower() in ['softtrigger','software_trigger']:
             self.recController.softTriggerToggle.setChecked(
                 int(message['value']))
-            self.udpsocket.sendto(b'ok=software_trigger',address)
-        elif message['action'].lower() == 'trigger':
+            self.server_reply(msg = 'software_trigger',address = address)
+        elif message['action'].lower() == ['hardtrigger','hardware_trigger']:
             for cam in self.cams:
                 cam.stop_acquisition()
             # make sure all cams closed
             for c,cam in enumerate(self.cams):
                 cam.stop_saving()
-                #if not writer is None: # Logic moved to inside camera.
-                #    writer.write.clear()
             self.trigger_cams(soft_trigger = self.software_trigger,save = True)
-            self.udpsocket.sendto(b'ok=save_hardwaretrigger',address)
-        elif message['action'].lower() == 'settrigger':
+            self.server_reply(msg = 'save_hardwaretrigger',address = address) 
+        elif message['action'].lower() == ['settrigger','trigger']:
             self.recController.camTriggerToggle.setChecked(
                 int(message['value']))
-            self.udpsocket.sendto(b'ok=hardware_trigger',address)
-        elif message['action'].lower() in ['setmanualsave','manualsave']:
+            self.server_reply(msg = 'settrigger',address = address) 
+        elif message['action'].lower() in ['setmanualsave','manualsave','acquire']:
             self.recController.saveOnStartToggle.setChecked(
                 int(message['value']))
-            self.udpsocket.sendto(b'ok=save',address)
+            self.server_reply(msg = 'save',address = address) 
         elif message['action'].lower() == 'log':
             for c in self.cams:
                 c.cam.eventsQ.put('log={0}'.format(message['value']))
-            # write on display
-            #self.camwidgets[0].text_remote.setText(message['value'])
-            self.udpsocket.sendto(b'ok=log',address)
             self.recController.udpmessages.setText(message['value'])
+            self.server_reply(msg = 'log',address = address) 
+        elif message['action'].lower() == 'snapshot':
+            foldername = message['value']
+            if not os.path.exists(foldername):
+                os.path.makedirs(foldername)
+                display('Created {0}'.format(foldername))
+            display('Getting snapshots to {0}'.format(foldername))
+            update_shared_date()
+            for icam,cam in enumerate(self.cams):
+                frame = cam.get_img_with_virtual_channels()
+                dataname = cam.recorder_parameters['dataname']
+                fname = pjoin(os.path.dirname(foldername),'snapshots',
+                              shared_date[:]+'_{0}.tif'.format(dataname))
+                from tifffile import imsave
+                imsave(fname,
+                       frame.transpose([2,0,1]).squeeze(),
+                       metadata = {
+                           'Camera':str(icam)})
+            self.server_reply(msg = 'snapshots',address = address) 
+        elif message['action'].lower() == 'load_reference':
+            foldername = message['value']
+            if not os.path.exists(foldername):
+                display('No folder: {0}'.format(foldername))
+                self.server_reply(msg = 'no_folder',msgtype = 'error',address = address) 
+                return
+            for icam,cam in enumerate(self.cams):
+                files = glob(pjoin(foldername,'*_{0}.tif').format(cam.recorder_parameters['dataname']))
+                if len(files):
+                    self.camwidgets[icam].toggle_reference(files[0])
+                display(files)
+            self.server_reply(msg = 'load_reference',address = address)
+        elif message['action'].lower() == 'hide_reference':
+            for icam,cam in enumerate(self.cams):
+                self.camwidgets[icam].toggle_reference('')
+            self.server_reply(msg = 'hide_reference',address = address) 
         elif message['action'].lower() == 'ping':
             display('Server got PING.')
-            self.udpsocket.sendto(b'pong',address)
+            self.server_reply(msg = 'pong',address = address) 
         elif message['action'].lower() == 'quit':
             self.udpsocket.sendto(b'ok=bye',address)
+            self.server_reply(msg = 'bye',address = address) 
             self.close()
+
 
     def trigger_cams(self,soft_trigger = True, save=False):
         # stops previous saves if there were any

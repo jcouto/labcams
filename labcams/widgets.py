@@ -523,21 +523,30 @@ class CamWidget(QWidget):
                 self.string = '{0}'            
         ts.link(toggleSaveCam)
         self.addAction(ts)
-        tr = QActionCheckBox(self,'alignment reference',  False)
-        def toggleReference():
-            if self.parameters['reference_channel'] is None:
+        self.reference_toggle = QActionCheckBox(self,'alignment reference',  False)
+        self.reference_toggle.link(self.toggle_reference)
+        self.addAction(self.reference_toggle)
+        
+    def toggle_reference(self,filename):
+        if self.parameters['reference_channel'] is None:
+            if filename is None:
                 reffile = str(QFileDialog().getOpenFileName(self,'Load reference image')[0])
-                if not reffile == '':
-                    print('Selected {0}'.format(reffile))
-                    from tifffile import imread
-                    reference = imread(reffile).squeeze()
-                    if len(reference.shape) > 2:
-                        reference = reference.mean(axis = 0)
-                    self.parameters['reference_channel'] = reference
             else:
-                self.parameters['reference_channel'] = None
-        tr.link(toggleReference)
-        self.addAction(tr)
+                reffile = filename
+                self.reference_toggle.checkbox.setChecked(True)
+                self.reference_toggle.value = True
+            if not reffile == '':
+                print('Selected {0}'.format(reffile))
+                from tifffile import imread
+                reference = imread(reffile).squeeze()
+                if len(reference.shape) > 2:
+                    reference = reference.mean(axis = 0)
+                self.parameters['reference_channel'] = reference
+                self.reference_toggle.checkbox.setChecked(True)
+        else:
+            self.reference_toggle.checkbox.setChecked(False)
+            self.reference_toggle.value = False
+            self.parameters['reference_channel'] = None
 
     def toggleAutoRange(self,value):
         self.autoRange = value #not self.autoRange
