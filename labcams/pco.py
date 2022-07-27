@@ -223,9 +223,8 @@ class PCOCam(GenericCam):
         self._dll.PCO_GetSizes(self.hCam, ctypes.byref(self.wXResAct),
                                ctypes.byref(self.wYResAct), ctypes.byref(wXResMax),
                                ctypes.byref(wYResMax))
-        self.h.value,self.w.value = [self.wXResAct.value,
+        self.w.value,self.h.value = [self.wXResAct.value,
                          self.wYResAct.value]
-    
         self.wXResAct.value = int(self.wXResAct.value)
         self.wYResAct.value = int(self.wYResAct.value)
 

@@ -383,8 +383,9 @@ class LabCamsGUI(QMainWindow):
             	
     def update_timer(self):
         for c,cam in enumerate(self.cams):
+            self.camwidgets[c].update()
             try:
-                self.camwidgets[c].update()
+                pass
             except Exception as e:
                 display('Could not draw cam: {0}'.format(c))
                 exc_type, exc_obj, exc_tb = sys.exc_info()

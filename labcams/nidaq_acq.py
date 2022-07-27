@@ -211,7 +211,7 @@ class NIDAQ(object):
                     if self.save_trigger.is_set():
                         self.was_saving = True
                         if not self.recorder is None:
-                            self.recorder.save(databuffer.ascontiguousarray())
+                            self.recorder.save(np.ascontiguousarray(databuffer))
                     elif self.was_saving:
                         display("Closing file")
                         self.recorder.close_run()
