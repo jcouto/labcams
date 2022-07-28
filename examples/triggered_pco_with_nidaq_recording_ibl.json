@@ -4,7 +4,7 @@
             "driver": "nidaq",
 	    "cam_id":1,
             "srate": 30000,
-	    "device":"dev4",
+	    "device":"dev1",
             "digital": {
 		"P0.0":"left_camera",
 		"P0.1":"right_camera",
@@ -20,6 +20,9 @@
 		"ai1":"bpod2"
 	    },
 	    "format":"int16",
+	    "recorder": {
+		"subfolder":"raw_widefield_data"
+	    },
             "name": "sync"
         },
 	{
@@ -30,15 +33,66 @@
             "name": "pco.edge", 
             "trigger_type": 0,
 	    "recorder": {"format":"binary",
+			 "subfolder":"raw_widefield_data",
 			 "frames_per_file": 0},
-	    "excitation_trigger": {"port":"COM5"}
-        }
-
-
+	    "excitation_trigger": {"port":"COM3"}
+        },
+{
+            "driver": "PointGrey",
+            "frame_rate": 150.0,
+            "gain": 12,
+            "gamma":1,
+            "cam_id": 1,
+            "serial":20440048,
+	    "binning":2,
+            "name": "right_cam",
+            "recorder":{
+               "format":"ffmpeg",
+                "hwaccel":"nvidia",
+		"subfolder":"raw_video_data",
+                "compress": "17:3M"     
+            },
+            "hardware_trigger":"out_line2"
+        },
+      {
+            "driver": "PointGrey",
+            "frame_rate": 60.0,
+            "gain": 12,
+            "gamma":1,
+            "cam_id": 2,
+	    "binning": 1,
+            "serial":21105797,
+            "name": "left_cam",
+            "recorder":{
+               "format":"ffmpeg",
+                "hwaccel":"nvidia",
+		"subfolder":"raw_video_data",
+                "compress": "17:3M"     
+            },
+            "hardware_trigger":"out_line2"
+        },
+    {
+            "driver": "PointGrey",
+            "frame_rate": 30.0,
+            "gain": 12,
+            "gamma":1,
+            "cam_id": 3,
+	    "binning":1,
+            "serial":20440050,
+            "name": "body_cam",
+            "recorder":{
+               "format":"ffmpeg",
+                "hwaccel":"nvidia",
+		"subfolder":"raw_video_data",
+                "compress": "17:3M"     
+            },
+            "hardware_trigger":"out_line2"
+        } 
     ],
     "recorder_frames_per_file": 0,
-    "recorder_path": "D:\\data",
-    "recorder_path_format":"{datafolder}\\{filename}",
+    "recorder_path": "C:\\Users\\Anne\\data",
+    "old_recorder_path_format":"{datafolder}\\{filename}_{dataname}_{nfiles}",
+    "recorder_path_format":"{filename}\\{subfolder}\\{dataname}_{run}_{nfiles}",
     "server":"udp",
     "server_port": 9999
 }

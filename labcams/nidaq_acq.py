@@ -68,7 +68,7 @@ class NIDAQ(object):
         self.task_clock.timing.cfg_implicit_timing(
             sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS,
             samps_per_chan=self.samps_per_chan)
-        self.recorderpar = recorderpar
+        self.recorderpar = dict(recorderpar,**kwargs)
         self.dataname = None
         for aich in self.analog_channels.keys():
             chanstr = '{0}/{1}'.format(self.device,aich)
@@ -122,16 +122,13 @@ class NIDAQ(object):
         if not self.recorderpar is None:
             from .io import BinaryDAQWriter
             self.recorder = BinaryDAQWriter(self,
-                                            filename = self.recorderpar['filename'],
-                                            pathformat = self.recorderpar['pathformat'],
-                                            dataname = self.recorderpar['dataname'],
-                                            datafolder = self.recorderpar['datafolder'],
-                                            incrementruns = True)
+                                            incrementruns = True,
+                                            **self.recorderpar)
             
     def _waitsoftwaretrigger(self):
         '''wait for software trigger'''
         display('[{0}] waiting for software trigger.'.format('nidaq'))
-        while not self.start_trigger.is_set() or self.stop_trigger.is_set():
+        while (not self.start_trigger.is_set()):
             # limits resolution to 1 ms 
             time.sleep(0.001)
             self._parse_command_queue()
@@ -140,6 +137,7 @@ class NIDAQ(object):
                 self.recorder.close_run()
                 self.was_saving = False
             if self.close_event.is_set() or self.stop_trigger.is_set():
+                display('[{0}] stop_trigger set.'.format('nidaq'))
                 break
         if self.close_event.is_set() or self.stop_trigger.is_set():
             return
@@ -228,10 +226,9 @@ class NIDAQ(object):
                     self.data_buffer[:] = np.roll(self.data_buffer, -nsampl,
                                                   axis = 1)[:]
                     self.data_buffer[:,-nsampl:] = databuffer[:]
-                
-                    if not self.start_trigger.is_set():
-                        self.stop_acquisition()
 
+                    if not self.start_trigger.is_set() and not self.stop_trigger.is_set():
+                        self._cam_stopacquisition()
                 if not self.task_clock is None:
                     self.task_clock.stop()
                 if not self.task_ai is None:
@@ -240,6 +237,7 @@ class NIDAQ(object):
                 if not self.task_di is None:
                     #self.task_di.wait_until_done()
                     self.task_di.stop()
+                self.start_trigger.clear()
                 self.stop_trigger.clear()
                 self.camera_ready.clear()
                 if self.close_event.is_set():

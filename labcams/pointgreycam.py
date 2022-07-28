@@ -545,7 +545,7 @@ Available serials are:
                 self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line'+d))
                 self.cam.LineMode.SetValue(PySpin.LineMode_Output)
                 self.cam.LineSource.SetValue(PySpin.LineSource_ExposureActive)
-        display('PointGrey [{0}] - Started acquitition.'.format(self.cam_id))
+        display('PointGrey [{0}] - Started acquisition.'.format(self.cam_id))
         
     def _cam_stopacquisition(self):
         '''stop camera acq'''
@@ -563,9 +563,7 @@ Available serials are:
                 if not 'Blackfly S' in self.cammodel: # can't set line 1 to input on Blackfly S
                     self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line' + d))
                     self.cam.LineMode.SetValue(PySpin.LineMode_Input) # stop output
-                self.cam.EndAcquisition()
-                return
-            if 'in_line' in self.hardware_trigger:
+            elif 'in_line' in self.hardware_trigger:
                 # to make sure all triggers are acquired (stop only when all frames have been received).
                 is_done = False
                 while not is_done:
@@ -579,8 +577,9 @@ Available serials are:
                         # Send it to the recorder
                         self._handle_frame(frame,metadata)
         self.cam.EndAcquisition()
+        display('[PointGrey {0}] - stopped acquisition.'.format(self.cam_id))
         self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
-
+        
     def _cam_loop(self):
         try:
             img = self.cam.GetNextImage(100,0)
@@ -596,7 +595,12 @@ Available serials are:
                 frame = img.GetNDArray()
             frameID = img.GetFrameID()
             timestamp = img.GetTimeStamp()*1e-9
-            linestat = self.cam.LineStatusAll()
+            try:
+                linestat = self.cam.LineStatusAll()
+            except:
+                display('Error reading line status? Check PointGrey Cam {0}'.format(self.cam_id))
+                linestat = self.cam.LineStatusAll()
+                
             #frameinfo = img.GetChunkData()
             #linestat = frameinfo.GetFrameID()
             #display('Line {0} {1}'.format(linestat,frameinfo.GetExposureLineStatusAll())) # 
@@ -610,7 +614,7 @@ Available serials are:
         if not self.cam is None:
             try:
                 self._cam_stopacquisition()
-                display('PointGrey [{0}] - Stopped acquitition.'.format(self.cam_id))          
+                display('PointGrey [{0}] - Stopped acquisition.'.format(self.cam_id))          
             except:
                 pass
             try:
@@ -618,12 +622,12 @@ Available serials are:
             except:
                 # Could not de_init some cameras.
                 pass
-            del self.cam
-            
+            del self.cam            
         if not self.drv is None:
             del self.nodemap_tldevice
             del self.nodemap
             self.cam_list.Clear()
             self.drv.ReleaseInstance()
+            del self.drv
             self.drv = None
             

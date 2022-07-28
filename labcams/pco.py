@@ -81,21 +81,11 @@ class PCOCam(GenericCam):
         self.h.value = frame.shape[0]
         self.w.value = frame.shape[1]
         display('PCO - size: {0} x {1}'.format(self.h.value,self.w.value))
-        # TODO: interface with the excitation stim trigger
+
         if len(frame.shape) == 2:
             self.nchan.value = 1
         else:
             self.nchan.value = frame.shape
-        # this should move to the 
-        #if not acquisition_stim_trigger is None:    
-        #    self.acquisition_stim_trigger = True
-        #    acquisition_stim_trigger.is_saving = self.save_trigger
-        #    self.refresh_period = -1
-        #    # refresh every frame
-        #    self.nchan.value = acquisition_stim_trigger.nchannels.value
-        #else:
-        #    self.acquisition_stim_trigger = None
-        #    self.nchan.value = 1 #frame.shape[2]
         self.dtype = dtype
         self._init_variables(dtype)
 
@@ -108,10 +98,8 @@ class PCOCam(GenericCam):
         self.fs.value = self.frame_rate
 
         self._dll = None
-        #for c in range(self.nchan.value):
-        #    self.img[:,:,c] = frame[:]
-        display("Got info from camera (name: {0})".format(
-             'PCO'))
+        display("[PCO {0}] Got info from camera".format(
+             self.cam_id))
 
     def _init_controls(self):
         self.ctrevents = dict(
@@ -153,7 +141,7 @@ class PCOCam(GenericCam):
         Start recording
         :return: message from recording status
         """
-        display('[PCO] - Stopping acquisition.')
+        display('[PCO {0}] - Stopping acquisition.'.format(self.cam_id))
         return self._dll.PCO_SetRecordingState(self.hCam, ctypes.c_uint16(0))
     
     def get_health_state(self):
@@ -486,7 +474,8 @@ class PCOCam(GenericCam):
         return out
 
     def _cam_init(self):
-        self._dll = ctypes.WinDLL(self.dllpath)
+        if self._dll is None:
+            self._dll = ctypes.WinDLL(self.dllpath)
         self.nframes.value = 0
         self.lastframeid = -1
         ret = self.camopen(self.cam_id)
@@ -507,7 +496,6 @@ class PCOCam(GenericCam):
         self._dll.PCO_SetTimestampMode(self.hCam,ctypes.c_uint16(1))
         self.camera_ready.set()
         self.nframes.value = 0
-        #self.stop_trigger.clear()
         self.datestart = datetime.now()
         
     def _cam_startacquisition(self):
@@ -648,7 +636,7 @@ class PCOCam(GenericCam):
     #
     
     def _cam_close(self):
-        display('PCO [{0}] - Stopping acquisition.'.format(self.cam_id))
+        display('PCO [{0}] - Closing camera.'.format(self.cam_id))
         self.acquisitionstop()
         self.disarm()
         ret = self.camclose()
@@ -657,5 +645,3 @@ class PCOCam(GenericCam):
         if self.was_saving:
             self.was_saving = False
             self.queue.put(['STOP'])
-        display('PCO {0} - Close event: {1}'.format(self.cam_id,
-                                                    self.close_event.is_set()))

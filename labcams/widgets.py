@@ -142,7 +142,7 @@ class RecordingControlWidget(QWidget):
         form = QFormLayout()
 
         info = '''Set the name of the experiment.
-        Datapath is relative to the folder specified in the preferences.
+        Datapath is relative to the folder specified in the preference.
         Can be set via UDP (expname=my_experiment/name) or ZMQ (dict(action='expname',value='my_experiment/name'))
 '''
         self.expname = ''
@@ -160,13 +160,13 @@ class RecordingControlWidget(QWidget):
         w.setLayout(l)
         self.camTriggerToggle = QCheckBox()
         self.camTriggerToggle.setChecked(self.parent.hardware_trigger_event.is_set())
-        self.camTriggerToggle.stateChanged.connect(self.toggleTriggered)
+        self.camTriggerToggle.stateChanged.connect(self.toggleHardwareTriggered)
         label = QLabel("Hardware trigger: ")
         label.setToolTip(info)
         info = '''Toggle the hardware trigger mode on cameras that support it.
 This will can be differently configured for different cameras.'''
         self.camTriggerToggle.setToolTip(info)
-        l.addRow(label,self.camTriggerToggle)
+        #l.addRow(label,self.camTriggerToggle) # skipping harware trigger for now.
 
         self.saveButton = QPushButton('Acquire')
         info = '''The button turns off the camera, starts saving and starts the camera. 
@@ -210,7 +210,7 @@ If the camera is saving this stops the camera.'''
                 self.saveButton.setText('Acquire')
         self.saveButton.clicked.connect(saveButton)
         #self.saveButton
-        self.softTriggerToggle.setChecked(self.parent.software_trigger)
+        self.softTriggerToggle.setChecked(False)
         self.softTriggerToggle.stateChanged.connect(
             self.toggleSoftwareTriggered)
         label = QLabel("Software trigger: ")
@@ -249,57 +249,45 @@ If the camera is saving this stops the camera.'''
         if not self.expname == filename:
             self.parent.set_experiment_name(filename)
             self.expname = filename
-
         
     def toggleSoftwareTriggered(self,value):
-        display('Software trigger pressed [{0}]'.format(value))
+        display('[labcams] Software trigger [{0}]'.format(value))
         if value:
-            if hasattr(self.parent,'excitation_trigger'):
-                self.parent.excitation_trigger.arm()
-                display('Cam stim trigger armed.')
             for cam in self.parent.cams:
-                cam.start_trigger.set()
+                cam.start_acquisition()
                 if hasattr(cam.cam,'analog_channels'):
                     display('Sleeping for 1 second for the DAQ to record.')
                     sleep(1)
+            tstart[0] = time.time()
         else:
             for cam in self.parent.cams[::-1]:
                 if hasattr(cam.cam,'analog_channels'):
                     display('Sleeping for 1 second for the DAQ to record.')
                     sleep(1)
-                cam.start_trigger.clear()
-            if hasattr(self.parent,'excitation_trigger'):
-                self.parent.excitation_trigger.disarm()
-                display('Cam stim trigger disarmed.')
-        tstart[0] = time.time()
+                cam.stop_acquisition()
+            camready = 0
+            while camready != len(self.parent.cams):
+                camready = np.sum([cam.camera_ready.is_set() for cam in self.parent.cams])
+            display('[labcams] - All cameras ready to be triggered.')
 
-    def toggleTriggered(self,value):
+
+    def toggleHardwareTriggered(self,value):
         update_shared_date()
         display('Hardware trigger mode pressed [{0}]'.format(value))
+        if self.parent.save_on_start:
+            self.checkUpdateFilename()
         if value:
             self.parent.hardware_trigger_event.set()
+            self.recController.softTriggerToggle.setChecked(True)
+            self.recController.saveOnStartToggle.setChecked(True)
+            tstart[0] = time.time()
         else:
             #self.toggleSaveOnStart(False)
             # save button does not get unticked (this is a bug)
-            if self.saveOnStartToggle.isChecked():
-                self.save_on_start = False
-                self.saveOnStartToggle.setCheckState(Qt.Unchecked)
             self.parent.hardware_trigger_event.clear()
-        for cam in self.parent.cams[::-1]:
-            if hasattr(cam,'analog_channels'):
-                display('Sleeping for 1 second for the DAQ to record.')
-                sleep(1)
-            cam.stop_acquisition()
-        if self.parent.save_on_start:
-            self.checkUpdateFilename()
-        sleep(.5)
-        self.parent.trigger_cams(save = self.parent.save_on_start)
-        tstart[0] = time.time()
+            self.recController.softTriggerToggle.setChecked(False)
+            self.recController.saveOnStartToggle.setChecked(False)
         
-    #def setExpName(self):
-    #    expname = self.experimentNameEdit.text()
-        #self.parent.setExperimentName(str(name))
-
     def toggleSaveOnStart(self,state):
         update_shared_date()
         self.parent.save_on_start = state
@@ -312,7 +300,6 @@ If the camera is saving this stops the camera.'''
                     self.experimentNameEdit.setDisabled(True)
                 else:
                     self.experimentNameEdit.setDisabled(False)
-                    #writer.write.clear()
         
 class CamWidget(QWidget):
     def __init__(self,
@@ -529,7 +516,7 @@ class CamWidget(QWidget):
         
     def toggle_reference(self,filename = None):
         if self.parameters['reference_channel'] is None:
-            if filename is None:
+            if not type(filename) is str:
                 filename = str(QFileDialog().getOpenFileName(self,'Load reference image')[0])
                 print('Selected {0}'.format(filename))
             else:
@@ -541,11 +528,15 @@ class CamWidget(QWidget):
             self.parameters['reference_channel'] = None
             return
         if type(filename) is str and os.path.exists(filename):
-            from tifffile import imread
+            from skimage.io import imread
+            from skimage.transform import resize
+            
+            #from tifffile import imread
             display(filename)
             reference = imread(filename).squeeze()
             if len(reference.shape) > 2:
-                reference = reference.mean(axis = 0)
+                reference = reference.mean(axis = -1)
+            reference = resize(reference,output_shape = self.view.image.shape)
             self.parameters['reference_channel'] = reference
             self.reference_toggle.checkbox.setChecked(True)
 

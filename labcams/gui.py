@@ -147,8 +147,6 @@ class LabCamsGUI(QMainWindow):
             self.cams.append(Camera(**cam,
                                     hardware_trigger_event = self.hardware_trigger_event))
             if hasattr(self.cams[-1],'excitation_trigger'):
-                self.cams[-1].excitation_trigger.start()
-                self.cams[-1].excitation_trigger.disarm()
                 self.excitation_trigger = self.cams[-1].excitation_trigger
                 self.excitation_trigger_widget = CamStimTriggerWidget(
                     ino = self.cams[-1].excitation_trigger,
@@ -166,9 +164,7 @@ class LabCamsGUI(QMainWindow):
         self.initUI()
         
         self.camerasRunning = False
-        if hasattr(self.cams[-1],'excitation_trigger'):
-            self.cams[-1].excitation_trigger.arm()
-
+        
         for cam in self.cams[::-1]:
             cam.start()
         
@@ -176,9 +172,9 @@ class LabCamsGUI(QMainWindow):
         while camready != len(self.cams):
             camready = np.sum([cam.camera_ready.is_set() for cam in self.cams])
         display('[labcams] - Initialized cameras.')
-
-        self.trigger_cams(soft_trigger = self.software_trigger,
-                         save = self.save_on_start)
+        
+        self.recController.saveOnStartToggle.setChecked(self.save_on_start)
+        self.recController.softTriggerToggle.setChecked(self.software_trigger)
 
     def set_experiment_name(self,expname):
         # Makes sure that the experiment name has the right slashes.
@@ -212,28 +208,19 @@ class LabCamsGUI(QMainWindow):
             message = dict(action=msg[0])
             if len(msg) > 1:
                 message = dict(message,value=msg[1])
-            #display('Server received message: {0}'.format(message))
-            
+            display('Server received message: {0}'.format(message))            
         if message['action'].lower() == 'expname':
             self.set_experiment_name(message['value'])
             self.server_reply(msg = message['action'].lower(),address = address)
-        elif message['action'].lower() in ['softtrigger','software_trigger']:
+        elif message['action'].lower() in ['softtrigger','software_trigger','settrigger','trigger']:
             self.recController.softTriggerToggle.setChecked(
                 int(message['value']))
-            self.server_reply(msg = 'software_trigger',address = address)
+            self.server_reply(msg = 'trigger',address = address)
         elif message['action'].lower() == ['hardtrigger','hardware_trigger']:
-            for cam in self.cams:
-                cam.stop_acquisition()
-            # make sure all cams closed
-            for c,cam in enumerate(self.cams):
-                cam.stop_saving()
-            self.trigger_cams(soft_trigger = self.software_trigger,save = True)
-            self.server_reply(msg = 'save_hardwaretrigger',address = address) 
-        elif message['action'].lower() == ['settrigger','trigger']:
             self.recController.camTriggerToggle.setChecked(
                 int(message['value']))
-            self.server_reply(msg = 'settrigger',address = address) 
-        elif message['action'].lower() in ['setmanualsave','manualsave','acquire']:
+            self.server_reply(msg = 'save_hardwaretrigger',address = address) 
+        elif message['action'].lower() in ['save','setmanualsave','manualsave','acquire']:
             self.recController.saveOnStartToggle.setChecked(
                 int(message['value']))
             self.server_reply(msg = 'save',address = address) 
@@ -270,7 +257,6 @@ class LabCamsGUI(QMainWindow):
                 files = glob(pjoin(foldername,'*_{0}.tif').format(
                     cam.recorder_parameters['dataname']))
                 if len(files):
-                    display('{0} NOW'.format(files))
                     self.camwidgets[icam].toggle_reference(files[0])
             self.server_reply(msg = 'load_reference',address = address)
         elif message['action'].lower() == 'hide_reference':
@@ -284,27 +270,6 @@ class LabCamsGUI(QMainWindow):
             self.udpsocket.sendto(b'ok=bye',address)
             self.server_reply(msg = 'bye',address = address) 
             self.close()
-
-
-    def trigger_cams(self,soft_trigger = True, save=False):
-        # stops previous saves if there were any
-        display("Waiting for the cameras to be ready.")
-        for c,cam in enumerate(self.cams):
-            while not cam.camera_ready.is_set():
-                sleep(0.001)
-            display('Camera [{0}] ready.'.format(c))
-        display('[labcams] Save ({0}) and trigger'.format(save))
-        for c,(cam,flg) in enumerate(zip(self.cams,
-                                         self.saveflags)):
-            if flg:
-                cam.set_saving(save)
-        if soft_trigger:
-            for c,cam in enumerate(self.cams):                    
-                cam.start_acquisition()
-                if hasattr(cam,'analog_channels'):
-                    display('[labcams] Sleeping for 1 second for the DAQ to record.')
-                    sleep(1)
-            display('[labcams] Software triggered cameras.')
         
     def experiment_menu_trigger(self,q):
         if q.text() == 'Set refresh time':
@@ -407,11 +372,7 @@ class LabCamsGUI(QMainWindow):
             self.server_timer.stop()
             if hasattr(self,'udpsocket'):
                 self.udpsocket.close()
-        self.timer.stop()
-        if hasattr(self,'excitation_trigger'):
-            self.excitation_trigger.disarm()
-            self.excitation_trigger.close()
-            
+        self.timer.stop()            
         display('Acquisition stopped (close event).')
         for cam in self.cams:
             cam.stop_acquisition()
