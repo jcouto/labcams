@@ -370,7 +370,7 @@ class LabCamsGUI(QMainWindow):
     def closeEvent(self,event):
         if hasattr(self,'server_timer'):
             self.server_timer.stop()
-            if hasattr(self,'udpsocket'):
+            if hasattr(self,'udpsocket') and not self.udpsocket is None:
                 self.udpsocket.close()
         self.timer.stop()            
         display('Acquisition stopped (close event).')

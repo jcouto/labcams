@@ -785,6 +785,9 @@ Please install nidaqmx using pip and NIDAQmx from the National Instruments websi
 ''')
 
         self.cam = BaslerCam(cam_id = self.cam_id,
+                             start_trigger = self.start_trigger,
+                             stop_trigger = self.stop_trigger,
+                             save_trigger = self.save_trigger,
                              out_q = self.recorder_q,
                              **parameters)
 

@@ -33,7 +33,7 @@ class BaslerCam(GenericCam):
                  gamma = None,
                  roi = [],
                  pxformat = 'Mono8',
-                 triggerSource = np.uint16(0),
+                 trigger_source = np.uint16(0),
                  outputs = [],
                  recorderpar=None,
                  **kwargs):
@@ -56,20 +56,21 @@ class BaslerCam(GenericCam):
         self.binning = binning
         self.exposure = exposure
         self.frame_rate = frame_rate
-        self.fs.value = self.frame_rate
+        if not self.frame_rate is None:
+            self.fs.value = self.frame_rate
 
         self.gain = gain
         self.roi = roi
         frame = self.get_one()
-        self.h = frame.shape[0]
-        self.w = frame.shape[1]
-        self.nchan = 1
+        self.h.value = frame.shape[0]
+        self.w.value = frame.shape[1]
+        self.nchan.value = 1
         if len(frame.shape) == 3:
-            self.nchan = frame.shape[2] 
+            self.nchan.value = frame.shape[2] 
         self.dtype = frame.dtype
         self._init_variables(self.dtype)
 
-        self.img[:] = np.reshape(frame,self.img.shape)[:]
+        #self.img[:] = np.reshape(frame,self.img.shape)[:]
         display("[Basler {0}] - got info from camera.".format(self.cam_id))
 
     def cam_info(self,cam):
@@ -119,6 +120,10 @@ class BaslerCam(GenericCam):
         self.exposure = exposure
         if not self.cam is None:
             self.cam.ExposureTime = self.exposure
+            self.frame_rate = self.cam.AcquisitionFrameRate.GetValue()
+            if not self.frame_rate is None:
+                self.fs.value = self.frame_rate
+
             
     def set_gain(self,gain = 1):
         '''Set the gain is in dB'''
