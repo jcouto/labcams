@@ -514,29 +514,39 @@ class CamWidget(QWidget):
         self.reference_toggle.link(self.toggle_reference)
         self.addAction(self.reference_toggle)
         
-    def toggle_reference(self,filename = None):
+    def toggle_reference(self,value = None,filename = None):
         if self.parameters['reference_channel'] is None:
-            if not type(filename) is str:
-                filename = str(QFileDialog().getOpenFileName(self,'Load reference image')[0])
+            if filename is None:
+                filename = str(QFileDialog().getOpenFileName(
+                    self,
+                    'Load reference image')[0])
                 print('Selected {0}'.format(filename))
             else:
+
+                self.reference_toggle.checkbox.disconnect()
                 self.reference_toggle.checkbox.setChecked(True)
+                self.reference_toggle.link(self.toggle_reference)
                 self.reference_toggle.value = True
         else:
+            self.reference_toggle.checkbox.disconnect()
             self.reference_toggle.checkbox.setChecked(False)
+            self.reference_toggle.link(self.toggle_reference)
             self.reference_toggle.value = False
             self.parameters['reference_channel'] = None
-            return
+            return        
         if type(filename) is str and os.path.exists(filename):
-            from skimage.io import imread
-            from skimage.transform import resize
-            
-            #from tifffile import imread
+            try:
+                from skimage.io import imread
+                from skimage.transform import resize
+            except:
+                from tifffile import imread
             display(filename)
             reference = imread(filename).squeeze()
             if len(reference.shape) > 2:
                 reference = reference.mean(axis = -1)
-            reference = resize(reference,output_shape = self.view.image.shape)
+            if 'resize' in dir(): # reshape if possible/needed
+                reference = resize(reference,
+                                   output_shape = self.view.image.shape)
             self.parameters['reference_channel'] = reference
             self.reference_toggle.checkbox.setChecked(True)
 

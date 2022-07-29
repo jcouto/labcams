@@ -257,11 +257,11 @@ class LabCamsGUI(QMainWindow):
                 files = glob(pjoin(foldername,'*_{0}.tif').format(
                     cam.recorder_parameters['dataname']))
                 if len(files):
-                    self.camwidgets[icam].toggle_reference(files[0])
+                    self.camwidgets[icam].toggle_reference(filename = files[0])
             self.server_reply(msg = 'load_reference',address = address)
         elif message['action'].lower() == 'hide_reference':
             for icam,cam in enumerate(self.cams):
-                self.camwidgets[icam].toggle_reference('')
+                self.camwidgets[icam].toggle_reference(filename = '')
             self.server_reply(msg = 'hide_reference',address = address) 
         elif message['action'].lower() == 'ping':
             display('Server got PING.')
