@@ -494,15 +494,16 @@ Available serials are:
         #else:
         #   display('PointGrey [{0}] - Triggered mode OFF.'.format(self.cam_id))
             
-        # Set GPIO lines 2 and 3 to input by default 
-        self.cam.LineSelector.SetValue(PySpin.LineSelector_Line2)
-        self.cam.LineMode.SetValue(PySpin.LineMode_Input)
-        self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
-        self.cam.LineMode.SetValue(PySpin.LineMode_Input)
+        # Set GPIO lines 2 and 3 to input by default
         if 'Blackfly S' in self.cammodel: # on Blackfly S turn off 3.3V output on line 2 (Used for sync)
             self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line2'))
             self.cam.V3_3Enable.SetValue(False)
-            
+        elif not 'Blackfly' in self.cammodel:
+            self.cam.LineSelector.SetValue(PySpin.LineSelector_Line2)
+            self.cam.LineMode.SetValue(PySpin.LineMode_Input)
+            self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
+            self.cam.LineMode.SetValue(PySpin.LineMode_Input)
+
         if not self.hardware_trigger == '':
             d = '3' # line 3 is the default hardware trigger
             if self.hardware_trigger[-1].isdigit():
