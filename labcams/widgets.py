@@ -25,7 +25,6 @@ from PyQt5.QtWidgets import (QWidget,
                              QTextEdit,
                              QLineEdit,
                              QComboBox,
-                             QFileDialog,
                              QSlider,
                              QPushButton,
                              QLabel,
@@ -514,12 +513,14 @@ class CamWidget(QWidget):
         self.reference_toggle.link(self.toggle_reference)
         self.addAction(self.reference_toggle)
         
-    def toggle_reference(self,value = None,filename = None):
+    def toggle_reference(self,filename):
         if self.parameters['reference_channel'] is None:
-            if filename is None:
-                filename = str(QFileDialog().getOpenFileName(
+            if not type(filename) is str:
+                fdlg = QFileDialog().getOpenFileName(
                     self,
-                    'Load reference image')[0])
+                    'Load reference image')
+                filename = str(fdlg[0])
+
                 print('Selected {0}'.format(filename))
             else:
 
