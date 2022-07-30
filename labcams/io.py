@@ -185,7 +185,7 @@ class GenericWriter(object):
         logfname = filename.replace('{extension}'.format(
             **self.path_keys),'.camlog')
         
-        self.logfile = open(logfname,'w')
+        self.logfile = open(logfname,'w',encoding = 'utf-8')
         self.logfile.write('# Camera: {0} log file'.format(
             self.dataname) + '\n')
         self.logfile.write('# Date: {0}'.format(
@@ -952,7 +952,7 @@ class TiffCamWriter(GenericWriter):
 def parseCamLog(fname, readTeensy = False):
     logheaderkey = '# Log header:'
     comments = []
-    with open(fname,'r') as fd:
+    with open(fname,'r',encoding = 'utf-8') as fd:
         for line in fd:
             if line.startswith('#'):
                 line = line.strip('\n').strip('\r')
