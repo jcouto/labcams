@@ -130,6 +130,7 @@ class PointGreyCam(GenericCam):
                  gamma = None,
                  roi = [],
                  pxformat = 'Mono8',
+                 exposure_auto = False,
                  trigger_source = np.uint16(0),
                  outputs = [],
                  hardware_trigger = None,
@@ -145,6 +146,7 @@ class PointGreyCam(GenericCam):
         self.hardware_trigger = hardware_trigger
         if self.hardware_trigger is None:
             self.hardware_trigger = ''
+        self.exposure_auto = exposure_auto
         self.serial = serial
         self.flirid = None
         if not serial is None:
@@ -422,16 +424,28 @@ Available serials are:
         handling_mode = PySpin.CEnumerationPtr(s_node_map.GetNode('StreamBufferHandlingMode'))
         handling_mode_entry = handling_mode.GetEntryByName('OldestFirst')
         handling_mode.SetIntValue(handling_mode_entry.GetValue())
-
+        # Set auto buffer count
+        buffer_mode = PySpin.CEnumerationPtr(s_node_map.GetNode('StreamBufferCountMode'))
+        buffer_mode.SetIntValue(PySpin.StreamBufferCountMode_Auto)
+        
         # Set the trigger and exposure off so to be able to set other parameters
         self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
         self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
-        
         self.cam.ChunkModeActive.SetValue(True)
-        #self.cam.ChunkSelector.SetValue(PySpin.ChunkSelector_ExposureLineStatusAll)
-        #self.cam.ChunkEnable.SetValue(True)
-        self.cam.ChunkSelector.SetValue(PySpin.ChunkSelector_ExposureTime)
+        try:
+            self.chunk_has_line_status = True
+            self.cam.ChunkSelector.SetValue(PySpin.ChunkSelector_ExposureEndLineStatusAll)
+            self.cam.ChunkEnable.SetValue(True)
+        except:
+            self.chunk_has_line_status = False
+        try: # doesnt exist on chamaeleon?
+            self.cam.ChunkSelector.SetValue(PySpin.ChunkSelector_FrameID)
+            self.cam.ChunkEnable.SetValue(True)
+        except:
+            pass
+        self.cam.ChunkSelector.SetValue(PySpin.ChunkSelector_Timestamp)
         self.cam.ChunkEnable.SetValue(True)
+
         #self.cam.ChunkSelector.SetValue(PySpin.ChunkSelector_FrameCounter)
         self.nodemap_tldevice = self.cam.GetTLDeviceNodeMap()
         serial = PySpin.CStringPtr(
@@ -547,8 +561,9 @@ Available serials are:
                 self.cam.LineMode.SetValue(PySpin.LineMode_Output)
                 self.cam.LineSource.SetValue(PySpin.LineSource_ExposureActive)
         display('PointGrey [{0}] - Started acquisition.'.format(self.cam_id))
+        self.cam.AcquisitionStart()
         
-    def _cam_stopacquisition(self):
+    def _cam_stopacquisition(self, clean_buffers = True):
         '''stop camera acq'''
         if not self.hardware_trigger == '':
             #if 'out_line' in self.hardware_trigger:
@@ -577,45 +592,61 @@ Available serials are:
                     else:
                         # Send it to the recorder
                         self._handle_frame(frame,metadata)
-        self.cam.EndAcquisition()
+        self.cam.AcquisitionStop()
         display('[PointGrey {0}] - stopped acquisition.'.format(self.cam_id))
         self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
+        i = 0
+        while clean_buffers:
+            # check if there are any frame buffers missing.
+            frame,metadata = self._cam_loop()
+            if frame is None:
+                break
+            #self._handle_frame(frame,metadata)
+            i+=1
+        # Collect all frames
+        display('[PointGrey {0}] - cleared {0} buffers.'.format(self.cam_id,i))
+        self.cam.EndAcquisition()
         
     def _cam_loop(self):
         try:
-            img = self.cam.GetNextImage(100,0)
+            img = self.cam.GetNextImage(1,0)
         except PySpin.SpinnakerException as ex:
             if '-1011' in str(ex):
                 img = None
             else:
-                display('[PointGrey] - Error: %s' % ex)
+                display('[PointGrey {0}] - Error: {1}'.format(self.cam_id,ex))
+        frame = None
+        frameID = None
+        timestamp = None
+        linestat = None
         if not img is None:
             if img.IsIncomplete():
-                print('Image incomplete with image status %d ...' % image_result.GetImageStatus())
+                display('[PointGrey {0}]Image incomplete with image status {1} ...'.format(
+                    self.cam_id,
+                    img.GetImageStatus()))
             else:
                 frame = img.GetNDArray()
             frameID = img.GetFrameID()
             timestamp = img.GetTimeStamp()*1e-9
             try:
-                linestat = self.cam.LineStatusAll()
+                if self.chunk_has_line_status:
+                    linestat = img.GetExposureLineStatusAll()
+                else:
+                    linestat = self.cam.LineStatusAll()
             except:
                 display('Error reading line status? Check PointGrey Cam {0}'.format(self.cam_id))
                 linestat = self.cam.LineStatusAll()
                 
             #frameinfo = img.GetChunkData()
             #linestat = frameinfo.GetFrameID()
-            #display('Line {0} {1}'.format(linestat,frameinfo.GetExposureLineStatusAll())) # 
+            #display('Line {0} {1}'.format(linestat,frameinfo.GetExposureLineStatusAll())) #
             img.Release()
-            #self.nframes.value = frameID
-            return frame,(frameID,timestamp,linestat)
-        else:
-            return None,(None,None,None)
+        return frame,(frameID,timestamp,linestat)
 
     def _cam_close(self):
         if not self.cam is None:
             try:
                 self._cam_stopacquisition()
-                display('PointGrey [{0}] - Stopped acquisition.'.format(self.cam_id))          
             except:
                 pass
             try:

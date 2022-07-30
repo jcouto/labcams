@@ -148,7 +148,6 @@ class GenericCam(Process):
     def _recorder_shared_mem_handle(self,frame,metadata):
         self.queue.put((metadata[0], metadata))
 
-    
     def _stop_recorder(self):
         if self.recorder is None:
             display('[Camera {0}] Sending stop signal to the recorder.'.format(self.cam_id))
