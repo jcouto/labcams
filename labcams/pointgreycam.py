@@ -273,8 +273,8 @@ Available serials are:
             img.Release()
         except PySpin.SpinnakerException as ex:
             display('Point Grey [{0}] - Error: {1}'.format(self.cam_id,ex))
-
-        self._cam_close()
+        self.cam.EndAcquisition()
+        self._cam_close(do_stop = False)
         self.cam = None
         self.cam_list = []
         self.cambuf = None
@@ -424,10 +424,12 @@ Available serials are:
         handling_mode = PySpin.CEnumerationPtr(s_node_map.GetNode('StreamBufferHandlingMode'))
         handling_mode_entry = handling_mode.GetEntryByName('OldestFirst')
         handling_mode.SetIntValue(handling_mode_entry.GetValue())
-        # Set auto buffer count
-        buffer_mode = PySpin.CEnumerationPtr(s_node_map.GetNode('StreamBufferCountMode'))
-        buffer_mode.SetIntValue(PySpin.StreamBufferCountMode_Auto)
+      
+        buffer_count = PySpin.CIntegerPtr(s_node_map.GetNode('StreamBufferCountManual'))
+        buffer_count.SetValue(int(800))
         
+        buffer_mode = PySpin.CEnumerationPtr(s_node_map.GetNode('StreamBufferCountMode'))
+        buffer_mode.SetIntValue(PySpin.StreamBufferCountMode_Manual)
         # Set the trigger and exposure off so to be able to set other parameters
         self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
         self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
@@ -565,54 +567,48 @@ Available serials are:
         
     def _cam_stopacquisition(self, clean_buffers = True):
         '''stop camera acq'''
+
         if not self.hardware_trigger == '':
-            #if 'out_line' in self.hardware_trigger:
+            if 'in_line' in self.hardware_trigger:
+                # to make sure all triggers are acquired (stop only when all frames have been received).
+                time.sleep(0.2) # sleep a couple of ms before stopping                
+        self.cam.AcquisitionStop()
+        self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
+        if not self.hardware_trigger == '':
             d = '3'
             if self.hardware_trigger[-1].isdigit():
                 d = self.hardware_trigger[-1]
             if 'out_line' in self.hardware_trigger:
                 # Reading the last image and stopping the camera (To clear the buffer).
-                if hasattr(self,'img'): # or not self.cam.AcquisitionStatus.GetValue():
-                    frame,metadata = self._cam_loop()
-                    if not frame is None:
-                        self._handle_frame(frame,metadata)
                 if not 'Blackfly S' in self.cammodel: # can't set line 1 to input on Blackfly S
                     self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line' + d))
                     self.cam.LineMode.SetValue(PySpin.LineMode_Input) # stop output
-            elif 'in_line' in self.hardware_trigger:
-                # to make sure all triggers are acquired (stop only when all frames have been received).
-                is_done = False
-                while not is_done:
-                    if not hasattr(self,'img'):# or not self.cam.AcquisitionStatus.GetValue():
-                        break
-                    frame,metadata = self._cam_loop()
-                    if frame is None:
-                        is_done=True
-                        break
-                    else:
-                        # Send it to the recorder
-                        self._handle_frame(frame,metadata)
-        self.cam.AcquisitionStop()
         display('[PointGrey {0}] - stopped acquisition.'.format(self.cam_id))
-        self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
         i = 0
         while clean_buffers:
             # check if there are any frame buffers missing.
             frame,metadata = self._cam_loop()
             if frame is None:
                 break
-            #self._handle_frame(frame,metadata)
+            self._handle_frame(frame,metadata)
             i+=1
         # Collect all frames
         display('[PointGrey {0}] - cleared {0} buffers.'.format(self.cam_id,i))
-        self.cam.EndAcquisition()
-        
+        try:
+            self.cam.EndAcquisition()
+        except PySpin.SpinnakerException as ex:
+            if '-1003' in str(ex):
+                pass
+            else:
+                print(ex)
+
     def _cam_loop(self):
+        img = None
         try:
             img = self.cam.GetNextImage(1,0)
         except PySpin.SpinnakerException as ex:
             if '-1011' in str(ex):
-                img = None
+                pass
             else:
                 display('[PointGrey {0}] - Error: {1}'.format(self.cam_id,ex))
         frame = None
@@ -643,12 +639,10 @@ Available serials are:
             img.Release()
         return frame,(frameID,timestamp,linestat)
 
-    def _cam_close(self):
+    def _cam_close(self, do_stop = True):
         if not self.cam is None:
-            try:
+            if do_stop:
                 self._cam_stopacquisition()
-            except:
-                pass
             try:
                 self.cam.DeInit()
             except:

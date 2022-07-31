@@ -156,11 +156,12 @@ class GenericCam(Process):
             self.recorder.close_run()
 
     def get_img(self,frame_index = None):
-        self.membuffer_lock.acquire()
+        # no lock needed when reading because it is in update buffer?
+        #self.membuffer_lock.acquire() 
         if frame_index is None:
             frame_index = self.nframes.value
         img = self.imgs[frame_index % self.nbuffers.value]
-        self.membuffer_lock.release()
+        #self.membuffer_lock.release()
         return img
 
     def stop_saving(self):
@@ -233,7 +234,7 @@ class GenericCam(Process):
                     self._handle_recorder(frame,metadata)
         elif self.was_saving:
             self._stop_recorder()
-            self.was_saving = False            
+            self.was_saving = False
         if not frame is None:
             frameID,timestamp = metadata[:2]
             if not frameID == self.lastframeid:
@@ -248,8 +249,10 @@ class GenericCam(Process):
         
     def _update_buffer(self,frame,frameID):
         ''' Updates buffer for a specific frame ID'''
-        self.membuffer_lock.acquire()
-        self.nframes.value = frameID
+        lock = self.membuffer_lock.acquire(timeout = 0.1)
+        if not lock:
+            display('Failed to secure lock')
+            return
         idx = frameID % self.nbuffers.value
         if len(frame.shape) == 2:
             self.imgs[idx,:,:,0] = frame[:]
@@ -316,7 +319,7 @@ class GenericCam(Process):
             time.sleep(0.001)
             if self.close_event.is_set() or self.stop_trigger.is_set():
                 break
-            self._handle_frame(None,None) # to stop saving while waiting for triggers
+            self._handle_frame(None,(None,None)) # to stop saving while waiting for triggers
         if self.close_event.is_set() or self.stop_trigger.is_set():
             return
         self.camera_ready.clear()
