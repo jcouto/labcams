@@ -16,7 +16,7 @@
 
 import PySpin
 from .cams import *
-NBUFFERS = 300
+N_STREAM_BUFFERS = 300 # for high-speed multicamera acquisition
 # Adapted from point grey spinnaker examples 
 
 def pg_device_info(nodemap):
@@ -429,7 +429,8 @@ Available serials are:
         handling_mode.SetIntValue(handling_mode_entry.GetValue())
       
         buffer_count = PySpin.CIntegerPtr(s_node_map.GetNode('StreamBufferCountManual'))
-        buffer_count.SetValue(NBUFFERS)
+        maxbuffers = PySpin.CIntegerPtr(s_node_map.GetNode('StreamBufferCountMax'))
+        buffer_count.SetValue(int(np.min([N_STREAM_BUFFERS,maxbuffers.GetValue()])))
         
         buffer_mode = PySpin.CEnumerationPtr(s_node_map.GetNode('StreamBufferCountMode'))
         buffer_mode.SetIntValue(PySpin.StreamBufferCountMode_Manual)
