@@ -267,6 +267,7 @@ If the camera is saving this stops the camera.'''
             camready = 0
             while camready != len(self.parent.cams):
                 camready = np.sum([cam.camera_ready.is_set() for cam in self.parent.cams])
+                QApplication.processEvents()
             display('[labcams] - All cameras ready to be triggered.')
 
 
