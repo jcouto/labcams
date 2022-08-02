@@ -601,7 +601,7 @@ Available serials are:
         try:
             self.cam.EndAcquisition()
         except PySpin.SpinnakerException as ex:
-            if not '-1003' in str(ex) and not '-1002' in str(ex):
+            if not '-1003' in str(ex) and not '-1002' in str(ex) and not '-1010' in str(ex):
                 print(ex)
 
     def _cam_loop(self):
@@ -649,7 +649,7 @@ Available serials are:
             try:
                 self.cam.DeInit()
             except PySpin.SpinnakerException as ex:
-                if not '-1010' in ex and not '-1002' in ex:
+                if not '-1010' in ex and not '-1002' in ex and not '-1010' in str(ex):
                     display('[PointGrey] Error: %s' % ex)
             del self.cam            
         if not self.drv is None:

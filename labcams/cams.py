@@ -130,6 +130,7 @@ class GenericCam(Process):
                 display('Recorder {0} not implemented'.format(
                     self.recorderpar['recorder']))
             if 'rec' in dir():
+                print(extrapar)
                 self.recorder = rec(self.cam,
                                     filename = self.recorderpar['filename'],
                                     pathformat = self.recorderpar['pathformat'],
@@ -491,7 +492,6 @@ class Camera(object):
             self.recorder_parameters['method'] = 'queue'
         if not 'format' in recorder.keys():
             self.recorder_parameters['format'] = 'tiff'
-            
         if 'noqueue' in recorder['method']:
             recorderpar = self.recorder_parameters
         else:

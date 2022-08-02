@@ -504,7 +504,8 @@ class FFMPEGWriter(GenericWriterProcess):
                  incrementruns=True,
                  hwaccel = None,
                  preset = None,
-                 compression=0,
+                 compression=None,
+                 bitrate = '5M',
                  **kwargs):
         self.extension = '.avi'
         super(FFMPEGWriter,self).__init__(cam = cam,
@@ -555,8 +556,8 @@ class FFMPEGWriter(GenericWriterProcess):
                                  '-rc-lookahead':'20',
                                  '-i_qfactor': '0.75',
                                  '-b_qfactor': '1.1',
-                                 '-maxrate':'10M',
-                                 '-b:v':'5M',
+                                 '-maxrate':'25M',
+                                 '-b:v':bitrate,
                                  '-threads':str(1)}
                 preset = 'NA'
                 if not self.preset is None:
@@ -569,19 +570,20 @@ class FFMPEGWriter(GenericWriterProcess):
                     if type(self.compression) is str:
                         if ':' in self.compression: # then parse the bitrate
                             comp = self.compression.split(':')
-                    else:
-                        comp = [str(self.compression)] 
-                    self.doutputs['-cq:v'] = comp[0]
-                    #self.doutputs['-rc:v'] = 'vbr_hq'
-                    if len(comp)>1:
-                        self.doutputs['-b:v'] = comp[1]
-                        
-                    
+                        else:
+                            comp = [str(self.compression)]
+                        self.compression = comp[0]
+                        self.doutputs['-cq:v'] = comp[0]
+                        #self.doutputs['-rc:v'] = 'vbr_hq'
+                        if len(comp)>1:
+                            self.doutputs['-b:v'] = comp[1]
+                            bitrate = comp[1]
         self.hwaccel = hwaccel
-        display('Using compression (preset {0}) {1} for the {2} FFMPEG encoder.'.format(
+        display('[FFMPEG] - Using compression (preset {0}) {1}  - bitrate {3} for the {2} encoder.'.format(
             preset,
             self.compression,
-            hwaccel))
+            hwaccel,
+            bitrate))
         
     def close_file(self):
         if not self.fd is None:

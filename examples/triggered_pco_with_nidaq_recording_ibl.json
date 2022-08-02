@@ -16,12 +16,11 @@
 		"P0.7":"audio"
 	    },
 	    "analog": {
-		"ai0":"bpod",
-		"ai1":"bpod2"
+		"ai0":"bpod"
 	    },
 	    "format":"int16",
 	    "recorder": {
-		"subfolder":"raw_widefield_data"
+		"subfolder":"raw_sync_data"
 	    },
             "name": "sync"
         },
@@ -50,7 +49,7 @@
                "format":"ffmpeg",
                 "hwaccel":"nvidia",
 		"subfolder":"raw_video_data",
-                "compress": "17:3M"     
+                "compression": "15:4M"     
             },
             "hardware_trigger":"out_line2"
         },
@@ -67,7 +66,7 @@
                "format":"ffmpeg",
                 "hwaccel":"nvidia",
 		"subfolder":"raw_video_data",
-                "compress": "17:3M"     
+                "compression": "15:10M"     
             },
             "hardware_trigger":"out_line2"
         },
@@ -77,14 +76,14 @@
             "gain": 12,
             "gamma":1,
             "cam_id": 3,
-	    "binning":1,
+	    "binning":2,
             "serial":20440050,
             "name": "body_cam",
             "recorder":{
                "format":"ffmpeg",
                 "hwaccel":"nvidia",
 		"subfolder":"raw_video_data",
-                "compress": "17:3M"     
+                "compression": "15:8M"     
             },
             "hardware_trigger":"out_line2"
         } 
