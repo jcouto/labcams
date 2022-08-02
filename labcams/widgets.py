@@ -180,16 +180,18 @@ If the camera is saving this stops the camera.'''
                 if not cam.writer is None:
                     fname = cam.writer.get_filename_path()
                     dataname = cam.writer.dataname
-                elif not cam.recorder is None:
+                elif hasattr(cam,'recorder') and not cam.recorder is None:
                     fname = cam.recorder.get_filename_path()
                     dataname = cam.recorder.dataname
                 else:
                     fname = None
                     dataname = 'snapshot'
-                fname = pjoin(os.path.dirname(fname),'snapshots',
-                              datetime.today().strftime('%Y%m%d_%H%M%S_{0}.tif'.format(dataname)))
-                display('[Snapshot] - {0}'.format(fname))
-                wid.saveImageFromCamera(filename=fname)
+                if not fname is None:
+                    fname = pjoin(os.path.dirname(fname),'snapshots',
+                                  datetime.today().strftime(
+                                      '%Y%m%d_%H%M%S_{0}.tif'.format(dataname)))
+                    display('[Snapshot] - {0}'.format(fname))
+                    wid.saveImageFromCamera(filename=fname)
         self.snapshotButton.clicked.connect(snapshot)
         self.saveOnStartToggle = QCheckBox()
         self.softTriggerToggle = QCheckBox()
