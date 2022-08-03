@@ -2,9 +2,8 @@
     "_comment1": "this is an example for using a Webcam.",
     "cams": [
         {
-	    "id":0,
+	    "cam_id":0,
             "Save": true,
-            "description": "facecam",
             "driver": "OpenCV",
             "name": "webcam"
         }

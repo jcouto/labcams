@@ -16,6 +16,7 @@
 
 import PySpin
 from .cams import *
+N_STREAM_BUFFERS = 300 # for high-speed multicamera acquisition
 # Adapted from point grey spinnaker examples 
 
 def pg_device_info(nodemap):
@@ -45,7 +46,8 @@ def pg_device_info(nodemap):
             print('[PointGrey] - Device control information not available.')
 
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        display('[PointGrey]')
+        print('\t\t Error: %s' % ex)
         result = False
     return result
 
@@ -110,7 +112,8 @@ def pg_image_settings(nodemap,X=None,Y=None,W=None,H=None,pxformat='Mono8'):
             display('[PointGrey] - Offset Y not available...')
 
     except PySpin.SpinnakerException as ex:
-        display('[PointGrey] Error: %s' % ex)
+        if not '-1010' in ex:
+            display('[PointGrey] Error: %s' % ex)
         return
     return
 
@@ -130,6 +133,7 @@ class PointGreyCam(GenericCam):
                  gamma = None,
                  roi = [],
                  pxformat = 'Mono8',
+                 exposure_auto = False,
                  trigger_source = np.uint16(0),
                  outputs = [],
                  hardware_trigger = None,
@@ -145,6 +149,7 @@ class PointGreyCam(GenericCam):
         self.hardware_trigger = hardware_trigger
         if self.hardware_trigger is None:
             self.hardware_trigger = ''
+        self.exposure_auto = exposure_auto
         self.serial = serial
         self.flirid = None
         if not serial is None:
@@ -199,7 +204,7 @@ Available serials are:
         self.dtype = frame.dtype
         self._init_variables(self.dtype)
 
-        display("Point Grey [{0}] - got info from camera.".format(self.cam_id))
+        display("[PointGrey {0}] - got info from camera.".format(self.cam_id))
 
     def cam_info(self,cam):
         cam_info = cam.getCameraInfo()
@@ -255,12 +260,12 @@ Available serials are:
         self._cam_init()
         node_acquisition_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionMode'))
         if not PySpin.IsAvailable(node_acquisition_mode) or not PySpin.IsWritable(node_acquisition_mode):
-            display('Point Grey [{0}] - Unable to set acquisition mode(enum retrieval). Aborting...'.format(self.cam_id))
+            display('[PointGrey {0}] - Unable to set acquisition mode(enum retrieval). Aborting...'.format(self.cam_id))
         # Retrieve entry node from enumeration node
         node_acquisition_mode_continuous = node_acquisition_mode.GetEntryByName('Continuous')
         if not PySpin.IsAvailable(node_acquisition_mode_continuous) or not PySpin.IsReadable(
                 node_acquisition_mode_continuous):
-            display('Point Grey [{0}] - Unable to set acquisition mode to continuous (entry retrieval). Aborting...'.format(self.cam_id))
+            display('[PointGrey {0}] - Unable to set acquisition mode to continuous (entry retrieval). Aborting...'.format(self.cam_id))
         # Set integer value from entry node as new value of enumeration node
         node_acquisition_mode.SetIntValue(node_acquisition_mode_continuous.GetValue())
 
@@ -270,9 +275,9 @@ Available serials are:
             frame = img.GetNDArray()
             img.Release()
         except PySpin.SpinnakerException as ex:
-            display('Point Grey [{0}] - Error: {1}'.format(self.cam_id,ex))
-
-        self._cam_close()
+            display('[PointGrey {0}] - Error: {1}'.format(self.cam_id,ex))
+        self.cam.EndAcquisition()
+        self._cam_close(do_stop = False)
         self.cam = None
         self.cam_list = []
         self.cambuf = None
@@ -310,7 +315,7 @@ Available serials are:
                             self.nodemap.GetNode('AcquisitionFrameRateEnabled'))
                         framerate_enabled.SetValue(True)
                 except Exception as err:
-                    display('Point Grey [{0}] - Could not set frame rate enable.'.format(self.cam_id))
+                    display('[PointGrey {0}] - Could not set frame rate enable.'.format(self.cam_id))
                     print(err)
                 if 'Chameleon3' in self.cammodel: 
                     framerate_mode = PySpin.CEnumerationPtr(self.nodemap.GetNode('AcquisitionFrameRateAuto'))
@@ -318,11 +323,11 @@ Available serials are:
                     framerate_mode.SetIntValue(autooff.GetValue())
                 try:
                     self.cam.AcquisitionFrameRate.SetValue(self.frame_rate)
-                    display('PointGrey [{0}] - Frame rate: {1}'.format(
+                    display('[PointGrey {0}] - Frame rate: {1}'.format(
                         self.cam_id,self.cam.AcquisitionFrameRate.GetValue()))
                 except Exception as err:
                     self.frame_rate = self.cam.AcquisitionFrameRate.GetValue()
-                    display('PointGrey [{0}] - Could not set frame rate {1}'.format(self.cam_id,self.frame_rate))
+                    display('[PointGrey {0}] - Could not set frame rate {1}'.format(self.cam_id,self.frame_rate))
                     print(err)
                 
     def set_binning(self,binning = 1):
@@ -344,18 +349,18 @@ Available serials are:
         if not self.cam is None:
             self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
             if self.cam.ExposureAuto.GetAccessMode() != PySpin.RW:
-                display('PointGrey [{0}] - Cannot disable automatic exposure.'.format(self.cam_id))
+                display('[PointGrey {0}] - Cannot disable automatic exposure.'.format(self.cam_id))
                 return
             self.cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
             if self.cam.ExposureTime.GetAccessMode() != PySpin.RW:
-                display('PointGrey [{0}] - Cannot write to exposure control.'.format(self.cam_id))      
+                display('[PointGrey {0}] - Cannot write to exposure control.'.format(self.cam_id))      
                 return
             exposure_time_to_set = min(self.cam.ExposureTime.GetMax(),
                                        exposure)
             try:
                 self.cam.ExposureTime.SetValue(exposure_time_to_set)
             except Exception as err:
-                display('Pointgrey [{0}] - could not set exposure {1}'.format(self.cam_id,exposure_time_to_set ))
+                display('[Pointgrey {0}] - could not set exposure {1}'.format(self.cam_id,exposure_time_to_set ))
                 print(err)
 
     def set_gamma(self,gamma=None):
@@ -375,15 +380,15 @@ Available serials are:
             if PySpin.IsWritable(genable):
                 genable.SetValue(True)
             if self.cam.Gamma.GetAccessMode() != PySpin.RW:
-                display('PointGrey [{0}] - Cannot set gamma.'.format(self.cam_id))
+                display('[PointGrey {0}] - Cannot set gamma.'.format(self.cam_id))
                 return
             try:
                 self.cam.Gamma.SetValue(self.gamma)
             except Exception as err:
-                display('Pointgrey [{0}] - could not set gamma {1}'.format(
+                display('[Pointgrey {0}] - could not set gamma {1}'.format(
                     self.cam_id, self.gamma))
                 print(err)
-            display('Pointgrey [{0}] - Gamma set to: {1}'.format(
+            display('[Pointgrey {0}] - Gamma set to: {1}'.format(
                 self.cam_id, self.cam.Gamma.GetValue()))
             
     def set_gain(self,gain = 1):
@@ -396,7 +401,7 @@ Available serials are:
             try:
                 self.cam.Gain.SetValue(self.gain)
             except Exception as err:
-                display('Pointgrey [{0}] - could not set gain {1}'.format(self.cam_id,self.gain))
+                display('[Pointgrey {0}] - could not set gain {1}'.format(self.cam_id,self.gain))
                 print(err)
             
     def _cam_init(self, set_gpio=True):
@@ -422,16 +427,31 @@ Available serials are:
         handling_mode = PySpin.CEnumerationPtr(s_node_map.GetNode('StreamBufferHandlingMode'))
         handling_mode_entry = handling_mode.GetEntryByName('OldestFirst')
         handling_mode.SetIntValue(handling_mode_entry.GetValue())
-
+      
+        buffer_count = PySpin.CIntegerPtr(s_node_map.GetNode('StreamBufferCountManual'))
+        maxbuffers = PySpin.CIntegerPtr(s_node_map.GetNode('StreamBufferCountMax'))
+        buffer_count.SetValue(int(np.min([N_STREAM_BUFFERS,maxbuffers.GetValue()])))
+        
+        buffer_mode = PySpin.CEnumerationPtr(s_node_map.GetNode('StreamBufferCountMode'))
+        buffer_mode.SetIntValue(PySpin.StreamBufferCountMode_Manual)
         # Set the trigger and exposure off so to be able to set other parameters
         self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
         self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed)
-        
         self.cam.ChunkModeActive.SetValue(True)
-        #self.cam.ChunkSelector.SetValue(PySpin.ChunkSelector_ExposureLineStatusAll)
-        #self.cam.ChunkEnable.SetValue(True)
-        self.cam.ChunkSelector.SetValue(PySpin.ChunkSelector_ExposureTime)
+        try:
+            self.chunk_has_line_status = True
+            self.cam.ChunkSelector.SetValue(PySpin.ChunkSelector_ExposureEndLineStatusAll)
+            self.cam.ChunkEnable.SetValue(True)
+        except:
+            self.chunk_has_line_status = False
+        try: # doesnt exist on chamaeleon?
+            self.cam.ChunkSelector.SetValue(PySpin.ChunkSelector_FrameID)
+            self.cam.ChunkEnable.SetValue(True)
+        except:
+            pass
+        self.cam.ChunkSelector.SetValue(PySpin.ChunkSelector_Timestamp)
         self.cam.ChunkEnable.SetValue(True)
+
         #self.cam.ChunkSelector.SetValue(PySpin.ChunkSelector_FrameCounter)
         self.nodemap_tldevice = self.cam.GetTLDeviceNodeMap()
         serial = PySpin.CStringPtr(
@@ -439,7 +459,7 @@ Available serials are:
         self.cammodel = PySpin.CStringPtr(
             self.nodemap_tldevice.GetNode('DeviceModelName')).ToString()
         self.nodemap = self.cam.GetNodeMap()
-        display('PointGrey [{0}] - Serial number {1} - model {2}'.format(self.cam_id,
+        display('[PointGrey {0}] - Serial number {1} - model {2}'.format(self.cam_id,
                                                                          serial.ToString(),
                                                                          self.cammodel))
         if False:
@@ -490,19 +510,20 @@ Available serials are:
         # Line 3 for triggering (hardcoded for now)
         #   self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
         #   self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
-        #   display('PointGrey [{0}] - Triggered mode ON.'.format(self.cam_id))            
+        #   display('[PointGrey {0}] - Triggered mode ON.'.format(self.cam_id))            
         #else:
-        #   display('PointGrey [{0}] - Triggered mode OFF.'.format(self.cam_id))
+        #   display('[PointGrey {0}] - Triggered mode OFF.'.format(self.cam_id))
             
-        # Set GPIO lines 2 and 3 to input by default 
-        self.cam.LineSelector.SetValue(PySpin.LineSelector_Line2)
-        self.cam.LineMode.SetValue(PySpin.LineMode_Input)
-        self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
-        self.cam.LineMode.SetValue(PySpin.LineMode_Input)
+        # Set GPIO lines 2 and 3 to input by default
         if 'Blackfly S' in self.cammodel: # on Blackfly S turn off 3.3V output on line 2 (Used for sync)
             self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line2'))
             self.cam.V3_3Enable.SetValue(False)
-            
+        elif not 'Blackfly' in self.cammodel:
+            self.cam.LineSelector.SetValue(PySpin.LineSelector_Line2)
+            self.cam.LineMode.SetValue(PySpin.LineMode_Input)
+            self.cam.LineSelector.SetValue(PySpin.LineSelector_Line3)
+            self.cam.LineMode.SetValue(PySpin.LineMode_Input)
+
         if not self.hardware_trigger == '':
             d = '3' # line 3 is the default hardware trigger
             if self.hardware_trigger[-1].isdigit():
@@ -517,12 +538,12 @@ Available serials are:
                 try:
                     self.cam.TriggerOverlap.SetValue(PySpin.TriggerOverlap_ReadOut)
                 except:
-                    display('PointGrey [{0}] - TriggerOverlap could not be set.')
+                    display('[PointGrey {0}] - TriggerOverlap could not be set.'.format(self.cam_id))
                 self.cam.ExposureMode.SetValue(PySpin.ExposureMode_Timed) #PySpin.ExposureMode_TriggerWidth)
                 self.cam.TriggerSource.SetValue(eval('PySpin.TriggerSource_Line'+d))
                 self.cam.TriggerSelector.SetValue(PySpin.TriggerSelector_FrameStart) # in CM3
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
-                display('PointGrey [{0}] - External trigger mode ON on line {1}.'.format(self.cam_id, d))    
+                display('[PointGrey {0}] - External trigger mode ON on line {1}.'.format(self.cam_id, d))    
             if 'out_line' in self.hardware_trigger:
                 display('This is a master camera, sleeping .5 sec.')
                 time.sleep(0.2)
@@ -530,13 +551,13 @@ Available serials are:
             if 'out_line' in self.hardware_trigger:
                 # Use line 1 for Blackfly S
                 # Use line 2 or 3 for Chamaeleon
-                display('PointGrey [{0}] - Setting the output line for line {1}'.format(self.cam_id, d))
+                display('[PointGrey {0}] - Setting the output line for line {1}'.format(self.cam_id, d))
                 if not 'Chameleon3' in self.cammodel: # delay the chamaeleon until after started
                     self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line'+d))
                     self.cam.LineMode.SetValue(PySpin.LineMode_Output)
                     self.cam.LineSource.SetValue(PySpin.LineSource_ExposureActive)
                 if 'Blackfly S' in self.cammodel: # on Blackfly S connect line 1 to line 2 with a 10kOhm resistor 
-                    display('PointGrey [{0}] - Setting 3.3V Enable on line 2'.format(self.cam_id))
+                    display('[PointGrey {0}] - Setting 3.3V Enable on line 2'.format(self.cam_id))
                     self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line2'))
                     self.cam.V3_3Enable.SetValue(True)
         self.cam.BeginAcquisition()
@@ -545,85 +566,97 @@ Available serials are:
                 self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line'+d))
                 self.cam.LineMode.SetValue(PySpin.LineMode_Output)
                 self.cam.LineSource.SetValue(PySpin.LineSource_ExposureActive)
-        display('PointGrey [{0}] - Started acquitition.'.format(self.cam_id))
+        display('[PointGrey {0}] - Started acquisition.'.format(self.cam_id))
+        self.cam.AcquisitionStart()
         
-    def _cam_stopacquisition(self):
+    def _cam_stopacquisition(self, clean_buffers = True):
         '''stop camera acq'''
+
         if not self.hardware_trigger == '':
-            #if 'out_line' in self.hardware_trigger:
+            if 'in_line' in self.hardware_trigger:
+                # to make sure all triggers are acquired (stop only when all frames have been received).
+                time.sleep(0.2) # sleep a couple of ms before stopping
+        self.cam.AcquisitionStop()
+        self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
+        if not self.hardware_trigger == '':
             d = '3'
             if self.hardware_trigger[-1].isdigit():
                 d = self.hardware_trigger[-1]
             if 'out_line' in self.hardware_trigger:
                 # Reading the last image and stopping the camera (To clear the buffer).
-                if hasattr(self,'img'): # or not self.cam.AcquisitionStatus.GetValue():
-                    frame,metadata = self._cam_loop()
-                    if not frame is None:
-                        self._handle_frame(frame,metadata)
                 if not 'Blackfly S' in self.cammodel: # can't set line 1 to input on Blackfly S
                     self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line' + d))
                     self.cam.LineMode.SetValue(PySpin.LineMode_Input) # stop output
-                self.cam.EndAcquisition()
-                return
-            if 'in_line' in self.hardware_trigger:
-                # to make sure all triggers are acquired (stop only when all frames have been received).
-                is_done = False
-                while not is_done:
-                    if not hasattr(self,'img'):# or not self.cam.AcquisitionStatus.GetValue():
-                        break
-                    frame,metadata = self._cam_loop()
-                    if frame is None:
-                        is_done=True
-                        break
-                    else:
-                        # Send it to the recorder
-                        self._handle_frame(frame,metadata)
-        self.cam.EndAcquisition()
-        self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
+        display('[PointGrey {0}] - stopped acquisition.'.format(self.cam_id))
+        i = 0
+        while clean_buffers:
+            # check if there are any frame buffers missing.
+            frame,metadata = self._cam_loop()
+            if frame is None:
+                break
+            self._handle_frame(frame,metadata)
+            i+=1
+        # Collect all frames
+        display('[PointGrey {0}] - cleared {0} buffers.'.format(self.cam_id,i))
+        try:
+            self.cam.EndAcquisition()
+        except PySpin.SpinnakerException as ex:
+            if not '-1003' in str(ex) and not '-1002' in str(ex) and not '-1010' in str(ex):
+                print(ex)
 
     def _cam_loop(self):
+        img = None
         try:
-            img = self.cam.GetNextImage(100,0)
+            img = self.cam.GetNextImage(1,0)
         except PySpin.SpinnakerException as ex:
             if '-1011' in str(ex):
-                img = None
+                pass
             else:
-                display('[PointGrey] - Error: %s' % ex)
+                display('[PointGrey {0}] - Error: {1}'.format(self.cam_id,ex))
+        frame = None
+        frameID = None
+        timestamp = None
+        linestat = None
         if not img is None:
             if img.IsIncomplete():
-                print('Image incomplete with image status %d ...' % image_result.GetImageStatus())
+                display('[PointGrey {0}]Image incomplete with image status {1} ...'.format(
+                    self.cam_id,
+                    img.GetImageStatus()))
             else:
                 frame = img.GetNDArray()
             frameID = img.GetFrameID()
             timestamp = img.GetTimeStamp()*1e-9
-            linestat = self.cam.LineStatusAll()
+            try:
+                if self.chunk_has_line_status:
+                    linestat = img.GetExposureLineStatusAll()
+                else:
+                    linestat = self.cam.LineStatusAll()
+            except:
+                linestat = self.cam.LineStatusAll() # this won't happen when the acquisition is off
+                #display(
+                #'Error reading line status? Check PointGrey Cam {0}'.format(
+                #    self.cam_id))
             #frameinfo = img.GetChunkData()
             #linestat = frameinfo.GetFrameID()
-            #display('Line {0} {1}'.format(linestat,frameinfo.GetExposureLineStatusAll())) # 
+            #display('Line {0} {1}'.format(linestat,frameinfo.GetExposureLineStatusAll())) #
             img.Release()
-            #self.nframes.value = frameID
-            return frame,(frameID,timestamp,linestat)
-        else:
-            return None,(None,None,None)
+        return frame,(frameID,timestamp,linestat)
 
-    def _cam_close(self):
+    def _cam_close(self, do_stop = True):
         if not self.cam is None:
-            try:
+            if do_stop:
                 self._cam_stopacquisition()
-                display('PointGrey [{0}] - Stopped acquitition.'.format(self.cam_id))          
-            except:
-                pass
             try:
                 self.cam.DeInit()
-            except:
-                # Could not de_init some cameras.
-                pass
-            del self.cam
-            
+            except PySpin.SpinnakerException as ex:
+                if not '-1010' in ex and not '-1002' in ex and not '-1010' in str(ex):
+                    display('[PointGrey] Error: %s' % ex)
+            del self.cam            
         if not self.drv is None:
             del self.nodemap_tldevice
             del self.nodemap
             self.cam_list.Clear()
             self.drv.ReleaseInstance()
+            del self.drv
             self.drv = None
-            
+

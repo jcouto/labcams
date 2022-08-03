@@ -15,7 +15,7 @@
 	    "recorder":{
 		"format":"ffmpeg",
 		"hwaccel":"nvidia",
-		"compress": "30:3M"		
+		"compression": "30:8M"		
 	    },
 	    "hardware_trigger":"out_line3",
 	    "roi": [264,230,752,566]
@@ -34,7 +34,7 @@
 	    "recorder":{
 		"format":"ffmpeg",
 		"hwaccel":"nvidia"
-		"compress": "17:3M"		
+		"compression": "30:5M"		
 	    },
 	    "hardware_trigger":"in_line3",
 	    "roi": [0,280,1040,512]
@@ -42,7 +42,7 @@
     ],
     "_comment2":"{datafolder} is the folder in recorder_path. Change the recorder path format to write to another place. ",
     "recorder_path": "C:\\data",
-    "recorder_path_format":"{datafolder}\\{filename}_{dataname}_{nfiles}",
+    "recorder_path_format":"{datafolder}\\{filename}_{dataname}_{run}_{nfiles}",
     "recorder_sleep_time": 0.05,
     "server":"udp",
     "server_port": 9999
