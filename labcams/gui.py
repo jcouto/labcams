@@ -76,9 +76,11 @@ class LabCamsGUI(QMainWindow):
         self.update_frequency = update_frequency
         self.save_on_start = save_on_start
         self.cam_descriptions = camDescriptions
+        self.zmqsocket = None
+        self.udpsocket = None
         if server:
             if not 'server_refresh_time' in self.parameters.keys():
-                self.parameters['server_refresh_time'] = 30
+                self.parameters['server_refresh_time'] = 5
             if not 'server' in self.parameters.keys():
                 self.parameters['server'] = 'zmq'
             if self.parameters['server'] == 'udp':
@@ -93,8 +95,8 @@ class LabCamsGUI(QMainWindow):
             else:
                 import zmq
                 self.zmqContext = zmq.Context()
-                self.zmqSocket = self.zmqContext.socket(zmq.REP)
-                self.zmqSocket.bind('tcp://0.0.0.0:{0}'.format(
+                self.zmqsocket = self.zmqContext.socket(zmq.REP)
+                self.zmqsocket.bind('tcp://0.0.0.0:{0}'.format(
                     self.parameters['server_port']))
                 display('Listening to ZMQ port: {0}'.format(
                     self.parameters['server_port']))
@@ -145,8 +147,6 @@ class LabCamsGUI(QMainWindow):
             self.cams.append(Camera(**cam,
                                     hardware_trigger_event = self.hardware_trigger_event))
             if hasattr(self.cams[-1],'excitation_trigger'):
-                self.cams[-1].excitation_trigger.start()
-                self.cams[-1].excitation_trigger.disarm()
                 self.excitation_trigger = self.cams[-1].excitation_trigger
                 self.excitation_trigger_widget = CamStimTriggerWidget(
                     ino = self.cams[-1].excitation_trigger,
@@ -164,9 +164,7 @@ class LabCamsGUI(QMainWindow):
         self.initUI()
         
         self.camerasRunning = False
-        if hasattr(self.cams[-1],'excitation_trigger'):
-            self.cams[-1].excitation_trigger.arm()
-
+        
         for cam in self.cams[::-1]:
             cam.start()
         
@@ -174,9 +172,9 @@ class LabCamsGUI(QMainWindow):
         while camready != len(self.cams):
             camready = np.sum([cam.camera_ready.is_set() for cam in self.cams])
         display('[labcams] - Initialized cameras.')
-
-        self.trigger_cams(soft_trigger = self.software_trigger,
-                         save = self.save_on_start)
+        
+        self.recController.saveOnStartToggle.setChecked(self.save_on_start)
+        self.recController.softTriggerToggle.setChecked(self.software_trigger)
 
     def set_experiment_name(self,expname):
         # Makes sure that the experiment name has the right slashes.
@@ -187,14 +185,20 @@ class LabCamsGUI(QMainWindow):
             if flg:
                 cam.set_filename(expname)
         self.recController.experimentNameEdit.setText(expname)
-        
-    def server_actions(self):
-        if self.parameters['server'] == 'zmq':
+
+    def server_reply(self,msg, msgtype = 'ok',address = None):
+        if not self.zmqsocket is None:
+            self.zmqsocket.send_pyobj(dict(action=msgtype,
+                                           value = msg))
+        if not self.udpsocket is None and not address is None:
+            self.udpsocket.sendto('{0}={1}'.format(msgtype,msg).encode(),address)
+                
+    def server_actions(self): # all this should be moved to a class somewhere else.
+        if not self.zmqsocket is None:
             try:
-                message = self.zmqSocket.recv_pyobj(flags=zmq.NOBLOCK)
+                message = self.zmqsocket.recv_pyobj(flags=zmq.NOBLOCK)
             except:
                 return
-            self.zmqSocket.send_pyobj(dict(action='handshake'))
         elif self.parameters['server'] == 'udp':
             try:
                 msg,address = self.udpsocket.recvfrom(N_UDP)
@@ -204,65 +208,68 @@ class LabCamsGUI(QMainWindow):
             message = dict(action=msg[0])
             if len(msg) > 1:
                 message = dict(message,value=msg[1])
-        #display('Server received message: {0}'.format(message))
+            display('Server received message: {0}'.format(message))            
         if message['action'].lower() == 'expname':
             self.set_experiment_name(message['value'])
-            self.udpsocket.sendto(b'ok=expname',address)
-        elif message['action'].lower() == 'softtrigger':
+            self.server_reply(msg = message['action'].lower(),address = address)
+        elif message['action'].lower() in ['softtrigger','software_trigger','settrigger','trigger']:
             self.recController.softTriggerToggle.setChecked(
                 int(message['value']))
-            self.udpsocket.sendto(b'ok=software_trigger',address)
-        elif message['action'].lower() == 'trigger':
-            for cam in self.cams:
-                cam.stop_acquisition()
-            # make sure all cams closed
-            for c,cam in enumerate(self.cams):
-                cam.stop_saving()
-                #if not writer is None: # Logic moved to inside camera.
-                #    writer.write.clear()
-            self.trigger_cams(soft_trigger = self.software_trigger,save = True)
-            self.udpsocket.sendto(b'ok=save_hardwaretrigger',address)
-        elif message['action'].lower() == 'settrigger':
+            self.server_reply(msg = 'trigger',address = address)
+        elif message['action'].lower() == ['hardtrigger','hardware_trigger']:
             self.recController.camTriggerToggle.setChecked(
                 int(message['value']))
-            self.udpsocket.sendto(b'ok=hardware_trigger',address)
-        elif message['action'].lower() in ['setmanualsave','manualsave']:
+            self.server_reply(msg = 'save_hardwaretrigger',address = address) 
+        elif message['action'].lower() in ['save','setmanualsave','manualsave','acquire']:
             self.recController.saveOnStartToggle.setChecked(
                 int(message['value']))
-            self.udpsocket.sendto(b'ok=save',address)
+            self.server_reply(msg = 'save',address = address) 
         elif message['action'].lower() == 'log':
             for c in self.cams:
                 c.cam.eventsQ.put('log={0}'.format(message['value']))
-            # write on display
-            #self.camwidgets[0].text_remote.setText(message['value'])
-            self.udpsocket.sendto(b'ok=log',address)
             self.recController.udpmessages.setText(message['value'])
+            self.server_reply(msg = 'log',address = address) 
+        elif message['action'].lower() == 'snapshot':
+            foldername = message['value']
+            if not os.path.exists(foldername):
+                os.path.makedirs(foldername)
+                display('Created {0}'.format(foldername))
+            display('Getting snapshots to {0}'.format(foldername))
+            update_shared_date()
+            for icam,cam in enumerate(self.cams):
+                frame = cam.get_img_with_virtual_channels()
+                dataname = cam.recorder_parameters['dataname']
+                fname = pjoin(os.path.dirname(foldername),'snapshots',
+                              shared_date[:]+'_{0}.tif'.format(dataname))
+                from tifffile import imsave
+                imsave(fname,
+                       frame.transpose([2,0,1]).squeeze(),
+                       metadata = {
+                           'Camera':str(icam)})
+            self.server_reply(msg = 'snapshots',address = address) 
+        elif message['action'].lower() == 'load_reference':
+            foldername = message['value']
+            if not os.path.exists(foldername):
+                display('No folder: {0}'.format(foldername))
+                self.server_reply(msg = 'no_folder',msgtype = 'error',address = address) 
+                return
+            for icam,cam in enumerate(self.cams):
+                files = glob(pjoin(foldername,'*_{0}.tif').format(
+                    cam.recorder_parameters['dataname']))
+                if len(files):
+                    self.camwidgets[icam].toggle_reference(filename = files[0])
+            self.server_reply(msg = 'load_reference',address = address)
+        elif message['action'].lower() == 'hide_reference':
+            for icam,cam in enumerate(self.cams):
+                self.camwidgets[icam].toggle_reference(filename = '')
+            self.server_reply(msg = 'hide_reference',address = address) 
         elif message['action'].lower() == 'ping':
             display('Server got PING.')
-            self.udpsocket.sendto(b'pong',address)
+            self.server_reply(msg = 'pong',address = address) 
         elif message['action'].lower() == 'quit':
             self.udpsocket.sendto(b'ok=bye',address)
+            self.server_reply(msg = 'bye',address = address) 
             self.close()
-
-    def trigger_cams(self,soft_trigger = True, save=False):
-        # stops previous saves if there were any
-        display("Waiting for the cameras to be ready.")
-        for c,cam in enumerate(self.cams):
-            while not cam.camera_ready.is_set():
-                sleep(0.001)
-            display('Camera [{0}] ready.'.format(c))
-        display('[labcams] Save ({0}) and trigger'.format(save))
-        for c,(cam,flg) in enumerate(zip(self.cams,
-                                         self.saveflags)):
-            if flg:
-                cam.set_saving(save)
-        if soft_trigger:
-            for c,cam in enumerate(self.cams):                    
-                cam.start_acquisition()
-                if hasattr(cam,'analog_channels'):
-                    display('[labcams] Sleeping for 1 second for the DAQ to record.')
-                    sleep(1)
-            display('[labcams] Software triggered cameras.')
         
     def experiment_menu_trigger(self,q):
         if q.text() == 'Set refresh time':
@@ -341,8 +348,9 @@ class LabCamsGUI(QMainWindow):
             	
     def update_timer(self):
         for c,cam in enumerate(self.cams):
+            self.camwidgets[c].update()
             try:
-                self.camwidgets[c].update()
+                pass
             except Exception as e:
                 display('Could not draw cam: {0}'.format(c))
                 exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -362,13 +370,9 @@ class LabCamsGUI(QMainWindow):
     def closeEvent(self,event):
         if hasattr(self,'server_timer'):
             self.server_timer.stop()
-            if hasattr(self,'udpsocket'):
+            if hasattr(self,'udpsocket') and not self.udpsocket is None:
                 self.udpsocket.close()
-        self.timer.stop()
-        if hasattr(self,'excitation_trigger'):
-            self.excitation_trigger.disarm()
-            self.excitation_trigger.close()
-            
+        self.timer.stop()            
         display('Acquisition stopped (close event).')
         for cam in self.cams:
             cam.stop_acquisition()

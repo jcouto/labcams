@@ -130,6 +130,7 @@ class GenericCam(Process):
                 display('Recorder {0} not implemented'.format(
                     self.recorderpar['recorder']))
             if 'rec' in dir():
+                print(extrapar)
                 self.recorder = rec(self.cam,
                                     filename = self.recorderpar['filename'],
                                     pathformat = self.recorderpar['pathformat'],
@@ -148,7 +149,6 @@ class GenericCam(Process):
     def _recorder_shared_mem_handle(self,frame,metadata):
         self.queue.put((metadata[0], metadata))
 
-    
     def _stop_recorder(self):
         if self.recorder is None:
             display('[Camera {0}] Sending stop signal to the recorder.'.format(self.cam_id))
@@ -157,11 +157,12 @@ class GenericCam(Process):
             self.recorder.close_run()
 
     def get_img(self,frame_index = None):
-        self.membuffer_lock.acquire()
+        # no lock needed when reading because it is in update buffer?
+        #self.membuffer_lock.acquire() 
         if frame_index is None:
             frame_index = self.nframes.value
         img = self.imgs[frame_index % self.nbuffers.value]
-        self.membuffer_lock.release()
+        #self.membuffer_lock.release()
         return img
 
     def stop_saving(self):
@@ -207,8 +208,10 @@ class GenericCam(Process):
                 self._handle_frame(frame,metadata)
                 self._parse_command_queue()
                 # to be able to pause acquisition on software trigger
-                if not self.start_trigger.is_set() and not self.stop_trigger.is_set():
+                if not self.start_trigger.is_set() or self.stop_trigger.is_set():
                     self._cam_stopacquisition()
+                    self.camera_ready.set()
+                    self.cam_is_running = False
                     self._cam_waitsoftwaretrigger()
                     if not self.stop_trigger.is_set():
                         self._cam_startacquisition()
@@ -232,7 +235,7 @@ class GenericCam(Process):
                     self._handle_recorder(frame,metadata)
         elif self.was_saving:
             self._stop_recorder()
-            self.was_saving = False            
+            self.was_saving = False
         if not frame is None:
             frameID,timestamp = metadata[:2]
             if not frameID == self.lastframeid:
@@ -247,8 +250,10 @@ class GenericCam(Process):
         
     def _update_buffer(self,frame,frameID):
         ''' Updates buffer for a specific frame ID'''
-        self.membuffer_lock.acquire()
-        self.nframes.value = frameID
+        lock = self.membuffer_lock.acquire(timeout = 0.1)
+        if not lock:
+            display('Failed to secure lock')
+            return
         idx = frameID % self.nbuffers.value
         if len(frame.shape) == 2:
             self.imgs[idx,:,:,0] = frame[:]
@@ -310,22 +315,25 @@ class GenericCam(Process):
     
     def _cam_waitsoftwaretrigger(self):
         '''wait for software trigger'''
-        display('[{0} {1}] waiting for software trigger.'.format(self.drivername,self.cam_id))
-        while not self.start_trigger.is_set() or self.stop_trigger.is_set():
+        while (not self.start_trigger.is_set()):
             # limits resolution to 1 ms 
             time.sleep(0.001)
             if self.close_event.is_set() or self.stop_trigger.is_set():
                 break
-            self._handle_frame(None,None) # to stop saving while waiting for triggers
+            self._handle_frame(None,(None,None)) # to stop saving while waiting for triggers
         if self.close_event.is_set() or self.stop_trigger.is_set():
             return
         self.camera_ready.clear()
+        display('[{0} {1}] triggered acquisition.'.format(
+            self.drivername,
+            self.cam_id))
 
     def stop_acquisition(self):
-        self.stop_trigger.set()
+        self.start_trigger.clear()
 
     def close(self):
         self.close_event.set()
+        self.stop_trigger.set()
         self.stop_acquisition()
         self.membuffer.close()
         self.membuffer.unlink()
@@ -484,7 +492,6 @@ class Camera(object):
             self.recorder_parameters['method'] = 'queue'
         if not 'format' in recorder.keys():
             self.recorder_parameters['format'] = 'tiff'
-            
         if 'noqueue' in recorder['method']:
             recorderpar = self.recorder_parameters
         else:
@@ -588,7 +595,9 @@ The recorders can be specified with the '"format":"ffmpeg"' option in each camer
             frame_index = int(np.floor(self.cam.nframes.value/vchans)*vchans)
         imgs = []
         for i in np.arange(vchans)[::-1]:
-            imgs.append(self.cam.imgs[frame_index-i % self.cam.nbuffers.value].squeeze())
+            imgs.append(self.cam.imgs[
+                np.mod(frame_index-i,
+                       self.cam.nbuffers.value)].squeeze())
         if len(imgs):
             img = np.stack(imgs).transpose(1,2,0)
         else:
@@ -596,7 +605,6 @@ The recorders can be specified with the '"format":"ffmpeg"' option in each camer
         self.cam.membuffer_lock.release()
         return img
 
-                
     def set_saving(self,value):
         if value:
             if not self.writer is None:
@@ -607,25 +615,34 @@ The recorders can be specified with the '"format":"ffmpeg"' option in each camer
             self.stop_saving()
 
     def start_acquisition(self):
+        if hasattr(self,'excitation_trigger'):
+            self.excitation_trigger.arm()
+            display('Camera LED stim trigger armed.')
         self.start_trigger.set()
+
+    def stop_acquisition(self):
+        self.start_trigger.clear()
+        if hasattr(self,'excitation_trigger'):
+            self.excitation_trigger.disarm()
         
     def start(self):
-        if hasattr(self,'cam_stim'):
-            self.cam_stim.start()
-            self.cam_stim.disarm()
+        self.start_trigger.clear()
+        if hasattr(self,'excitation_trigger'):
+            self.excitation_trigger.start()
+            self.excitation_trigger.disarm()
         if hasattr(self,'writer'):
             if not self.writer is None:
                 self.writer.start()
         if hasattr(self,'cam'):
             self.cam.start()
-        while not self.camera_ready.is_set():
-            time.sleep(0.01)
-        if hasattr(self,'cam_stim'):
-            self.cam_stim.arm()
+        if hasattr(self,'excitation_trigger'):
+            self.excitation_trigger.arm()
 
     def set_filename(self,name):
         if not self.writer is None:
             self.writer.set_filename(name)
+        elif self.driver.lower() == 'nidaq':
+            self.cam.recorder.set_filename(name)
         else:
             display('[Camera] Setting serial recorder filename.')
             self.cam.eventsQ.put('filename='+name)
@@ -643,7 +660,7 @@ The recorders can be specified with the '"format":"ffmpeg"' option in each camer
     If you want to record from PCO cameras install the PCO.sdk driver.
     If not you have the wrong config file.
 
-            Edit the file in USERHOME/labcams/default.json and delete the PCO cam or use the -c option
+            Edit the file in USERHME/labcams/default.json and delete the PCO cam or use the -c option
 
 ''')
         
@@ -669,6 +686,7 @@ Please install nidaqmx using pip and NIDAQmx from the National Instruments websi
         self.cam = NIDAQ(start_trigger = self.start_trigger,
                          stop_trigger = self.stop_trigger,
                          save_trigger = self.save_trigger,
+                         out_q = self.recorder_q,
                          **parameters)
         display('\t DAQ device recording: {0}'.format(self.name))
         #for k in np.sort(list(cam.keys())):
@@ -769,6 +787,9 @@ Please install nidaqmx using pip and NIDAQmx from the National Instruments websi
 ''')
 
         self.cam = BaslerCam(cam_id = self.cam_id,
+                             start_trigger = self.start_trigger,
+                             stop_trigger = self.stop_trigger,
+                             save_trigger = self.save_trigger,
                              out_q = self.recorder_q,
                              **parameters)
 
@@ -808,10 +829,14 @@ Please install nidaqmx using pip and NIDAQmx from the National Instruments websi
                           hardware_trigger = self.hardware_trigger_event,
                           **parameters)
     def close(self):
+        self.stop_acquisition()
         self.cam.close()
         self.cam.stop_saving()
         if not self.writer is None:
             self.writer.stop()
+        if hasattr(self,'excitation_trigger'):
+            self.excitation_trigger.close()
+
         self.cam.join()
         if not self.writer is None:
             self.writer.join()

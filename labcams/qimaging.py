@@ -82,7 +82,7 @@ class QImagingCam(GenericCam):
         cam.StopStreaming()
         cam.CloseCamera()
         ReleaseDriver()
-        display("[QImaging] Got info from camera (name: {0})".format(camId))
+        display("[QImaging] Got info from camera (name: {0})".format(cam_id))
         self.camera_ready = Event()
 
     def run(self):

@@ -50,7 +50,8 @@ class GenericWriter(object):
                  framesperfile=0,
                  sleeptime = 1./30,
                  virtual_channels = None,
-                 incrementruns=True):
+                 incrementruns=True,
+                 **kwargs):
         if not hasattr(self,'extension'):
             self.extension = '.nan'
         self.cam = None
@@ -90,7 +91,8 @@ class GenericWriter(object):
                                seconds = shared_date[13:],
                                run = runname,
                                nfiles = '{0:08d}'.format(0),
-                               extension = self.extension)
+                               extension = self.extension,
+                               **kwargs)
         if self.framesperfile > 0:
             if not '{nfiles}' in self.path_format:
                 self.path_format += '_{nfiles}'
@@ -183,7 +185,7 @@ class GenericWriter(object):
         logfname = filename.replace('{extension}'.format(
             **self.path_keys),'.camlog')
         
-        self.logfile = open(logfname,'w')
+        self.logfile = open(logfname,'w',encoding = 'utf-8')
         self.logfile.write('# Camera: {0} log file'.format(
             self.dataname) + '\n')
         self.logfile.write('# Date: {0}'.format(
@@ -280,7 +282,8 @@ class GenericWriterProcess(Process,GenericWriter):
                  sleeptime = 1./30,
                  virtual_channels = None,
                  incrementruns=True,
-                 save_trigger = None):
+                 save_trigger = None,
+                 **kwargs):
         GenericWriter.__init__(self,
                                cam = cam,
                                loggerQ=loggerQ,
@@ -291,7 +294,8 @@ class GenericWriterProcess(Process,GenericWriter):
                                pathformat=pathformat,
                                framesperfile=framesperfile,
                                sleeptime=sleeptime,
-                               incrementruns=incrementruns)
+                               incrementruns=incrementruns,
+                               **kwargs)
         Process.__init__(self)
         self.write = save_trigger
         if self.write is None:
@@ -444,7 +448,8 @@ class BinaryWriter(GenericWriterProcess):
                                           framesperfile=framesperfile,
                                           sleeptime=sleeptime,
                                           virtual_channels = virtual_channels,
-                                          incrementruns=incrementruns)
+                                          incrementruns=incrementruns,
+                                          **kwargs)
         self.buf = []
     def close_file(self):
         if not self.fd is None:
@@ -499,7 +504,8 @@ class FFMPEGWriter(GenericWriterProcess):
                  incrementruns=True,
                  hwaccel = None,
                  preset = None,
-                 compression=0,
+                 compression=None,
+                 bitrate = '5M',
                  **kwargs):
         self.extension = '.avi'
         super(FFMPEGWriter,self).__init__(cam = cam,
@@ -510,7 +516,8 @@ class FFMPEGWriter(GenericWriterProcess):
                                           pathformat = pathformat,
                                           framesperfile=framesperfile,
                                           sleeptime=sleeptime,
-                                          incrementruns=incrementruns)
+                                          incrementruns=incrementruns,
+                                          **kwargs)
         self.compression = compression
         if self.compression is None:
             self.compression = 0
@@ -549,8 +556,8 @@ class FFMPEGWriter(GenericWriterProcess):
                                  '-rc-lookahead':'20',
                                  '-i_qfactor': '0.75',
                                  '-b_qfactor': '1.1',
-                                 '-maxrate':'10M',
-                                 '-b:v':'5M',
+                                 '-maxrate':'25M',
+                                 '-b:v':bitrate,
                                  '-threads':str(1)}
                 preset = 'NA'
                 if not self.preset is None:
@@ -563,19 +570,20 @@ class FFMPEGWriter(GenericWriterProcess):
                     if type(self.compression) is str:
                         if ':' in self.compression: # then parse the bitrate
                             comp = self.compression.split(':')
-                    else:
-                        comp = [str(self.compression)] 
-                    self.doutputs['-cq:v'] = comp[0]
-                    #self.doutputs['-rc:v'] = 'vbr_hq'
-                    if len(comp)>1:
-                        self.doutputs['-b:v'] = comp[1]
-                        
-                    
+                        else:
+                            comp = [str(self.compression)]
+                        self.compression = comp[0]
+                        self.doutputs['-cq:v'] = comp[0]
+                        #self.doutputs['-rc:v'] = 'vbr_hq'
+                        if len(comp)>1:
+                            self.doutputs['-b:v'] = comp[1]
+                            bitrate = comp[1]
         self.hwaccel = hwaccel
-        display('Using compression (preset {0}) {1} for the {2} FFMPEG encoder.'.format(
+        display('[FFMPEG] - Using compression (preset {0}) {1}  - bitrate {3} for the {2} encoder.'.format(
             preset,
             self.compression,
-            hwaccel))
+            hwaccel,
+            bitrate))
         
     def close_file(self):
         if not self.fd is None:
@@ -638,7 +646,8 @@ class OpenCVWriter(GenericWriter):
                                           dataname=dataname,
                                           framesperfile=framesperfile,
                                           sleeptime=sleeptime,
-                                          incrementruns=incrementruns)
+                                          incrementruns=incrementruns,
+                                          **kwargs)
         cv2.setNumThreads(6)
         self.compression = 17
         if not compression is None:
@@ -690,7 +699,8 @@ class FFMPEGCamWriter(GenericWriter):
                                              dataname=dataname,
                                              pathformat = pathformat,
                                              framesperfile=framesperfile,
-                                             incrementruns=incrementruns)
+                                             incrementruns=incrementruns,
+                                             **kwargs)
 
         self.compression = compression
         if self.compression is None:
@@ -781,7 +791,8 @@ class BinaryCamWriter(GenericWriter):
                                              pathformat = pathformat,
                                              virtual_channels = virtual_channels,
                                              framesperfile=framesperfile,
-                                             incrementruns=incrementruns)                
+                                             incrementruns=incrementruns,
+                                             **kwargs)                
 
     def close_file(self):
         if not self.fd is None:
@@ -823,10 +834,10 @@ class BinaryDAQWriter(GenericWriter):
                                              dataname=dataname,
                                              pathformat = pathformat,
                                              framesperfile=-1,
-                                             incrementruns=incrementruns)
+                                             incrementruns=incrementruns,
+                                             **kwargs)
         self.nchannels = daq.ai_num_channels + daq.di_num_channels
         self.nbytes = 0
-        
     def close_file(self):
         if not self.fd is None:
             self.fd.close()
@@ -916,7 +927,8 @@ class TiffCamWriter(GenericWriter):
                                            pathformat=pathformat,
                                            framesperfile=framesperfile,
                                            sleeptime=sleeptime,
-                                           incrementruns=incrementruns)
+                                           incrementruns=incrementruns,
+                                           **kwargs)
         self.compression = None
         if not compression is None:
             self.compression = np.clip(compression,0,9)
@@ -942,7 +954,7 @@ class TiffCamWriter(GenericWriter):
 def parseCamLog(fname, readTeensy = False):
     logheaderkey = '# Log header:'
     comments = []
-    with open(fname,'r') as fd:
+    with open(fname,'r',encoding = 'utf-8') as fd:
         for line in fd:
             if line.startswith('#'):
                 line = line.strip('\n').strip('\r')

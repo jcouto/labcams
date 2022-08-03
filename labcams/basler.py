@@ -27,13 +27,13 @@ class BaslerCam(GenericCam):
                  save_trigger = None,
                  out_q = None,
                  binning = None,
-                 frameRate = None,
+                 frame_rate = None,
                  exposure = None,
                  gain = None,
                  gamma = None,
                  roi = [],
                  pxformat = 'Mono8',
-                 triggerSource = np.uint16(0),
+                 trigger_source = np.uint16(0),
                  outputs = [],
                  recorderpar=None,
                  **kwargs):
@@ -44,10 +44,10 @@ class BaslerCam(GenericCam):
                                        save_trigger = save_trigger,
                                        recorderpar=recorderpar)
         self.drivername = 'Basler'
-        if camId is None:
+        if cam_id is None:
             display('[Basler] - Need to supply a camera ID.')
         self.drv = None
-        self.cam_id = camId
+        self.cam_id = cam_id
         if not len(roi):
             roi = [None,None,None,None]
         self.pxformat = pxformat
@@ -55,21 +55,22 @@ class BaslerCam(GenericCam):
         self.outputs = outputs
         self.binning = binning
         self.exposure = exposure
-        self.frame_rate = frameRate
-        self.fs.value = self.frame_rate
+        self.frame_rate = frame_rate
+        if not self.frame_rate is None:
+            self.fs.value = self.frame_rate
 
         self.gain = gain
         self.roi = roi
         frame = self.get_one()
-        self.h = frame.shape[0]
-        self.w = frame.shape[1]
-        self.nchan = 1
+        self.h.value = frame.shape[0]
+        self.w.value = frame.shape[1]
+        self.nchan.value = 1
         if len(frame.shape) == 3:
-            self.nchan = frame.shape[2] 
+            self.nchan.value = frame.shape[2] 
         self.dtype = frame.dtype
         self._init_variables(self.dtype)
 
-        self.img[:] = np.reshape(frame,self.img.shape)[:]
+        #self.img[:] = np.reshape(frame,self.img.shape)[:]
         display("[Basler {0}] - got info from camera.".format(self.cam_id))
 
     def cam_info(self,cam):
@@ -119,6 +120,10 @@ class BaslerCam(GenericCam):
         self.exposure = exposure
         if not self.cam is None:
             self.cam.ExposureTime = self.exposure
+            self.frame_rate = self.cam.AcquisitionFrameRate.GetValue()
+            if not self.frame_rate is None:
+                self.fs.value = self.frame_rate
+
             
     def set_gain(self,gain = 1):
         '''Set the gain is in dB'''
