@@ -270,7 +270,12 @@ class LabCamsGUI(QMainWindow):
             self.udpsocket.sendto(b'ok=bye',address)
             self.server_reply(msg = 'bye',address = address) 
             self.close()
-        
+
+    def experiment_pluginmenu_trigger(self,q):
+        for l in self.plugins_handles:
+            if q.text() == l['name']:
+                display('Loading {0}'.format(l['name']))
+                self.plugins.append(l['plugin'](self))
     def experiment_menu_trigger(self,q):
         if q.text() == 'Set refresh time':
             self.timer.stop()
@@ -279,7 +284,6 @@ class LabCamsGUI(QMainWindow):
             if res[1]:
                 self.update_frequency = res[0]
             self.timer.start(self.update_frequency)
-            #display(q.text()+ "clicked. ")
         
     def initUI(self):
         # Menu
@@ -290,6 +294,12 @@ class LabCamsGUI(QMainWindow):
         editmenu = bar.addMenu("Options")
         editmenu.addAction("Set refresh time")
         editmenu.triggered[QAction].connect(self.experiment_menu_trigger)
+        pluginmenu = bar.addMenu("Plugins")
+        from .plugins import load_plugins
+        self.plugins_handles = load_plugins()
+        for l in self.plugins_handles: 
+             pluginmenu.addAction(l['name'])
+             pluginmenu.triggered[QAction].connect(self.experiment_pluginmenu_trigger)
         self.setWindowTitle("labcams")
         self.tabs = []
         self.camwidgets = []
