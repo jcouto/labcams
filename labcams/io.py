@@ -852,7 +852,7 @@ class BinaryDAQWriter(GenericWriter):
                 f.write('niMAGain={0}\n'.format(1))
                 f.write('niMNGain={0}\n'.format(1))
                 f.write('snsMnMaXaDw=0,0,{0},{1}\n'.format(self.daq.ai_num_channels,
-                                                            self.daq.ai_num_channels))                
+                                                            self.daq.di_num_channels))                
                 f.write('nSavedChans={0}\n'.format(self.nchannels))
                 f.write('typeThis=nidq\n')
                 p = []
@@ -863,7 +863,6 @@ class BinaryDAQWriter(GenericWriter):
                 for k in self.daq.analog_channels.keys():
                     p.append('({0},{1})'.format(k,self.daq.analog_channels[k]))
                 f.write('analogChannelNames={0}\n'.format(','.join(p)))
-                
         self.fd = None
 
     def open_file(self,nfiles = None,data = None):
