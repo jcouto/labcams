@@ -590,7 +590,7 @@ The recorders can be specified with the '"format":"ffmpeg"' option in each camer
             vchans = self.excitation_trigger.nchannels.value
         else:
             vchans = 1
-        self.cam.membuffer_lock.acquire()
+        lock = self.cam.membuffer_lock.acquire(timeout = 0.1)
         if frame_index is None:
             frame_index = int(np.floor(self.cam.nframes.value/vchans)*vchans)
         imgs = []
@@ -598,11 +598,12 @@ The recorders can be specified with the '"format":"ffmpeg"' option in each camer
             imgs.append(self.cam.imgs[
                 np.mod(frame_index-i,
                        self.cam.nbuffers.value)].squeeze())
-        if len(imgs):
+        if vchans > 1:
             img = np.stack(imgs).transpose(1,2,0)
         else:
             img = imgs[0]
-        self.cam.membuffer_lock.release()
+        if lock:
+            self.cam.membuffer_lock.release()
         return img
 
     def set_saving(self,value):
