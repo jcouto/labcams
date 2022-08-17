@@ -17,7 +17,7 @@ data_path = pjoin(os.path.expanduser('~'), 'labcams')
 
 setup(
     name = 'labcams',
-    version = '0.6.0',
+    version = '0.6.5',
     author = 'Joao Couto',
     author_email = 'jpcouto@gmail.com',
     description = 'Multicamera video acquisition,online compression and automation',
@@ -27,7 +27,7 @@ setup(
     install_requires = requirements,
     url = "https://bitbucket.org/jpcouto/labcams",
     packages = ['labcams'],
-    python_requires='>3.8',
+    python_requires='>=3.8',
     entry_points = {
         'console_scripts': [
             'labcams = labcams.gui:main',
