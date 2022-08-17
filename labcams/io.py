@@ -438,7 +438,7 @@ class BinaryWriter(GenericWriterProcess):
                  sleeptime = 1./300,
                  virtual_channels = None,
                  incrementruns=True,**kwargs):
-        self.extension = '_{nchannels}_{W}_{H}_{dtype}.dat'
+        self.extension = '_{nchannels}_{H}_{W}_{dtype}.dat'
         super(BinaryWriter,self).__init__(cam = cam,
                                           loggerQ=loggerQ,
                                           filename=filename,
