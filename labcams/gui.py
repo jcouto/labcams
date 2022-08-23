@@ -242,8 +242,11 @@ class LabCamsGUI(QMainWindow):
                 fname = pjoin(os.path.dirname(foldername),'snapshots',
                               shared_date[:]+'_{0}.tif'.format(dataname))
                 from tifffile import imsave
+                if len(frame.shape) > 2:
+                    frame = frame.transpose([2,0,1]).squeeze()
+                    
                 imsave(fname,
-                       frame.transpose([2,0,1]).squeeze(),
+                       frame,
                        metadata = {
                            'Camera':str(icam)})
             self.server_reply(msg = 'snapshots',address = address) 
