@@ -27,7 +27,10 @@ class PVCam(GenericCam):
                  save_trigger = None,                 
                  out_q = None,
                  binning = None,
-                 exposure = 100,
+                 readout_port = 2,
+                 gain = 1,
+                 exp_mode = "All rows",
+                 exposure = 16,
                  dtype = np.uint16,
                  use_camera_parameters = True,
                  trigger_source = np.uint16(2),
@@ -47,7 +50,7 @@ class PVCam(GenericCam):
         self.exposure = exposure
         self.binning = binning
         self.dtype = dtype
-        self.camopen()
+        self._cam_init()
 
         ###
         frame = self.get_one()
@@ -119,6 +122,12 @@ class PVCam(GenericCam):
         self.nframes.value = 0
         self.lastframeid = -1
         self.camopen(self.cam_id)
+        self.cam.readout_port = 2
+        self.cam.gain = 1
+        self.cam.binning = 4
+        self.cam.exp_mode = "Internal Trigger"
+        self.cam.exp_out_mode = "All Rows"
+        self.cam.exp_time = self.exposure
         self.cam.meta_data_enabled = True
         self.camera_ready.set()
         self.nframes.value = 0
@@ -130,25 +139,15 @@ class PVCam(GenericCam):
         self.tstamp = 0
     def _cam_stopacquisition(self, clean_buffers = True):
         self.cam.finish()
-        i=0
-        while clean_buffers:
-            # check if there are any frame buffers missing.
-            frame,metadata = self._cam_loop()
-            if frame is None:
-                break
-            self._handle_frame(frame,metadata)
-            i+=1
-        display('[PCO {0}] - cleared {0} buffers.'.format(self.cam_id,i))
-
-        self.disarm()
         
     def _cam_loop(self):
-        frame, fps, frame_count = self.cam.poll_frame()
-        self.out[:, :] = np.frombuffer(frame, dtype=np.uint16).reshape(self.out.shape)
-        frameID = frame_count
-        self.tstamp += fps
-        print(tstamp)
-        return self.out.copy(),(frameID,self.tstamp)
+        f, fps, frame_count = self.cam.poll_frame()
+        frame = f['pixel_data']
+    
+        frameID = f['meta_data']['frame_header']['frameNr']
+        
+        tstamp = f['meta_data']['frame_header']['timestampBOF']
+        return frame,(frameID,tstamp)
         return None,(None,None)
     
     def _cam_close(self):
