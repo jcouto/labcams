@@ -521,6 +521,8 @@ class Camera(object):
                                  **params)
         elif self.driver.lower() == 'pco':
             self._init_pco_cam(params)            
+        elif self.driver.lower() == 'pvcam':
+            self._init_pvcam_cam(params)            
         elif self.driver.lower() == 'basler':
             self._init_basler_cam(params)
         elif self.driver.lower() == 'ximea':
@@ -666,6 +668,30 @@ The recorders can be specified with the '"format":"ffmpeg"' option in each camer
 ''')
         
         self.cam = PCOCam(cam_id=self.cam_id,
+                          out_q = self.recorder_q,
+                          start_trigger = self.start_trigger,
+                          stop_trigger = self.stop_trigger,
+                          save_trigger = self.save_trigger,
+                          hardware_trigger = self.hardware_trigger_event,
+                          **parameters)
+        
+    def _init_pvcam_cam(self,parameters):
+        try:
+            from .pvcam import PVCam
+        except Exception as err:
+            print(err)
+            print(''' 
+            
+                    Could not load the PVCAM driver. 
+
+    If you want to record from PVCAM cameras install the PyVCam driver.
+    If not you have the wrong config file.
+
+            Edit the file in USERHOME/labcams/default.json and delete the PVCAM cam or use the -c option
+
+''')
+        
+        self.cam = PVCam(cam_id=self.cam_id,
                           out_q = self.recorder_q,
                           start_trigger = self.start_trigger,
                           stop_trigger = self.stop_trigger,
