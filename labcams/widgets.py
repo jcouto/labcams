@@ -325,6 +325,7 @@ class CamWidget(QWidget):
         win = pg.GraphicsLayoutWidget()
         p1 = win.addPlot(title="")
         self.view = pg.ImageItem(background=[1,1,1])
+        self.view.setAutoDownsample(True)
         p1.getViewBox().invertY(True)
         if invertX:
             p1.getViewBox().invertX(True)
@@ -392,10 +393,19 @@ class CamWidget(QWidget):
             self.frame_buffer[:,:,
                               np.mod(cframe,
                                      nchan)] = tmp.squeeze()
-            return self.image(self.frame_buffer,cframe)
+            if self.parent.downsample_cameras:
+                return self.image(cv2.pyrDown(self.frame_buffer),cframe)
+            else:
+                return self.image(self.frame_buffer,cframe)
+                
         else:
             frame = self.cam.get_img()
         if not frame is None:
+            sp = frame.shape
+            if self.parent.downsample_cameras:
+                frame = cv2.pyrDown(frame)
+            if not len(frame.shape) == len(sp):
+                frame = frame.reshape((*frame.shape[:2],sp[-1]))
             self.image(frame,self.cam.nframes.value)
             
     def addActions(self):
@@ -770,7 +780,7 @@ class CamWidget(QWidget):
                     frame[:,:,1] = f[:,:,0]
                     frame[:,:,2] = f[:,:,1]
                 self.view.setImage(frame.squeeze(),
-                                   autoLevels=self.autoRange,autoDownsample=True)
+                                   autoLevels=self.autoRange, autoDownsample=True)
             else:
                 frame = frame.squeeze()
                 ref = self.parameters['reference_channel']

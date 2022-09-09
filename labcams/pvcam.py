@@ -22,16 +22,19 @@ from pyvcam.camera import Camera
 class PVCam(GenericCam):
     def __init__(self,
                  cam_id = None,
+                 name = '',
                  start_trigger = None,
                  stop_trigger = None,
                  save_trigger = None,                 
                  out_q = None,
-                 binning = None,
+                 binning = 1,
                  readout_port = 2,
                  gain = 1,
-                 exp_mode = "All rows",
+                 trigger_mode = "Internal Trigger",
+                 exposure_out_mode = "All Rows",
+                 buffer_frame_count=4000,
                  exposure = 16,
-                 dtype = np.uint16,
+                 dtype = None,
                  use_camera_parameters = True,
                  trigger_source = np.uint16(2),
                  hardware_trigger = None,
@@ -39,26 +42,35 @@ class PVCam(GenericCam):
                  recorderpar = None,
                  **kwargs):
         super(PVCam,self).__init__(cam_id = cam_id,
-                                    out_q = out_q,
-                                    start_trigger = start_trigger,
-                                    stop_trigger = stop_trigger,
-                                    save_trigger = save_trigger,
-                                    recorderpar=recorderpar)
-        self.armed = False
+                                   name = name,
+                                   out_q = out_q,
+                                   start_trigger = start_trigger,
+                                   stop_trigger = stop_trigger,
+                                   save_trigger = save_trigger,
+                                   recorderpar=recorderpar)
         self.drivername = 'PVCam'
         self.trigerMode = 0
         self.exposure = exposure
+        self.readout_port = readout_port
+        self.gain = gain
+        self.binning = binning
+        self.exp_mode = trigger_mode
+        self.exp_out_mode = exposure_out_mode
+        self.buffer_frame_count = buffer_frame_count
         self.binning = binning
         self.dtype = dtype
         self._cam_init()
-
+        self.iframe = 0
         ###
         frame = self.get_one()
+        
         self.camclose()
         self.cam = None
         self.h.value = frame.shape[0]
         self.w.value = frame.shape[1]
-
+        if dtype is None:
+            dtype = frame.dtype
+            print('[PVCam] - dtype is: {0}'.format(dtype))
         if len(frame.shape) == 2:
             self.nchan.value = 1
         else:
@@ -122,31 +134,37 @@ class PVCam(GenericCam):
         self.nframes.value = 0
         self.lastframeid = -1
         self.camopen(self.cam_id)
-        self.cam.readout_port = 2
-        self.cam.gain = 1
-        self.cam.binning = 4
-        self.cam.exp_mode = "Internal Trigger"
-        self.cam.exp_out_mode = "All Rows"
+        self.cam.readout_port = self.readout_port
+        self.cam.gain = self.gain
+        self.cam.binning = self.binning
+        self.cam.exp_mode = self.exp_mode
+        self.cam.exp_out_mode = self.exp_out_mode
         self.cam.exp_time = self.exposure
         self.cam.meta_data_enabled = True
+        self.cam.clear_mode = "Auto"
+        print(self.cam.clear_modes)
+        self.cam.speed_table_index = 0
         self.camera_ready.set()
         self.nframes.value = 0
         self.datestart = datetime.now()
         
     def _cam_startacquisition(self):
         display('PCO [{0}] - Started acquisition.'.format(self.cam_id))
-        self.cam.start_live()
+        self.cam.start_live(exp_time = self.exposure, buffer_frame_count=100)
         self.tstamp = 0
     def _cam_stopacquisition(self, clean_buffers = True):
         self.cam.finish()
         
     def _cam_loop(self):
-        f, fps, frame_count = self.cam.poll_frame()
-        frame = f['pixel_data']
-    
-        frameID = f['meta_data']['frame_header']['frameNr']
-        
-        tstamp = f['meta_data']['frame_header']['timestampBOF']
+        f, fps, frame_count = self.cam.poll_frame(oldestFrame=True,
+                                                  copyData=False)
+        frame = f['pixel_data'].copy()
+        frameID = int(f['meta_data']['frame_header']['frameNr'])
+        tstamp = int(f['meta_data']['frame_header']['timestampBOF'])
+        if frameID != self.iframe+1:
+            print('The number of buffers can needs to be increased??\n Got frame {0}; expected {1}!'.format(self.iframe,frameID))
+        self.iframe = frameID
+
         return frame,(frameID,tstamp)
         return None,(None,None)
     

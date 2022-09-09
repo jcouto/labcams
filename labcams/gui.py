@@ -78,6 +78,10 @@ class LabCamsGUI(QMainWindow):
         self.cam_descriptions = camDescriptions
         self.zmqsocket = None
         self.udpsocket = None
+        if not 'downsample_display' in self.parameters.keys():
+            self.downsample_cameras = True
+        else:
+            self.downsample_cameras = self.parameters['downsample_display']
         if server:
             if not 'server_refresh_time' in self.parameters.keys():
                 self.parameters['server_refresh_time'] = 5
@@ -295,6 +299,13 @@ class LabCamsGUI(QMainWindow):
 )
         bar = self.menuBar()
         editmenu = bar.addMenu("Options")
+        toggle_downsample = QActionCheckBox(self,'Downsample display',
+                                            self.downsample_cameras)
+        def tdownsample():
+            self.downsample_cameras = not self.downsample_cameras
+            toggle_downsample.checkbox.setChecked(self.downsample_cameras)
+        toggle_downsample.link(tdownsample)
+        editmenu.addAction(toggle_downsample)
         editmenu.addAction("Set refresh time")
         editmenu.triggered[QAction].connect(self.experiment_menu_trigger)
         pluginmenu = bar.addMenu("Plugins")

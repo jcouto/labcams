@@ -25,9 +25,11 @@ except:
     pass
 from multiprocessing import Process, Queue, Event, Array, Value, Lock
 from multiprocessing.shared_memory import SharedMemory # this breaks compatibility with python < 3.8
-
-BUFFER_SIZE = 0.5e9  # this is the buffer size allocation in shared memory 
-
+if (sys.maxsize > 2**32):
+    BUFFER_SIZE = 2.5e9  # this is the buffer size allocation in shared memory
+else:
+    BUFFER_SIZE = 0.5e9  # this is the buffer size allocation in shared memory
+    
 import numpy as np
 from datetime import datetime
 from .utils import *
@@ -48,6 +50,7 @@ import cv2
 #
 class GenericCam(Process):
     def __init__(self, cam_id,
+                 name = '',
                  out_q = None,
                  recorderpar = None,
                  refreshperiod = 1/20.,
@@ -58,7 +61,7 @@ class GenericCam(Process):
                  membuffer_len = BUFFER_SIZE,
                  **kwargs):
         super(GenericCam,self).__init__()
-        self.name = ''
+        self.name = name
         if cam_id is None:
             display('Need to supply a camera ID.')
         self.cam_id = cam_id
@@ -87,7 +90,7 @@ class GenericCam(Process):
         self._init_controls()
         self._init_ctrevents()
         self.cam_is_running = False
-        self.was_saving=False
+        self.was_saving = False
         self.recorderpar = recorderpar
         self.recorder = None
         self.refresh_period = refreshperiod
@@ -185,6 +188,7 @@ class GenericCam(Process):
             self.membuffer = SharedMemory(name = self.membuffer_name)
         buffsize = [self.h.value,self.w.value,self.nchan.value]
         self.nbuffers.value = int(self.membuffer_len // np.prod(buffsize+[dtype.itemsize]))
+        display('[{0}] - using {1} buffers.'.format(self.name,self.nbuffers.value))
         buffsize = [self.nbuffers.value] + buffsize
         self.imgs = np.ndarray(buffsize,
                                buffer = self.membuffer.buf,
@@ -343,6 +347,7 @@ class GenericCam(Process):
 class OpenCVCam(GenericCam):    
     def __init__(self,
                  cam_id = None,
+                 name = '',
                  start_trigger = None,
                  stop_trigger = None,
                  save_trigger = None,
@@ -351,6 +356,7 @@ class OpenCVCam(GenericCam):
                  recorderpar = None,
                  **kwargs):
         super(OpenCVCam,self).__init__(cam_id = cam_id,
+                                       name = name,
                                        out_q = out_q,
                                        start_trigger = start_trigger,
                                        stop_trigger = stop_trigger,
@@ -456,8 +462,8 @@ class Camera(object):
                  **kwargs):
         # parse camera based on the driver
         self.cam_id = cam_id
-        self.driver = driver
         self.name = name
+        self.driver = driver
         self.start_trigger = start_trigger
         self.stop_trigger = stop_trigger
         self.save_trigger = save_trigger
@@ -497,7 +503,9 @@ class Camera(object):
         else:
             recorderpar = None # Use a queue recorder
                 
-        params = dict(kwargs,recorderpar = recorderpar)
+        params = dict(kwargs,
+                      name = self.name,
+                      recorderpar = recorderpar)
         # add an arduino if needed
         if 'excitation_trigger' in params.keys():
             if not params['excitation_trigger'] is None:
@@ -538,6 +546,7 @@ class Camera(object):
                     cam['driver'])
             raise(ValueError('Unknown camera driver ' +
                              cam['driver']))
+        self.cam.name = self.name
         self.camera_ready = self.cam.camera_ready
         self.writer = None
         if recorderpar is None:
@@ -691,7 +700,7 @@ The recorders can be specified with the '"format":"ffmpeg"' option in each camer
 
 ''')
         
-        self.cam = PVCam(cam_id=self.cam_id,
+        self.cam = PVCam(cam_id = self.cam_id,
                           out_q = self.recorder_q,
                           start_trigger = self.start_trigger,
                           stop_trigger = self.stop_trigger,

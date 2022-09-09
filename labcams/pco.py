@@ -20,6 +20,7 @@ class PCOCam(GenericCam):
     time_modes = {0:"ns", 1: "us", 2: "ms"}
     def __init__(self,
                  cam_id = None,
+                 name = '',
                  start_trigger = None,
                  stop_trigger = None,
                  save_trigger = None,                 
@@ -34,6 +35,7 @@ class PCOCam(GenericCam):
                  recorderpar = None,
                  **kwargs):
         super(PCOCam,self).__init__(cam_id = cam_id,
+                                    name = name,
                                     out_q = out_q,
                                     start_trigger = start_trigger,
                                     stop_trigger = stop_trigger,
