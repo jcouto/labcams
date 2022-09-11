@@ -79,7 +79,7 @@ class LabCamsGUI(QMainWindow):
         self.zmqsocket = None
         self.udpsocket = None
         if not 'downsample_display' in self.parameters.keys():
-            self.downsample_cameras = True
+            self.downsample_cameras = False
         else:
             self.downsample_cameras = self.parameters['downsample_display']
         if server:

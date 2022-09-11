@@ -393,7 +393,7 @@ class CamWidget(QWidget):
             self.frame_buffer[:,:,
                               np.mod(cframe,
                                      nchan)] = tmp.squeeze()
-            if self.parent.downsample_cameras:
+            if self.parent.downsample_cameras and not self.reference_toggle.value:
                 return self.image(cv2.pyrDown(self.frame_buffer),cframe)
             else:
                 return self.image(self.frame_buffer,cframe)
@@ -402,7 +402,7 @@ class CamWidget(QWidget):
             frame = self.cam.get_img()
         if not frame is None:
             sp = frame.shape
-            if self.parent.downsample_cameras:
+            if self.parent.downsample_cameras and not self.reference_toggle.value:
                 frame = cv2.pyrDown(frame)
             if not len(frame.shape) == len(sp):
                 frame = frame.reshape((*frame.shape[:2],sp[-1]))
@@ -536,7 +536,6 @@ class CamWidget(QWidget):
 
                 print('Selected {0}'.format(filename))
             else:
-
                 self.reference_toggle.checkbox.disconnect()
                 self.reference_toggle.checkbox.setChecked(True)
                 self.reference_toggle.link(self.toggle_reference)
