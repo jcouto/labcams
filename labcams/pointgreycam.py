@@ -508,14 +508,6 @@ Available serials are:
         node_acquisition_mode.SetIntValue(node_acquisition_mode_continuous.GetValue())
 
         self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
-        #if self.triggered.is_set(): # One can use the hardware_trigger option for these cameras
-        # Line 3 for triggering (hardcoded for now)
-        #   self.cam.TriggerSource.SetValue(PySpin.TriggerSource_Line3)
-        #   self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
-        #   display('[PointGrey {0}] - Triggered mode ON.'.format(self.cam_id))            
-        #else:
-        #   display('[PointGrey {0}] - Triggered mode OFF.'.format(self.cam_id))
-            
         # Set GPIO lines 2 and 3 to input by default
         if 'Blackfly S' in self.cammodel: # on Blackfly S turn off 3.3V output on line 2 (Used for sync)
             self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line2'))
@@ -530,7 +522,6 @@ Available serials are:
             d = '3' # line 3 is the default hardware trigger
             if self.hardware_trigger[-1].isdigit():
                 d = self.hardware_trigger[-1]
-            self.cam.TriggerMode.SetValue(PySpin.TriggerMode_Off)
             if 'in_line' in self.hardware_trigger:
                 self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line' + d))
                 self.cam.LineMode.SetValue(PySpin.LineMode_Input)
@@ -547,17 +538,12 @@ Available serials are:
                 self.cam.TriggerMode.SetValue(PySpin.TriggerMode_On)
                 display('[PointGrey {0}] - External trigger mode ON on line {1}.'.format(self.cam_id, d))    
             if 'out_line' in self.hardware_trigger:
-                display('This is a master camera, sleeping .5 sec.')
+                display('This is a master camera, sleeping .2 sec.')
                 time.sleep(0.2)
         if not self.hardware_trigger == '':
             if 'out_line' in self.hardware_trigger:
                 # Use line 1 for Blackfly S
                 # Use line 2 or 3 for Chamaeleon
-                display('[PointGrey {0}] - Setting the output line for line {1}'.format(self.cam_id, d))
-                if not 'Chameleon3' in self.cammodel: # delay the chamaeleon until after started
-                    self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line'+d))
-                    self.cam.LineMode.SetValue(PySpin.LineMode_Output)
-                    self.cam.LineSource.SetValue(PySpin.LineSource_ExposureActive)
                 if 'Blackfly S' in self.cammodel: # on Blackfly S connect line 1 to line 2 with a 10kOhm resistor 
                     display('[PointGrey {0}] - Setting 3.3V Enable on line 2'.format(self.cam_id))
                     self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line2'))
@@ -565,9 +551,11 @@ Available serials are:
         self.cam.BeginAcquisition()
         if not self.hardware_trigger == '': # start chameleon trigger after the cam because it is constantly on
             if 'out_line' in self.hardware_trigger and 'Chameleon3' in self.cammodel:
+                display('[PointGrey {0}] - Setting the output line for line {1}'.format(self.cam_id, d))
                 self.cam.LineSelector.SetValue(eval('PySpin.LineSelector_Line'+d))
                 self.cam.LineMode.SetValue(PySpin.LineMode_Output)
                 self.cam.LineSource.SetValue(PySpin.LineSource_ExposureActive)
+                self.cam.LineInverter.SetValue(False)
         display('[PointGrey {0}] - Started acquisition.'.format(self.cam_id))
         self.cam.AcquisitionStart()
         
