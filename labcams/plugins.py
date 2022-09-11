@@ -1,12 +1,18 @@
 from .utils import *
 
 class BasePlugin():
-    def __init__(self,gui):
+    def __init__(self,gui,name):
         self.gui = gui
-
+        self.name = name
     def update(self):
         pass
-
+    
+    def parse_command(self,msg):
+        cmd,msg = msg.split(':')
+        self._parse_command(cmd,msg)
+        
+    def _parse_command(self,command,msg):
+        pass
 plugins = []
 
 def load_plugins(config = None):

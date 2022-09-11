@@ -253,7 +253,22 @@ class LabCamsGUI(QMainWindow):
                        frame,
                        metadata = {
                            'Camera':str(icam)})
-            self.server_reply(msg = 'snapshots',address = address) 
+            self.server_reply(msg = 'snapshots',address = address)
+        elif message['action'].lower() == 'startplugin':
+            # starts a plugin remotely if not there yet.
+            pluginname = message['value']
+            loaded_plugins = [p.name for p in self.plugins]
+            if pluginname in loaded_plugins:
+                print('{0} plugin is already loaded. '.format(pluginname))
+            else:
+                for l in self.plugins_handles:
+                    if pluginname == l['name']:
+                        display('Loading {0}'.format(l['name']))
+                        self.plugins.append(l['plugin'](self))
+        elif message['action'].lower() == 'pluginmsg':
+            for p in self.plugins:
+                p.parse_command(message['value'])
+                
         elif message['action'].lower() == 'load_reference':
             foldername = message['value']
             if not os.path.exists(foldername):
