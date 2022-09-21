@@ -26,7 +26,7 @@ except:
 from multiprocessing import Process, Queue, Event, Array, Value, Lock
 from multiprocessing.shared_memory import SharedMemory # this breaks compatibility with python < 3.8
 if (sys.maxsize > 2**32):
-    BUFFER_SIZE = 2.5e9  # this is the buffer size allocation in shared memory
+    BUFFER_SIZE = 1.5e9  # this is the buffer size allocation in shared memory
 else:
     BUFFER_SIZE = 0.5e9  # this is the buffer size allocation in shared memory
     
