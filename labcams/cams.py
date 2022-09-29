@@ -549,9 +549,9 @@ class Camera(object):
             self.recorder_parameters['format'] = 'daq'
         else:
             display('[WARNING] -----> Unknown camera driver ' +
-                    cam['driver'])
+                    self.driver)
             raise(ValueError('Unknown camera driver ' +
-                             cam['driver']))
+                             self.driver))
         self.cam.name = self.name
         self.camera_ready = self.cam.camera_ready
         self.writer = None
