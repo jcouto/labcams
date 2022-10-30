@@ -18,11 +18,7 @@
 # Creates separate processes for acquisition and queues frames
 import time
 import sys
-import multiprocessing
-try:
-    multiprocessing.set_start_method('spawn')
-except:
-    pass
+
 from multiprocessing import Process, Queue, Event, Array, Value, Lock
 from multiprocessing.shared_memory import SharedMemory # this breaks compatibility with python < 3.8
 if (sys.maxsize > 2**32):
