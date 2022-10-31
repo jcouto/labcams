@@ -17,6 +17,7 @@
 # Classes to save files from a multiprocessing queue
 import time
 import sys
+from .utils import *
 from multiprocessing import Process,Queue,Event,Array,Value
 from multiprocessing.shared_memory import SharedMemory # this breaks compatibility with python < 3.8
 from ctypes import c_long, c_char_p, c_wchar
@@ -227,25 +228,16 @@ class GenericWriter(object):
                 self.open_file(frame = frame)
                 if not self.inQ is None:
                     display('Queue size: {0}'.format(self.inQ.qsize()))
-
                     self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - '
                                        + 'Queue: {0}'.format(self.inQ.qsize())
                                        + '\n')
             frameid, timestamp = metadata[:2] 
             self._write(frame,frameid,timestamp)
-            if np.mod(frameid,7000) == 0:
-                if self.inQ is None:
-                    display('[{0} - frame:{1}]'.format(
-                        self.dataname,frameid))
-                else:
-                    display('[{0} - frame:{1}] Queue size: {2}'.format(
-                        self.dataname,frameid,self.inQ.qsize()))
             self.logfile.write(','.join(['{0}'.format(a) for a in metadata]) + '\n')
             self.saved_frame_count += 1
         return frameid,frame
     
     def close_run(self):
-        
         if not self.logfile is None:
             # Check if there are comments on the queue
             while not self.inQ.empty():
@@ -302,7 +294,7 @@ class GenericWriterProcess(Process,GenericWriter):
             self.write = Event()
         self.close = Event()
         self.filename = Array('u',' ' * 1024)
-        self.parQ = Queue()
+        self.parQ = Queue(MAX_QUEUE_SIZE)
         self.daemon = True
 
     def _stop_write(self):
@@ -326,6 +318,17 @@ class GenericWriterProcess(Process,GenericWriter):
     
     def get_from_queue_and_save(self):
         buff = self.inQ.get()
+        qsize = self.inQ.qsize()
+        if qsize > 1000:
+            display('[{0} - frame:{1}] Queue size: {2}'.format(
+                self.dataname,frameid,qsize))
+            while not self.inQ.empty():
+                self.inQ.get()
+            display('######################################## ISSUE RECORDING. FRAME COUNT ON QUEUE TOO HIGH. DROPPING FRAMES. #########################')
+            display('########################################          THIS IS NOT NORMAL, CHECK THE INSTALATION.              #########################')
+            if not self.logfile is None:
+                self.logfile.write('# ISSUE RECORDING. FRAME COUNT ON QUEUE TOO HIGH. DROPPING FRAMES.')
+                self.logfile.write('# THIS IS NOT NORMAL, CHECK THE INSTALATION.')
         buf = None
         if not buff[0] is None:
             if len(buff) > 1:

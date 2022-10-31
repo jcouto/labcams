@@ -422,7 +422,6 @@ class LabCamsGUI(QMainWindow):
 
 
 def main():
-
     from argparse import ArgumentParser, RawDescriptionHelpFormatter
     import os
     import json
@@ -495,4 +494,6 @@ def main():
     sys.exit(app.exec_())
     
 if __name__ == '__main__':
+    from multiprocessing import set_start_method
+    set_start_method("spawn")
     main()

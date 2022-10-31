@@ -18,15 +18,11 @@
 # Creates separate processes for acquisition and queues frames
 import time
 import sys
-import multiprocessing
-try:
-    multiprocessing.set_start_method('spawn')
-except:
-    pass
+
 from multiprocessing import Process, Queue, Event, Array, Value, Lock
 from multiprocessing.shared_memory import SharedMemory # this breaks compatibility with python < 3.8
 if (sys.maxsize > 2**32):
-    BUFFER_SIZE = 2.5e9  # this is the buffer size allocation in shared memory
+    BUFFER_SIZE = 1.5e9  # this is the buffer size allocation in shared memory
 else:
     BUFFER_SIZE = 0.5e9  # this is the buffer size allocation in shared memory
     
@@ -86,7 +82,7 @@ class GenericCam(Process):
 
         self.queue = out_q
         self.camera_ready = Event()
-        self.eventsQ = Queue()
+        self.eventsQ = Queue(MAX_QUEUE_SIZE)
         self._init_controls()
         self._init_ctrevents()
         self.cam_is_running = False
@@ -231,6 +227,8 @@ class GenericCam(Process):
             if self.close_event.is_set():
                 break
         self.membuffer.close()
+        del self.membuffer_lock
+             
     def _handle_frame(self,frame,metadata):
         if self.save_trigger.is_set():
             self.was_saving = True
@@ -341,6 +339,10 @@ class GenericCam(Process):
         self.stop_acquisition()
         self.membuffer.close()
         self.membuffer.unlink()
+        if not self.eventsQ:
+             self.eventsQ.close()
+        if not self.queue is None:
+            self.queue.close()
 
         
 # OpenCV camera; some functionality limited (like hardware triggers)
@@ -483,7 +485,7 @@ class Camera(object):
         self.filename = filename
         self.camera_description = self.name
                     
-        self.recorder_q = Queue() # queue to talk to the recorder.
+        self.recorder_q = Queue(MAX_QUEUE_SIZE) # queue to talk to the recorder.
         # recorder options
         self.recorder_parameters = recorder
         if not 'datafolder' in recorder.keys():
@@ -543,9 +545,9 @@ class Camera(object):
             self.recorder_parameters['format'] = 'daq'
         else:
             display('[WARNING] -----> Unknown camera driver ' +
-                    cam['driver'])
+                    self.driver)
             raise(ValueError('Unknown camera driver ' +
-                             cam['driver']))
+                             self.driver))
         self.cam.name = self.name
         self.camera_ready = self.cam.camera_ready
         self.writer = None
