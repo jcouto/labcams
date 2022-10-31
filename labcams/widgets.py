@@ -229,7 +229,6 @@ If the camera is saving this stops the camera.'''
         self.saveOnStartToggle.setToolTip(info)
         self.saveButton.setFixedWidth(100)
         l.addRow(label,self.saveOnStartToggle)
-
         self.udpmessages = QLabel('')
         b1=QFont()
         b1.setPixelSize(16)
@@ -625,11 +624,12 @@ class CamWidget(QWidget):
             self.hist.setLevels(np.iinfo(dt).min,np.iinfo(dt).max)
 
         
-    def addROI(self,roi = None):
+    def addROI(self,roi = None,smoothing_k = 1):
         if self.roiwidget is None:
             self.roiwidget = ROIPlotWidget(roi_target = self.p1,
                                            view = self.view,
-                                           parent = self)
+                                           parent = self,
+                                           smoothing_k = smoothing_k)
             roiTab = QDockWidget("roi cam {0}".format(self.iCam), self)
             roiTab.setWidget(self.roiwidget)
             roiTab.setAllowedAreas(Qt.LeftDockWidgetArea |
@@ -643,6 +643,7 @@ class CamWidget(QWidget):
                                       ,roiTab)
             roiTab.setFloating(True)
             roiTab.resize(600,150)
+            self.roiwidget.qtab = roiTab # to place it later if needed
             
             def closetab(ev):
                 # This probably does not clean up memory...
@@ -789,13 +790,16 @@ class CamWidget(QWidget):
 
 
 class ROIPlotWidget(QWidget):
-    def __init__(self, roi_target= None,view=None,npoints = 1200,parent = None):
+    def __init__(self, roi_target= None, view=None,
+                 npoints = 1200, parent = None, smoothing_k = 1):
         super(ROIPlotWidget,self).__init__()	
         layout = QGridLayout()
         self.parent=parent
         self.setLayout(layout)
         self.view = view
+        self.qtab = None
         self.roi_target = roi_target
+        self.smoothing_k = smoothing_k
         win = pg.GraphicsLayoutWidget()
         self.p1 = win.addPlot()
         self.p1.getAxis('bottom').setPen('k') 
@@ -805,6 +809,7 @@ class ROIPlotWidget(QWidget):
         self.rois = []
         self.plots = []
         self.buffers = []
+        self.baseline = []
 
     def add_roi(self,roi = None):
         pencolor = colors[
@@ -822,6 +827,7 @@ class ROIPlotWidget(QWidget):
         buf[0,:] = np.nan
         buf[1,:] = 0
         self.buffers.append(buf)
+        self.baseline.append(0)
 
     def items(self):
         return self.rois
@@ -834,7 +840,7 @@ class ROIPlotWidget(QWidget):
     def reset(self):
         for ib in range(len(self.buffers)):
             self.buffers[ib][0,:] = np.nan
-        
+            self.baseline[ib] = 0
     def update(self,img,iFrame):
         
         ichan = -1
@@ -852,7 +858,11 @@ class ROIPlotWidget(QWidget):
                 r = np.mean(roi.getArrayRegion(img[:,:,ichan], self.view)).copy()
             buf = np.roll(self.buffers[i], -1, axis = 1)
             buf[0,-1] = ctime
-            buf[1,-1] = r
+            alpha = 1
+            if not np.isnan(r):
+                alpha = np.clip(self.smoothing_k,0,1)
+                self.baseline[i] +=  alpha*(r-self.baseline[i])
+            buf[1,-1] = r - self.baseline[i]
             self.buffers[i] = buf
             ii = (~np.isnan(buf[0,:])) & (~np.isnan(buf[1,:]))
             plot.setData(x = buf[0,ii],

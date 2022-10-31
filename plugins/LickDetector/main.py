@@ -25,11 +25,11 @@ class LickDetector(BasePlugin):
                 None,'labcams',
                 'Select a camera to add the LickDetector')[0]
         display('[LickDetector] - using cam {0}'.format(self.pref['camidx']))
-        self.camwidget = gui.camwidgets[self.pref['camidx']] 
-        self.camwidget.addROI()
+        self.camwidget = gui.camwidgets[self.pref['camidx']]
+        self.camwidget.addROI(smoothing_k = 0.01)
         self.roi0 = self.camwidget.roiwidget.rois[0]
         self.roi0.setPos((200,130)),self.roi0.setSize((10,6))
-        self.camwidget.addROI()
+        self.camwidget.addROI(smoothing_k = 0.01)
         self.roi1 = self.camwidget.roiwidget.rois[1]
         self.roi1.setPos((100,130)),self.roi1.setSize((10,6))
         # refresh the values faster
@@ -38,6 +38,7 @@ class LickDetector(BasePlugin):
         gui.timer.start(gui.update_frequency)
     
         self.roiwidget = self.camwidget.roiwidget
+        self.roiwidget.qtab.setFloating(False)
         self.thresholds = thresholds
         if self.pref['duinoport'] is None:
             from PyQt5.QtWidgets import QInputDialog
@@ -74,6 +75,7 @@ class LickDetector(BasePlugin):
                 self.roi0.setSize(p['roi0_size'])
                 self.roi1.setPos(p['roi1_pos'])
                 self.roi1.setSize(p['roi1_size'])
+                self.thresholds = p['thresholds']
         elif command.lower() == 'savesettings':
             p0 = self.roi0.pos()
             s0 = self.roi0.size()
@@ -82,7 +84,8 @@ class LickDetector(BasePlugin):
             p = dict(roi0_pos = (p0[0],p0[1]),
                      roi0_size = (s0[0],s0[1]),
                      roi1_pos = (p1[0],p1[1]),
-                     roi1_size = (s1[0],s1[1]))
+                     roi1_size = (s1[0],s1[1]),
+                     thresholds = self.thresholds)
             self.pref['subjects'][msg] = p
             print('Saving settings for {0}'.format(msg))            
             self.save_settings()
