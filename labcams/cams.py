@@ -283,7 +283,7 @@ class GenericCam(Process):
                             self.recorderpar['filename'] = cmd[1]
                 elif cmd[0] == 'log':
                     msg = '# {0},{1} - {2}'.format(
-                        self.lastframeid,
+                        self.nframes.value,
                         self.lasttime,cmd[1])
                     if self.recorder is None:
                         self.queue.put([msg])
