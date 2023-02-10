@@ -44,7 +44,8 @@ from PyQt5.QtWidgets import (QWidget,
                              QDialog,
                              QInputDialog)
 from PyQt5.QtGui import QImage, QPixmap,QBrush,QPen,QColor,QFont
-from PyQt5.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
+from PyQt5.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer,QSettings
+
 
 import pyqtgraph as pg
 pg.setConfigOption('background', [200,200,200])
@@ -570,6 +571,7 @@ class CamWidget(QWidget):
     def histogramWin(self):
         if self.hist is None:
             histTab = QDockWidget("histogram cam {0}".format(self.iCam), self)
+            histTab.setObjectName("histogram cam {0}".format(self.iCam))
             widget = QWidget()
             layout = QGridLayout()
             widget.setLayout(layout)
@@ -631,6 +633,7 @@ class CamWidget(QWidget):
                                            parent = self,
                                            smoothing_k = smoothing_k)
             roiTab = QDockWidget("roi cam {0}".format(self.iCam), self)
+            roiTab.setObjectName("roi cam {0}".format(self.iCam))
             roiTab.setWidget(self.roiwidget)
             roiTab.setAllowedAreas(Qt.LeftDockWidgetArea |
                                    Qt.RightDockWidgetArea |
@@ -700,6 +703,7 @@ class CamWidget(QWidget):
             return
         self.eyeTracker = MPTracker(drawProcessedFrame=True)
         self.trackerTab = QDockWidget("mptracker cam {0}".format(self.iCam), self)
+        self.trackerTab.setObjectName("mptracker cam {0}".format(self.iCam))
         self.eyeTracker.parameters['crTrack'] = True
         self.eyeTracker.parameters['sequentialCRMode'] = False
         self.eyeTracker.parameters['sequentialPupilMode'] = False

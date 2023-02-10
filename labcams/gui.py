@@ -69,7 +69,7 @@ class LabCamsGUI(QMainWindow):
             self.hardware_trigger_event.set()
         else:
             self.hardware_trigger_event.clear()
-
+        
         self.parameters = parameters
         self.app = app
         self.plugins = []
@@ -179,6 +179,14 @@ class LabCamsGUI(QMainWindow):
         
         self.recController.saveOnStartToggle.setChecked(self.save_on_start)
         self.recController.softTriggerToggle.setChecked(self.software_trigger)
+        self.settings = QSettings('labcams','labcams')
+        try:
+            self.restoreGeometry(self.settings.value("geometry", ""))
+            self.restoreState(self.settings.value("windowState",""))
+        except Exception as err:
+            print(err)
+            display("Could not restore locations")
+
 
     def set_experiment_name(self,expname):
         # Makes sure that the experiment name has the right slashes.
@@ -335,6 +343,7 @@ class LabCamsGUI(QMainWindow):
         self.recController = RecordingControlWidget(self)
         #self.setCentralWidget(self.recController)
         self.recControllerTab = QDockWidget("",self)
+        self.recControllerTab.setObjectName("control_acquisition")
         self.recControllerTab.setWidget(self.recController)
         self.addDockWidget(
             Qt.TopDockWidgetArea,
@@ -345,6 +354,7 @@ class LabCamsGUI(QMainWindow):
             if self.saveflags[c]:
                 tt +=  ' - ' + self.cam_descriptions[c]['name'] +' ' 
             self.tabs.append(QDockWidget("Camera: "+str(c) + tt,self))
+            self.tabs[-1].setObjectName("camera"+str(c))
             if hasattr(cam.cam,"h") and hasattr(cam.cam,"w"): # then it must be a camera
                 self.camwidgets.append(CamWidget(frame = np.zeros((cam.cam.h.value,
                                                                    cam.cam.w.value,
@@ -370,15 +380,7 @@ class LabCamsGUI(QMainWindow):
             self.addDockWidget(
                 Qt.BottomDockWidgetArea,
                 self.tabs[-1])
-            
-            # there can only be one of these for now?
-            if hasattr(self,'camstim_widget'):
-                self.camstim_tab = QDockWidget("Camera excitation control",self)
-                self.camstim_tab.setWidget(self.camstim_widget)
-                self.addDockWidget(
-                    Qt.LeftDockWidgetArea,
-                self.camstim_tab)
-            display('Init view: ' + str(c))
+            display('Initialized camera view: ' + str(c))
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_timer)
         self.timer.start(self.update_frequency)
@@ -407,6 +409,10 @@ class LabCamsGUI(QMainWindow):
                 print(e, fname, exc_tb.tb_lineno)
             
     def closeEvent(self,event):
+        # try to save settings?
+        
+        self.settings.setValue('geometry',self.saveGeometry())
+        self.settings.setValue('windowState',self.saveState())
         if hasattr(self,'server_timer'):
             self.server_timer.stop()
             if hasattr(self,'udpsocket') and not self.udpsocket is None:
