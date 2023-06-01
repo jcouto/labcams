@@ -3,7 +3,7 @@ scipy
 pandas
 tqdm
 pyzmq
-opencv-python
+opencv-python-headless
 tifffile
 pyqt5
 pyqtgraph
