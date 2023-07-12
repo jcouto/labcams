@@ -685,8 +685,10 @@ class CamWidget(QWidget):
             if not os.path.isdir(folder):
                 os.makedirs(folder)
             from tifffile import imsave
+            if len(frame.shape)==3:
+                frame = frame.transpose([2,0,1]).squeeze()
             imsave(str(filename),
-                   frame.transpose([2,0,1]).squeeze(),
+                   frame,
                    metadata = {
                        'Camera':str(self.iCam)})
             display('Saved camera frame for cam: {0}'.format(self.iCam))
