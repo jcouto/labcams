@@ -142,7 +142,7 @@ class PCOCam(GenericCam):
     def _cam_stopacquisition(self, clean_buffers = True):
         self.cam.sdk.set_recording_state('off')
         self.cam.stop()
-        i=0
+        i = 0
         while clean_buffers:
             # check if there are any frame buffers missing.
             frame,metadata = self._cam_loop()
