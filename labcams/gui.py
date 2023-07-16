@@ -156,6 +156,8 @@ class LabCamsGUI(QMainWindow):
                     ino = self.cams[-1].excitation_trigger,
                     cam = self.cams[-1].cam)
                 self.camstim_tab = QDockWidget("Camera excitation control",self)
+                self.camstim_tab.setObjectName("Cam stim")
+
                 self.camstim_tab.setWidget(self.excitation_trigger_widget)
                 self.addDockWidget(
                     Qt.LeftDockWidgetArea,

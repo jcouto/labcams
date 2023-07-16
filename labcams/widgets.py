@@ -882,6 +882,7 @@ class CamStimTriggerWidget(QWidget):
             ino = CamStimInterface(port = port,outQ = outQ)
         self.ino = ino
         self.cam = cam
+        self.setObjectName("CamStimTrigger")
         form = QFormLayout()
         if not ino is None:
             def disarm():

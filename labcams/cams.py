@@ -266,6 +266,7 @@ class GenericCam(Process):
         else:
             self.imgs[idx] = frame[:]
         self.nframes.value = frameID
+        self.lastframeid = int(frameID)
         self.membuffer_lock.release()
 
     def _parse_command_queue(self):
@@ -321,6 +322,7 @@ class GenericCam(Process):
     
     def _cam_waitsoftwaretrigger(self):
         '''wait for software trigger'''
+        self.lastframeid = -1
         while (not self.start_trigger.is_set()):
             # limits resolution to 1 ms 
             time.sleep(0.001)
