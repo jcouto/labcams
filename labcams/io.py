@@ -320,12 +320,12 @@ class GenericWriterProcess(Process,GenericWriter):
         buff = self.inQ.get()
         qsize = self.inQ.qsize()
         if qsize > 1000:
-            display('[{0} - frame:{1}] Queue size: {2}'.format(
-                self.dataname,frameid,qsize))
+            display('[{0}] Queue size: {1}'.format(
+                self.dataname,qsize))
             while not self.inQ.empty():
                 self.inQ.get()
             display('######################################## ISSUE RECORDING. FRAME COUNT ON QUEUE TOO HIGH. DROPPING FRAMES. #########################')
-            display('########################################          THIS IS NOT NORMAL, CHECK THE INSTALATION.              #########################')
+            display('########################################          THIS IS NOT NORMAL, CHECK THE SETTINGS.              #########################')
             if not self.logfile is None:
                 self.logfile.write('# ISSUE RECORDING. FRAME COUNT ON QUEUE TOO HIGH. DROPPING FRAMES.')
                 self.logfile.write('# THIS IS NOT NORMAL, CHECK THE INSTALATION.')
