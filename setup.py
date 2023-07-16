@@ -24,7 +24,7 @@ setup(
     long_description = longdescription,
     long_description_content_type='text/markdown',
     license = 'GPL',
-    #install_requires = requirements,
+    install_requires = requirements,
     url = "https://github.com/jcouto/labcams",
     packages = ['labcams'],
     python_requires='>=3.8',
