@@ -142,7 +142,7 @@ class PCOCam(GenericCam):
     def _cam_stopacquisition(self, clean_buffers = True):
         self.cam.sdk.set_recording_state('off')
         self.cam.stop()
-        '''i=0
+        i=0
         while clean_buffers:
             # check if there are any frame buffers missing.
             frame,metadata = self._cam_loop()
@@ -150,17 +150,16 @@ class PCOCam(GenericCam):
                 break
             self._handle_frame(frame,metadata)
             i+=1
-        
         display('[PCO {0}] - cleared {0} buffers.'.format(self.cam_id,i))
-        '''
+        
         
     def _cam_loop(self,poll_timeout=5e7):
         timestamp = 0
         message = 0
         num_acquired = 0
         status = self.cam.rec.get_status()
-        if not status['is running']:
-            return None,(None,None)
+        #if not status['is running']:
+        #    return None,(None,None)
         if status['dwProcImgCount'] == 0 or status['dwProcImgCount'] <= (self.lastframeid):
             return None,(None,None)
 
