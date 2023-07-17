@@ -53,7 +53,8 @@ class PCOCam(GenericCam):
         self._cam_init()
         
         self.cam.record(1)
-        frame = self.cam.image()[0]
+        frame,info = self.cam.image()
+
         self.cam.close()
         self.cam = None
         self.h.value = frame.shape[0]
@@ -91,7 +92,7 @@ class PCOCam(GenericCam):
 
     def set_exposure_time(self,exposure):
         self.exposure = exposure
-        self.cam.set_exposure_time(self.exposure/1000.)
+        self.cam.exposure_time = self.exposure/1000.
         
     
     def acquisitionstop(self):
@@ -104,7 +105,7 @@ class PCOCam(GenericCam):
     
 
     def _cam_init(self):
-        self.cam = pco.Camera(timestamp = 'on', debuglevel = self.debuglevel)
+        self.cam = pco.Camera()
         self.cam.sdk.set_hot_pixel_correction_mode('on')
         self.cam.sdk.set_pixel_rate(max(self.cam.sdk.get_camera_description()['pixel rate']))
         try:
@@ -128,7 +129,7 @@ class PCOCam(GenericCam):
                         int(sizes['y max']/binning['binning y'])]
         self.cam.sdk.set_roi(*self.roi)
 
-        self.cam.set_exposure_time(self.exposure/1000.)
+        self.cam.exposure_time = self.exposure/1000.
         self.cam.sdk.set_timestamp_mode('binary')
         self.camera_ready.set()
         self.nframes.value = 0
@@ -163,21 +164,18 @@ class PCOCam(GenericCam):
         if status['dwProcImgCount'] == 0 or status['dwProcImgCount'] <= (self.lastframeid):
             return None,(None,None)
 
-        img = self.cam.image(-1)
-        frameID = img[1]['camera image number']
-        out = img[0].copy()
-        timestamp = 0
-        # frameID = int(''.join([hex(((a >> 8*0) & 0xFF))[-2:] for a in out[0,:4]]).replace('x','0'))
-        try:
-            datestr = ('{0}{1}-{2}-{3} {4}:{5}:{6}.{7}{8}{9}'.format(
-                *[hex(((a >> 8*0) & 0xFF)
-                      )[-2:] for a in self.out[0,4:14]]).replace('x','0'))
-            timestam = datetime.strptime(datestr,'%Y-%m-%d %H:%M:%S.%f')
-        except:
-            timestam = datetime.now()
-        timestamp = (timestam - self.datestart).total_seconds()
-        # Handle failed string decoding.
-        return out,(frameID,timestamp)
+        frame,info = self.cam.image(-1)
+        frameID = info['timestamp']['image counter']
+        t = info['timestamp']
+        ms,s = np.modf(t['second'])
+        timestamp = datetime(year = t['year'],
+                             month=t['month'],
+                             day = t['day'],
+                             hour=t['hour'],
+                             minute = t['minute'],
+                             second = int(s),
+                             microsecond = int(ms*1e6))
+        return frame,(frameID,timestamp)
     
     def _cam_close(self):
         ret = self.cam.close()

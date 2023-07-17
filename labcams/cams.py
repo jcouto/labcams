@@ -677,7 +677,10 @@ The recorders can be specified with the '"format":"ffmpeg"' option in each camer
             
                     Could not load the PCO driver. 
 
-    If you want to record from PCO cameras install the PCO.sdk driver.
+    If you want to record from PCO cameras install the PCO driver.
+            
+            pip install pco>2.0.1
+           
     If not you have the wrong config file.
 
             Edit the file in USERHME/labcams/default.json and delete the PCO cam or use the -c option
