@@ -91,9 +91,11 @@ class PCOCam(GenericCam):
                 step = 10))
 
     def set_exposure_time(self,exposure):
-        self.exposure = exposure
-        self.cam.exposure_time = self.exposure/1000.
-        
+        try:
+            self.cam.exposure_time = exposure/1000.
+            self.exposure = exposure
+        except Exception as err:
+            print(err)
     
     def acquisitionstop(self):
         """
@@ -163,19 +165,22 @@ class PCOCam(GenericCam):
         #    return None,(None,None)
         if status['dwProcImgCount'] == 0 or status['dwProcImgCount'] <= (self.lastframeid):
             return None,(None,None)
-
-        frame,info = self.cam.image(-1)
-        frameID = info['timestamp']['image counter']
-        t = info['timestamp']
-        ms,s = np.modf(t['second'])
-        timestamp = datetime(year = t['year'],
-                             month=t['month'],
-                             day = t['day'],
-                             hour=t['hour'],
-                             minute = t['minute'],
-                             second = int(s),
-                             microsecond = int(ms*1e6))
-        return frame,(frameID,timestamp)
+        try:
+            frame,info = self.cam.image(-1)
+            frameID = info['timestamp']['image counter']
+            t = info['timestamp']
+            ms,s = np.modf(t['second'])
+            timestamp = datetime(year = t['year'],
+                                 month=t['month'],
+                                 day = t['day'],
+                                 hour=t['hour'],
+                                 minute = t['minute'],
+                                 second = int(s),
+                                 microsecond = int(ms*1e6))
+            return frame,(frameID,timestamp)
+        except Exception as err:
+            print(err)
+            return None,(None,None)
     
     def _cam_close(self):
         ret = self.cam.close()
