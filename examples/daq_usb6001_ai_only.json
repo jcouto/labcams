@@ -1,0 +1,25 @@
+{
+    "cams": [
+	{
+            "cam_id": 0, 
+            "name": "sync", 
+            "driver": "nidaq", 
+            "srate": 1000,
+	    "device":"dev5",
+	    "digital":{},
+	    "analog": {
+		"ai0":"trial",
+		"ai1":"stim",
+		"ai2":"cam0",
+		"ai3":"cam1",
+		"ai4":"other"
+	    },
+	    "recorder": {"format":"binary"}
+        }
+    ],
+    "recorder_frames_per_file": 0,
+    "recorder_path": "D:\\data",
+    "recorder_path_format":"{datafolder}\\{filename}",
+    "server":"udp",
+    "server_port": 9995
+}
