@@ -39,6 +39,7 @@ class NIDAQ(object):
         self.device = device
         self.task_ai = None
         self.task_di = None
+        self.task_clock = None
         self.start_trigger = start_trigger
         self.stop_trigger = stop_trigger
         self.save_trigger = save_trigger
@@ -60,14 +61,17 @@ class NIDAQ(object):
         self.srate = srate
         self.samps_per_chan = int(self.srate/5)
         self.was_saving = False
-        
-        self.task_clock = nidaqmx.Task()
-        self.task_clock.co_channels.add_co_pulse_chan_freq(
-            self.device + '/ctr0',freq = self.srate)
-        self.samp_clk_terminal = '/{0}/Ctr0InternalOutput'.format(self.device)
-        self.task_clock.timing.cfg_implicit_timing(
-            sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS,
-            samps_per_chan=self.samps_per_chan)
+        try:
+            self.task_clock = nidaqmx.Task()
+            self.task_clock.co_channels.add_co_pulse_chan_freq(
+                self.device + '/ctr0',freq = self.srate)
+            self.samp_clk_terminal = '/{0}/Ctr0InternalOutput'.format(self.device)
+            self.task_clock.timing.cfg_implicit_timing(
+                sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS,
+                samps_per_chan=self.samps_per_chan)
+        except Exception as err:
+            print(err)
+            self.task_clock = None
         self.recorderpar = dict(recorderpar,**kwargs)
         self.dataname = None
         for aich in self.analog_channels.keys():
@@ -94,23 +98,25 @@ class NIDAQ(object):
                         self.di_port_channels.append(io*8 + int(o.split('.')[-1]))
             
             self.di_num_channels = len(diports)
+        extra = dict()
+        if not self.task_clock is None:
+            extra = dict(source=self.samp_clk_terminal)
         if not self.task_ai is None:
             self.task_ai.timing.cfg_samp_clk_timing(
                 self.srate,
-                source=self.samp_clk_terminal,
-                active_edge=nidaqmx.constants.Edge.FALLING,
+                active_edge=nidaqmx.constants.Edge.RISING,
                 sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS,
-                samps_per_chan=self.samps_per_chan)
+                samps_per_chan=self.samps_per_chan,**extra)
             self.ai_reader = AnalogUnscaledReader(self.task_ai.in_stream)
             #AnalogMultiChannelReader(self.task_ai.in_stream)
 
         if not self.task_di is None:
             self.task_di.timing.cfg_samp_clk_timing(
                 rate = self.srate,
-                source = self.samp_clk_terminal,
-                active_edge=nidaqmx.constants.Edge.FALLING,
+                active_edge=nidaqmx.constants.Edge.RISING,
                 sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS,
-                samps_per_chan = self.samps_per_chan)
+                samps_per_chan = self.samps_per_chan,
+                **extra)
             self.di_reader = DigitalMultiChannelReader(self.task_di.in_stream)
         self.data =  np.zeros((self.ai_num_channels+self.di_num_channels,self.srate),
                               dtype = np.float64)
@@ -154,8 +160,10 @@ class NIDAQ(object):
         self.n_ai_samples = 0
         self.n_di_samples = 0
         
-        self.ai_reader.read_all_avail_samp = True
-        self.di_reader.read_all_avail_samp = True
+        if not self.task_ai is None:        
+            self.ai_reader.read_all_avail_samp = True
+        if not self.task_di is None:
+            self.di_reader.read_all_avail_samp = True
 
     def _parse_command_queue(self):
         if not self.eventsQ.empty():
