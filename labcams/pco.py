@@ -54,7 +54,6 @@ class PCOCam(GenericCam):
         
         self.cam.record(1)
         frame,info = self.cam.image()
-
         self.cam.close()
         self.cam = None
         self.h.value = frame.shape[0]
@@ -140,7 +139,7 @@ class PCOCam(GenericCam):
         
     def _cam_startacquisition(self):
         display('PCO [{0}] - Started acquisition.'.format(self.cam_id))
-        self.cam.record(500, mode='ring buffer')
+        self.cam.record(200, mode='fifo')
                 
     def _cam_stopacquisition(self, clean_buffers = True):
         self.cam.sdk.set_recording_state('off')
@@ -157,17 +156,17 @@ class PCOCam(GenericCam):
         
         
     def _cam_loop(self,poll_timeout=5e7):
-        timestamp = 0
-        message = 0
-        num_acquired = 0
         status = self.cam.rec.get_status()
-        #if not status['is running']:
-        #    return None,(None,None)
-        if status['dwProcImgCount'] == 0 or status['dwProcImgCount'] <= (self.lastframeid):
-            return None,(None,None)
         try:
-            frame,info = self.cam.image(-1)
+            self.cam.wait_for_new_image(delay=True, timeout = self.exposure/1000.)
+        except TimeoutError:
+            return None,(None,None)
+        #if status['dwProcImgCount'] == 0 or status['dwProcImgCount'] <= (self.lastframeid):
+        #    return None,(None,None)
+        try:
+            frame,info = self.cam.image(0)
             frameID = info['timestamp']['image counter']
+            frameID2 = int(''.join([hex(((a >> 8*0) & 0xFF))[-2:] for a in frame[0,:4]]).replace('x','0'))
             t = info['timestamp']
             ms,s = np.modf(t['second'])
             timestamp = datetime(year = t['year'],

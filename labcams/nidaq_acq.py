@@ -201,10 +201,6 @@ class NIDAQ(object):
                             ai_buffer,
                             number_of_samples_per_channel = self.samps_per_chan,
                             timeout = 1)
-                        #ai_nsamples = self.ai_reader.read_many_sample(
-                        #    ai_buffer,
-                        #    number_of_samples_per_channel = self.samps_per_chan,
-                        #    timeout = 2)
                         self.n_ai_samples += ai_nsamples
                     if not self.task_di is None:
                         di_nsamples = self.di_reader.read_many_sample_port_uint32(
@@ -261,15 +257,19 @@ class NIDAQ(object):
         self.thread_task.start()
         return
 
+    def _cam_stopacquisition(self):
+        pass
+    
     def stop_acquisition(self):
         self.stop_trigger.set()
 
+    def join(self):
+        pass
+    
     def close(self):
         self.close_event.set()
         self.stop_acquisition()
-
-    def join(self):
-        pass
-
+        self.thread_task.join()
+        
     def stop_saving(self):
         self.save_trigger.clear()

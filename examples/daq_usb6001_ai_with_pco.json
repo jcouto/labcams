@@ -1,0 +1,33 @@
+{
+    "cams": [
+	{
+            "cam_id": 0, 
+            "name": "sync", 
+            "driver": "nidaq", 
+            "srate": 10000,
+	    "device":"dev5",
+	    "digital":{},
+	    "analog": {
+		"ai0":"trial",
+		"ai1":"led470nm"
+	    },
+	    "recorder": {"format":"binary",
+			 "recorder_path_format":"1photon\\sync\\{filename}_{run}_{nfiles}.{dataname}"}
+	},
+	{
+            "driver": "pco", 
+            "exposure": 17, 
+            "cam_id": 1, 
+            "name": "1photon", 
+            "trigger_type": 0,
+	    "binning": 4,
+	    "recorder": {"format":"binary",
+			 "frames_per_file": 0},
+	    "excitation_trigger": {"port":"COM5"}
+        }
+    ],
+    "recorder_path": "D:\\data",
+    "recorder_path_format":"{datafolder}\\{filename}_{run}_{nfiles}",
+    "server":"udp",
+    "server_port": 9998
+}
