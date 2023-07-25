@@ -251,8 +251,13 @@ class NIDAQ(object):
             if not self.task_ai is None:
                 self.task_ai.close()
             if not self.task_clock is None:
-                self.task_clock.close()                
+                self.task_clock.close()
             display('Closed DAQ')
+            del self.task_di
+            del self.task_clock
+            del self.task_ai
+            return
+        
         self.thread_task = threading.Thread(target = run_thread)
         self.thread_task.start()
         return

@@ -183,7 +183,6 @@ class PCOCam(GenericCam):
     
     def _cam_close(self):
         ret = self.cam.close()
-        display('PCO - returned {0} on close'.format(ret))
         self.save_trigger.clear()
         if self.was_saving:
             self.was_saving = False

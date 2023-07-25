@@ -80,8 +80,10 @@ class GenericWriter(object):
 
         self.path_format = pathformat
         self.path_keys =  dict(datafolder = self.datafolder,
+                               recorder_path = self.datafolder,
                                dataname = self.dataname,
                                filename = self.filename,
+                               foldername = os.path.dirname(self.filename),
                                today = self.today,
                                datetime = shared_date[:],
                                year = shared_date[:4],
@@ -148,6 +150,8 @@ class GenericWriter(object):
         self.path_keys['seconds'] = shared_date[13:]
         
         self.path_keys['filename'] = self.get_filename()
+        self.path_keys['foldername'] = os.path.dirname(self.path_keys['filename'])
+        self.path_keys['basename'] = os.path.basename(self.path_keys['filename'])
         filename = (self.path_format+'{extension}').format(**self.path_keys)
         folder = os.path.dirname(filename)
         if folder == '':
