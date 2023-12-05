@@ -165,7 +165,7 @@ class PCOCam(GenericCam):
         #    return None,(None,None)
         try:
             frame,info = self.cam.image(0)
-            frameID = info['timestamp']['image counter']
+            frameID = int(info['timestamp']['image counter'])
             frameID2 = int(''.join([hex(((a >> 8*0) & 0xFF))[-2:] for a in frame[0,:4]]).replace('x','0'))
             t = info['timestamp']
             ms,s = np.modf(t['second'])
