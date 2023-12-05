@@ -12,13 +12,13 @@
 		"ai1":"led470nm"
 	    },
 	    "recorder": {"format":"binary",
-			 "recorder_path_format":"1photon\\sync\\{filename}_{run}_{nfiles}.{dataname}"}
+			 "pathformat":"{recorder_path}\\{foldername}\\{dataname}\\{basename}_{run}_{nfiles}.{dataname}"}
 	},
 	{
             "driver": "pco", 
             "exposure": 17, 
             "cam_id": 1, 
-            "name": "1photon", 
+            "name": "one_photon", 
             "trigger_type": 0,
 	    "binning": 4,
 	    "recorder": {"format":"binary",
@@ -27,7 +27,7 @@
         }
     ],
     "recorder_path": "D:\\data",
-    "recorder_path_format":"{datafolder}\\{filename}_{run}_{nfiles}",
+    "recorder_path_format":"{recorder_path}\\{filename}_{run}_{nfiles}",
     "server":"udp",
     "server_port": 9998
 }

@@ -317,7 +317,6 @@ class CamWidget(QWidget):
         self.nchan = frame.shape[-1]
         if hasattr(self.cam,'excitation_trigger'):
             self.nchan = self.cam.excitation_trigger.nchannels.value
-            self.frame_buffer = None
         self.displaychannel = -1  # default show all channels
         self.roiwidget = None
         self.layout = QGridLayout()
@@ -382,21 +381,12 @@ class CamWidget(QWidget):
     def update(self):
         # handle the excitation module
         if hasattr(self.cam,'excitation_trigger'):
-            if self.frame_buffer is None:
-                self.frame_buffer = np.zeros([
-                    self.cam.cam.h.value,
-                    self.cam.cam.w.value,
-                    3], dtype = self.cam.cam.dtype)
             cframe = self.cam.nframes.value
-            tmp = self.cam.get_img(cframe)
-            nchan = self.cam.excitation_trigger.nchannels.value
-            self.frame_buffer[:,:,
-                              np.mod(cframe,
-                                     nchan)] = tmp.squeeze()
+            frame_buffer = self.cam.get_img_with_virtual_channels()
             if self.parent.downsample_cameras and not self.reference_toggle.value:
-                return self.image(cv2.pyrDown(self.frame_buffer),cframe)
+                return self.image(cv2.pyrDown(frame_buffer),cframe)
             else:
-                return self.image(self.frame_buffer,cframe)
+                return self.image(frame_buffer,cframe)
                 
         else:
             frame = self.cam.get_img()

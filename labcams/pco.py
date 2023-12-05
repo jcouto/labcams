@@ -165,7 +165,7 @@ class PCOCam(GenericCam):
         #    return None,(None,None)
         try:
             frame,info = self.cam.image(0)
-            frameID = info['timestamp']['image counter']
+            frameID = int(info['timestamp']['image counter'])
             frameID2 = int(''.join([hex(((a >> 8*0) & 0xFF))[-2:] for a in frame[0,:4]]).replace('x','0'))
             t = info['timestamp']
             ms,s = np.modf(t['second'])
@@ -183,7 +183,6 @@ class PCOCam(GenericCam):
     
     def _cam_close(self):
         ret = self.cam.close()
-        display('PCO - returned {0} on close'.format(ret))
         self.save_trigger.clear()
         if self.was_saving:
             self.was_saving = False
