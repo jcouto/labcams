@@ -600,7 +600,7 @@ Available serials are:
         try:
             img = self.cam.GetNextImage(1,0)
         except PySpin.SpinnakerException as ex:
-            if '-1011' in str(ex):
+            if '-1011' in str(ex) or '-1010' in str(ex):
                 pass
             else:
                 display('[PointGrey {0}] - Error: {1}'.format(self.cam_id,ex))
