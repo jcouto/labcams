@@ -229,7 +229,8 @@ class GenericCam(Process):
                 self._stop_recorder()
             self.stop_trigger.clear()
             if self.close_event.is_set():
-                print('[Got close event]')
+                display('[{0} {1}] Camera received a close event'.format(
+                    self.drivername,self.cam_id))
                 break
         self.membuffer.close()
         del self.membuffer_lock
@@ -638,7 +639,9 @@ The recorders can be specified with the '"format":"ffmpeg"' option in each camer
     def start_acquisition(self):
         if hasattr(self,'excitation_trigger'):
             self.excitation_trigger.arm()
-            display('Camera LED stim trigger armed.')
+            display('[{0} {1}] Camera LED stim trigger armed.'.format(
+                self.cam.drivername, self.cam.cam_id))
+
         self.start_trigger.set()
 
     def stop_acquisition(self):

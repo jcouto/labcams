@@ -62,7 +62,7 @@ class NIDAQ(object):
         self.samps_per_chan = int(self.srate/5)
         self.was_saving = False
         try:
-            self.task_clock = nidaqmx.Task()
+            self.task_clock = nidaqmx.Task(new_task_name='clock')
             self.task_clock.co_channels.add_co_pulse_chan_freq(
                 self.device + '/ctr0',freq = self.srate)
             self.samp_clk_terminal = '/{0}/Ctr0InternalOutput'.format(self.device)
@@ -71,20 +71,23 @@ class NIDAQ(object):
                 samps_per_chan=self.samps_per_chan)
         except Exception as err:
             print(err)
+            display('NIDAQ - Could not start a clock task, this is not a problem unless you want to record both digital and analog inputs in the same time base.')
+            self.task_clock.close()
+            del self.task_clock
             self.task_clock = None
         self.recorderpar = dict(recorderpar,**kwargs)
         self.dataname = None
         for aich in self.analog_channels.keys():
             chanstr = '{0}/{1}'.format(self.device,aich)
             if self.task_ai is None:
-                self.task_ai = nidaqmx.Task()
+                self.task_ai = nidaqmx.Task(new_task_name='analog_input')
             self.task_ai.ai_channels.add_ai_voltage_chan(
                 chanstr,
                 min_val = ai_range[0],
                 max_val = ai_range[1])
         if self.di_num_channels:      # then there are channels (need to find out the ports)
             if self.task_di is None:
-                self.task_di = nidaqmx.Task()
+                self.task_di = nidaqmx.Task(new_task_name='digital_input')
             dinames = [n[:2] for n in self.digital_channels.keys()]
             # one channel per port
             diports = np.unique(dinames)
