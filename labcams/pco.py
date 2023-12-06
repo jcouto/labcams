@@ -142,7 +142,10 @@ class PCOCam(GenericCam):
         self.cam.record(200, mode='fifo')
                 
     def _cam_stopacquisition(self, clean_buffers = True):
-        self.cam.sdk.set_recording_state('off')
+        try:
+            self.cam.sdk.set_recording_state('off')
+        except Exception as err:
+            display('[PCO {0}] - Could not run set_recording state OFF.'.format(self.cam_id))
         self.cam.stop()
         i = 0
         while clean_buffers:
