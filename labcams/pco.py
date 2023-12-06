@@ -17,6 +17,7 @@
 from .cams import *
 import pco
 from datetime import datetime
+
 class PCOCam(GenericCam):
     def __init__(self,
                  cam_id = None,
@@ -33,7 +34,7 @@ class PCOCam(GenericCam):
                  roi = None,
                  recorderpar = None,
                  acquire_mode = 'auto', # external
-                 debuglevel = 'off', # verbose
+                 debuglevel = 'on', # verbose
                  **kwargs):
         super(PCOCam,self).__init__(cam_id = cam_id,
                                     name = name,
@@ -58,7 +59,6 @@ class PCOCam(GenericCam):
         self.cam = None
         self.h.value = frame.shape[0]
         self.w.value = frame.shape[1]
-        display('PCO - size: {0} x {1}'.format(self.h.value,self.w.value))
 
         if len(frame.shape) == 2:
             self.nchan.value = 1
@@ -106,9 +106,26 @@ class PCOCam(GenericCam):
     
 
     def _cam_init(self):
-        self.cam = pco.Camera()
+        display('[PCO {0}] the initializing camera'.format(
+            self.cam_id))
+        self.cam = pco.Camera()        
+        # turn on hop pixels
         self.cam.sdk.set_hot_pixel_correction_mode('on')
-        self.cam.sdk.set_pixel_rate(max(self.cam.sdk.get_camera_description()['pixel rate']))
+        display('[PCO {0}] set hot pixel correction'.format(
+            self.cam_id))
+
+        # use the max rate
+        display('[PCO {0}] set hot pixel correction ON'.format(
+            self.cam_id))
+        
+        desc = self.cam.sdk.get_camera_description()
+        display('[PCO {0}] got the camera description'.format(self.cam_id))
+
+        if 'pixel rate' in desc.keys():
+            display('[PCO {0}] setting the rate {1}Hz'.format(
+                self.cam_id,np.max(desc['pixel rate'])))
+        self.cam.sdk.set_pixel_rate(np.max(desc['pixel rate']))
+        
         try:
             self.cam.sdk.set_hwio_signal(index = 3,
                                          enabled = 'on',
@@ -118,20 +135,28 @@ class PCOCam(GenericCam):
                                          selected = 0,
                                          parameter = [2,0,0,0])
             # this is not doing what I want yet..
-        except:
-            print('Could not set HWIO for line 4.')
+        except Exception as err:
+            display('[PCO {0}] Could not set HWIO for line 4, make sure the HWIO is correct with CamWare'.format(
+                self.cam_id))
+            print(err)
         self.cam.set_acquire_mode = self.acquire_mode
         if not self.binning is None:
             self.cam.sdk.set_binning(self.binning,self.binning)
+            display('[PCO {0}] set binning to {1}x{1}'.format(
+                self.cam_id,self.binning))
+
         sizes = self.cam.sdk.get_sizes()
         binning = self.cam.sdk.get_binning()
         if self.roi is None:
-            self.roi = [1,1,int(sizes['x max']/binning['binning x']),
+            self.roi = [1,1,int(sizes['x max']/binning['binning x']), # starts at 1
                         int(sizes['y max']/binning['binning y'])]
         self.cam.sdk.set_roi(*self.roi)
+        display('[PCO {0} ] Set roi: [{1},{2},{3},{4}]'.format(self.cam_id, *self.roi))
 
         self.cam.exposure_time = self.exposure/1000.
         self.cam.sdk.set_timestamp_mode('binary')
+        display('[PCO {0} ] Set exposure and timestamp mode to binary: {1:.3f}s'.format(self.cam_id, self.exposure/1000))
+    
         self.camera_ready.set()
         self.nframes.value = 0
         self.lastframeid = -1
@@ -155,10 +180,10 @@ class PCOCam(GenericCam):
                 break
             self._handle_frame(frame,metadata)
             i+=1
-        display('[PCO {0}] - cleared {0} buffers.'.format(self.cam_id,i))
+        display('[PCO {0}] - stop_acquisition: cleared {0} buffers.'.format(self.cam_id,i))
         
         
-    def _cam_loop(self,poll_timeout=5e7):
+    def _cam_loop(self):
         status = self.cam.rec.get_status()
         try:
             self.cam.wait_for_new_image(delay=True, timeout = self.exposure/1000.)
@@ -186,7 +211,7 @@ class PCOCam(GenericCam):
     
     def _cam_close(self):
         ret = self.cam.close()
-        self.save_trigger.clear()
-        if self.was_saving:
-            self.was_saving = False
-            self.queue.put(['STOP'])
+        #self.save_trigger.clear()
+        #if self.was_saving:
+        #    self.was_saving = False
+        #    self.queue.put(['STOP'])

@@ -58,8 +58,8 @@ class GenericWriter(object):
         self.cam = None
         self.saved_frame_count = 0
         self.runs = 0
-        self.write = False
-        self.close = False
+        self.write_event = False
+        self.close_event = False
         self.sleeptime = sleeptime # seconds
         self.framesperfile = framesperfile
         self.filename = ''
@@ -126,9 +126,11 @@ class GenericWriter(object):
             self.virtual_channels.value = self.nchannels.value
         
     def _stop_write(self):
-        self.write = False
+        self.write_event = False
+        
     def stop(self):
-        self.write = False
+        self.write_event = False
+        
     def set_filename(self,filename):
         self._stop_write()
         self.filename = filename
@@ -293,16 +295,16 @@ class GenericWriterProcess(Process,GenericWriter):
                                incrementruns=incrementruns,
                                **kwargs)
         Process.__init__(self)
-        self.write = save_trigger
-        if self.write is None:
-            self.write = Event()
-        self.close = Event()
+        self.write_event = save_trigger
+        if self.write_event is None:
+            self.write_event = Event()
+        self.close_event = Event()
         self.filename = Array('u',' ' * 1024)
         self.parQ = Queue(MAX_QUEUE_SIZE)
         self.daemon = True
 
     def _stop_write(self):
-        self.write.clear()
+        self.write_event.clear()
 
     def set_filename(self,filename):
         self._stop_write()
@@ -314,8 +316,7 @@ class GenericWriterProcess(Process,GenericWriter):
     
     def stop(self):
         self._stop_write()
-        self.close.set()
-        self.join()
+        self.close_event.set()
         
     def _write(self,frame,frameid,timestamp):
         pass
@@ -361,13 +362,13 @@ class GenericWriterProcess(Process,GenericWriter):
         return self.imgs[frame_index % self.nbuffers].squeeze()
         
     def run(self):
-        while not self.close.is_set():
+        while not self.close_event.is_set():
             self.saved_frame_count = 0
             self.nFiles = 0
             if not self.parQ.empty():
                 self.getFromParQueue()
             self._init_shared_mem()
-            while self.write.is_set() and not self.close.is_set():
+            while self.write_event.is_set() and not self.close_event.is_set():
                 while self.inQ.qsize() > 0:
                     frameid,frame = self.get_from_queue_and_save()
                 # spare the processor just in case...

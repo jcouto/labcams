@@ -229,6 +229,7 @@ class GenericCam(Process):
                 self._stop_recorder()
             self.stop_trigger.clear()
             if self.close_event.is_set():
+                print('[Got close event]')
                 break
         self.membuffer.close()
         del self.membuffer_lock
@@ -883,9 +884,10 @@ Please install nidaqmx using pip and NIDAQmx from the National Instruments websi
             self.writer.stop()
         if hasattr(self,'excitation_trigger'):
             self.excitation_trigger.close()
-
+        display('Waiting for the camera process to close.')
         self.cam.join()
         if not self.writer is None:
+            display('Waiting for the writer process to close.')
             self.writer.join()
 
         
