@@ -426,7 +426,7 @@ class TiffWriter(GenericWriterProcess):
 
     def _write(self,frame,frameid,timestamp):
         self.fd.save(frame,
-                     compress=self.compression,
+                     compression=self.compression,
                      description='id:{0};timestamp:{1}'.format(frameid,
                                                                timestamp))
 
