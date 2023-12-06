@@ -112,7 +112,7 @@ def pg_image_settings(nodemap,X=None,Y=None,W=None,H=None,pxformat='Mono8'):
             display('[PointGrey] - Offset Y not available...')
 
     except PySpin.SpinnakerException as ex:
-        if not '-1010' in ex:
+        if not '-1010' in str(ex):
             display('[PointGrey] Error: %s' % ex)
         return
     return
@@ -277,7 +277,8 @@ Available serials are:
             frame = img.GetNDArray()
             img.Release()
         except PySpin.SpinnakerException as ex:
-            display('[PointGrey {0}] - Error: {1}'.format(self.cam_id,ex))
+            if not '-1010' in str(ex): # get rid of stream not started message
+                display('[PointGrey {0}] - Error: {1}'.format(self.cam_id,ex))
         self.cam.EndAcquisition()
         self._cam_close(do_stop = False)
         self.cam = None
