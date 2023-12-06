@@ -630,7 +630,7 @@ The recorders can be specified with the '"format":"ffmpeg"' option in each camer
         if value:
             if not self.writer is None:
                 self.writer.init_cam(self.cam)
-                self.writer.write.set()
+                self.writer.write_event.set()
             self.cam.save_trigger.set()
         else:
             self.stop_saving()
