@@ -766,11 +766,11 @@ class CamWidget(QWidget):
                     frame = self.eyeTracker.img
 
             self.text.setText(self.string.format(nframe))
-            if not self.displaychannel == -1:
+            if not self.displaychannel == -1 and len(frame.shape) > 2:
                 frame = frame[:,:,self.displaychannel]
 
             if self.parameters['reference_channel'] is None:
-                if self.displaychannel == -1 and frame.shape[2]==2:
+                if self.displaychannel == -1 and len(frame.shape) > 2 and frame.shape[2]==2:
                     f = frame.copy()
                     frame = np.zeros((f.shape[0],f.shape[1],3),dtype = f.dtype)
                     frame[:,:,1] = f[:,:,0]
