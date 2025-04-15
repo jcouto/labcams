@@ -447,11 +447,15 @@ Available serials are:
             self.cam.ChunkEnable.SetValue(True)
         except:
             self.chunk_has_line_status = False
+            import warnings
+            warnings.warn(f'[PointGrey {self.cam_id}] This camera does not support getting the frame_status from the image chunk.')
         try: # doesnt exist on chamaeleon?
             self.cam.ChunkSelector.SetValue(PySpin.ChunkSelector_FrameID)
             self.cam.ChunkEnable.SetValue(True)
         except:
-            pass
+            import warnings
+            warnings.warn(f'[PointGrey {self.cam_id}] This camera does not support getting the frameID from the image chunk.')
+            
         self.cam.ChunkSelector.SetValue(PySpin.ChunkSelector_Timestamp)
         self.cam.ChunkEnable.SetValue(True)
 
@@ -622,14 +626,13 @@ Available serials are:
                     linestat = img.GetExposureLineStatusAll()
                 else:
                     linestat = self.cam.LineStatusAll()
-            except:
-                linestat = self.cam.LineStatusAll() # this won't happen when the acquisition is off
-                #display(
-                #'Error reading line status? Check PointGrey Cam {0}'.format(
-                #    self.cam_id))
-            #frameinfo = img.GetChunkData()
-            #linestat = frameinfo.GetFrameID()
-            #display('Line {0} {1}'.format(linestat,frameinfo.GetExposureLineStatusAll())) #
+
+                    
+            except Exception as error:
+                linestat = self.cam.LineStatusAll()
+                # this won't happen when the acquisition is off
+                display('Error reading line status? Check PointGrey Cam {0}'.format(self.cam_id))
+                #display('Line {0} {1}'.format(linestat,frameinfo.GetExposureLineStatusAll())) #
             img.Release()
         return frame,(frameID,timestamp,linestat)
 
