@@ -24,6 +24,7 @@ from .qimaging_dll import *
 class QImagingCam(GenericCam):
     def __init__(self,
                  cam_id = None,
+                 name = '',
                  start_trigger = None,
                  stop_trigger = None,
                  save_trigger = None,
@@ -40,6 +41,7 @@ class QImagingCam(GenericCam):
             trigger_type (0=freerun,1=hardware,5=software)
         '''
         super(QImagingCam,self).__init__(cam_id = cam_id,
+                                         name = name,
                                          out_q = out_q,
                                          start_trigger = start_trigger,
                                          stop_trigger = stop_trigger,

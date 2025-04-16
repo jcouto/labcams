@@ -39,6 +39,7 @@ class NIDAQ(object):
         self.device = device
         self.task_ai = None
         self.task_di = None
+        self.task_clock = None
         self.start_trigger = start_trigger
         self.stop_trigger = stop_trigger
         self.save_trigger = save_trigger
@@ -60,27 +61,33 @@ class NIDAQ(object):
         self.srate = srate
         self.samps_per_chan = int(self.srate/5)
         self.was_saving = False
-        
-        self.task_clock = nidaqmx.Task()
-        self.task_clock.co_channels.add_co_pulse_chan_freq(
-            self.device + '/ctr0',freq = self.srate)
-        self.samp_clk_terminal = '/{0}/Ctr0InternalOutput'.format(self.device)
-        self.task_clock.timing.cfg_implicit_timing(
-            sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS,
-            samps_per_chan=self.samps_per_chan)
+        try:
+            self.task_clock = nidaqmx.Task(new_task_name='clock')
+            self.task_clock.co_channels.add_co_pulse_chan_freq(
+                self.device + '/ctr0',freq = self.srate)
+            self.samp_clk_terminal = '/{0}/Ctr0InternalOutput'.format(self.device)
+            self.task_clock.timing.cfg_implicit_timing(
+                sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS,
+                samps_per_chan=self.samps_per_chan)
+        except Exception as err:
+            print(err)
+            display('NIDAQ - Could not start a clock task, this is not a problem unless you want to record both digital and analog inputs in the same time base.')
+            self.task_clock.close()
+            del self.task_clock
+            self.task_clock = None
         self.recorderpar = dict(recorderpar,**kwargs)
         self.dataname = None
         for aich in self.analog_channels.keys():
             chanstr = '{0}/{1}'.format(self.device,aich)
             if self.task_ai is None:
-                self.task_ai = nidaqmx.Task()
+                self.task_ai = nidaqmx.Task(new_task_name='analog_input')
             self.task_ai.ai_channels.add_ai_voltage_chan(
                 chanstr,
                 min_val = ai_range[0],
                 max_val = ai_range[1])
         if self.di_num_channels:      # then there are channels (need to find out the ports)
             if self.task_di is None:
-                self.task_di = nidaqmx.Task()
+                self.task_di = nidaqmx.Task(new_task_name='digital_input')
             dinames = [n[:2] for n in self.digital_channels.keys()]
             # one channel per port
             diports = np.unique(dinames)
@@ -94,23 +101,25 @@ class NIDAQ(object):
                         self.di_port_channels.append(io*8 + int(o.split('.')[-1]))
             
             self.di_num_channels = len(diports)
+        extra = dict()
+        if not self.task_clock is None:
+            extra = dict(source=self.samp_clk_terminal)
         if not self.task_ai is None:
             self.task_ai.timing.cfg_samp_clk_timing(
                 self.srate,
-                source=self.samp_clk_terminal,
-                active_edge=nidaqmx.constants.Edge.FALLING,
+                active_edge=nidaqmx.constants.Edge.RISING,
                 sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS,
-                samps_per_chan=self.samps_per_chan)
+                samps_per_chan=self.samps_per_chan,**extra)
             self.ai_reader = AnalogUnscaledReader(self.task_ai.in_stream)
             #AnalogMultiChannelReader(self.task_ai.in_stream)
 
         if not self.task_di is None:
             self.task_di.timing.cfg_samp_clk_timing(
                 rate = self.srate,
-                source = self.samp_clk_terminal,
-                active_edge=nidaqmx.constants.Edge.FALLING,
+                active_edge=nidaqmx.constants.Edge.RISING,
                 sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS,
-                samps_per_chan = self.samps_per_chan)
+                samps_per_chan = self.samps_per_chan,
+                **extra)
             self.di_reader = DigitalMultiChannelReader(self.task_di.in_stream)
         self.data =  np.zeros((self.ai_num_channels+self.di_num_channels,self.srate),
                               dtype = np.float64)
@@ -154,8 +163,10 @@ class NIDAQ(object):
         self.n_ai_samples = 0
         self.n_di_samples = 0
         
-        self.ai_reader.read_all_avail_samp = True
-        self.di_reader.read_all_avail_samp = True
+        if not self.task_ai is None:        
+            self.ai_reader.read_all_avail_samp = True
+        if not self.task_di is None:
+            self.di_reader.read_all_avail_samp = True
 
     def _parse_command_queue(self):
         if not self.eventsQ.empty():
@@ -193,10 +204,6 @@ class NIDAQ(object):
                             ai_buffer,
                             number_of_samples_per_channel = self.samps_per_chan,
                             timeout = 1)
-                        #ai_nsamples = self.ai_reader.read_many_sample(
-                        #    ai_buffer,
-                        #    number_of_samples_per_channel = self.samps_per_chan,
-                        #    timeout = 2)
                         self.n_ai_samples += ai_nsamples
                     if not self.task_di is None:
                         di_nsamples = self.di_reader.read_many_sample_port_uint32(
@@ -247,21 +254,30 @@ class NIDAQ(object):
             if not self.task_ai is None:
                 self.task_ai.close()
             if not self.task_clock is None:
-                self.task_clock.close()                
+                self.task_clock.close()
             display('Closed DAQ')
+            del self.task_di
+            del self.task_clock
+            del self.task_ai
+            return
+        
         self.thread_task = threading.Thread(target = run_thread)
         self.thread_task.start()
         return
 
+    def _cam_stopacquisition(self):
+        pass
+    
     def stop_acquisition(self):
         self.stop_trigger.set()
 
+    def join(self):
+        pass
+    
     def close(self):
         self.close_event.set()
         self.stop_acquisition()
-
-    def join(self):
-        pass
-
+        self.thread_task.join()
+        
     def stop_saving(self):
         self.save_trigger.clear()
