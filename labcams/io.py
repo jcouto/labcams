@@ -17,6 +17,7 @@
 # Classes to save files from a multiprocessing queue
 import time
 import sys
+from .utils import *
 from multiprocessing import Process,Queue,Event,Array,Value
 from multiprocessing.shared_memory import SharedMemory # this breaks compatibility with python < 3.8
 from ctypes import c_long, c_char_p, c_wchar
@@ -57,8 +58,8 @@ class GenericWriter(object):
         self.cam = None
         self.saved_frame_count = 0
         self.runs = 0
-        self.write = False
-        self.close = False
+        self.write_event = False
+        self.close_event = False
         self.sleeptime = sleeptime # seconds
         self.framesperfile = framesperfile
         self.filename = ''
@@ -79,8 +80,10 @@ class GenericWriter(object):
 
         self.path_format = pathformat
         self.path_keys =  dict(datafolder = self.datafolder,
+                               recorder_path = self.datafolder,
                                dataname = self.dataname,
                                filename = self.filename,
+                               foldername = os.path.dirname(self.filename),
                                today = self.today,
                                datetime = shared_date[:],
                                year = shared_date[:4],
@@ -123,9 +126,11 @@ class GenericWriter(object):
             self.virtual_channels.value = self.nchannels.value
         
     def _stop_write(self):
-        self.write = False
+        self.write_event = False
+        
     def stop(self):
-        self.write = False
+        self.write_event = False
+        
     def set_filename(self,filename):
         self._stop_write()
         self.filename = filename
@@ -147,6 +152,8 @@ class GenericWriter(object):
         self.path_keys['seconds'] = shared_date[13:]
         
         self.path_keys['filename'] = self.get_filename()
+        self.path_keys['foldername'] = os.path.dirname(self.path_keys['filename'])
+        self.path_keys['basename'] = os.path.basename(self.path_keys['filename'])
         filename = (self.path_format+'{extension}').format(**self.path_keys)
         folder = os.path.dirname(filename)
         if folder == '':
@@ -227,25 +234,16 @@ class GenericWriter(object):
                 self.open_file(frame = frame)
                 if not self.inQ is None:
                     display('Queue size: {0}'.format(self.inQ.qsize()))
-
                     self.logfile.write('# [' + datetime.today().strftime('%y-%m-%d %H:%M:%S')+'] - '
                                        + 'Queue: {0}'.format(self.inQ.qsize())
                                        + '\n')
             frameid, timestamp = metadata[:2] 
             self._write(frame,frameid,timestamp)
-            if np.mod(frameid,7000) == 0:
-                if self.inQ is None:
-                    display('[{0} - frame:{1}]'.format(
-                        self.dataname,frameid))
-                else:
-                    display('[{0} - frame:{1}] Queue size: {2}'.format(
-                        self.dataname,frameid,self.inQ.qsize()))
             self.logfile.write(','.join(['{0}'.format(a) for a in metadata]) + '\n')
             self.saved_frame_count += 1
         return frameid,frame
     
     def close_run(self):
-        
         if not self.logfile is None:
             # Check if there are comments on the queue
             while not self.inQ.empty():
@@ -297,16 +295,16 @@ class GenericWriterProcess(Process,GenericWriter):
                                incrementruns=incrementruns,
                                **kwargs)
         Process.__init__(self)
-        self.write = save_trigger
-        if self.write is None:
-            self.write = Event()
-        self.close = Event()
+        self.write_event = save_trigger
+        if self.write_event is None:
+            self.write_event = Event()
+        self.close_event = Event()
         self.filename = Array('u',' ' * 1024)
-        self.parQ = Queue()
+        self.parQ = Queue(MAX_QUEUE_SIZE)
         self.daemon = True
 
     def _stop_write(self):
-        self.write.clear()
+        self.write_event.clear()
 
     def set_filename(self,filename):
         self._stop_write()
@@ -318,14 +316,24 @@ class GenericWriterProcess(Process,GenericWriter):
     
     def stop(self):
         self._stop_write()
-        self.close.set()
-        self.join()
+        self.close_event.set()
         
     def _write(self,frame,frameid,timestamp):
         pass
     
     def get_from_queue_and_save(self):
         buff = self.inQ.get()
+        qsize = self.inQ.qsize()
+        if qsize > 1000:
+            display('[{0}] Queue size: {1}'.format(
+                self.dataname,qsize))
+            while not self.inQ.empty():
+                self.inQ.get()
+            display('######################################## ISSUE RECORDING. FRAME COUNT ON QUEUE TOO HIGH. DROPPING FRAMES. #########################')
+            display('########################################          THIS IS NOT NORMAL, CHECK THE SETTINGS.              #########################')
+            if not self.logfile is None:
+                self.logfile.write('# ISSUE RECORDING. FRAME COUNT ON QUEUE TOO HIGH. DROPPING FRAMES.')
+                self.logfile.write('# THIS IS NOT NORMAL, CHECK THE INSTALATION.')
         buf = None
         if not buff[0] is None:
             if len(buff) > 1:
@@ -354,13 +362,13 @@ class GenericWriterProcess(Process,GenericWriter):
         return self.imgs[frame_index % self.nbuffers].squeeze()
         
     def run(self):
-        while not self.close.is_set():
+        while not self.close_event.is_set():
             self.saved_frame_count = 0
             self.nFiles = 0
             if not self.parQ.empty():
                 self.getFromParQueue()
             self._init_shared_mem()
-            while self.write.is_set() and not self.close.is_set():
+            while self.write_event.is_set() and not self.close_event.is_set():
                 while self.inQ.qsize() > 0:
                     frameid,frame = self.get_from_queue_and_save()
                 # spare the processor just in case...
@@ -418,7 +426,7 @@ class TiffWriter(GenericWriterProcess):
 
     def _write(self,frame,frameid,timestamp):
         self.fd.save(frame,
-                     compress=self.compression,
+                     compression=self.compression,
                      description='id:{0};timestamp:{1}'.format(frameid,
                                                                timestamp))
 
@@ -438,7 +446,7 @@ class BinaryWriter(GenericWriterProcess):
                  sleeptime = 1./300,
                  virtual_channels = None,
                  incrementruns=True,**kwargs):
-        self.extension = '_{nchannels}_{W}_{H}_{dtype}.dat'
+        self.extension = '_{nchannels}_{H}_{W}_{dtype}.dat'
         super(BinaryWriter,self).__init__(cam = cam,
                                           loggerQ=loggerQ,
                                           filename=filename,
@@ -852,7 +860,7 @@ class BinaryDAQWriter(GenericWriter):
                 f.write('niMAGain={0}\n'.format(1))
                 f.write('niMNGain={0}\n'.format(1))
                 f.write('snsMnMaXaDw=0,0,{0},{1}\n'.format(self.daq.ai_num_channels,
-                                                            self.daq.ai_num_channels))                
+                                                            self.daq.di_num_channels))                
                 f.write('nSavedChans={0}\n'.format(self.nchannels))
                 f.write('typeThis=nidq\n')
                 p = []
@@ -863,7 +871,6 @@ class BinaryDAQWriter(GenericWriter):
                 for k in self.daq.analog_channels.keys():
                     p.append('({0},{1})'.format(k,self.daq.analog_channels[k]))
                 f.write('analogChannelNames={0}\n'.format(','.join(p)))
-                
         self.fd = None
 
     def open_file(self,nfiles = None,data = None):

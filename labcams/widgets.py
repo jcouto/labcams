@@ -44,7 +44,8 @@ from PyQt5.QtWidgets import (QWidget,
                              QDialog,
                              QInputDialog)
 from PyQt5.QtGui import QImage, QPixmap,QBrush,QPen,QColor,QFont
-from PyQt5.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer
+from PyQt5.QtCore import Qt,QSize,QRectF,QLineF,QPointF,QTimer,QSettings
+
 
 import pyqtgraph as pg
 pg.setConfigOption('background', [200,200,200])
@@ -229,7 +230,6 @@ If the camera is saving this stops the camera.'''
         self.saveOnStartToggle.setToolTip(info)
         self.saveButton.setFixedWidth(100)
         l.addRow(label,self.saveOnStartToggle)
-
         self.udpmessages = QLabel('')
         b1=QFont()
         b1.setPixelSize(16)
@@ -317,7 +317,6 @@ class CamWidget(QWidget):
         self.nchan = frame.shape[-1]
         if hasattr(self.cam,'excitation_trigger'):
             self.nchan = self.cam.excitation_trigger.nchannels.value
-            self.frame_buffer = None
         self.displaychannel = -1  # default show all channels
         self.roiwidget = None
         self.layout = QGridLayout()
@@ -325,6 +324,7 @@ class CamWidget(QWidget):
         win = pg.GraphicsLayoutWidget()
         p1 = win.addPlot(title="")
         self.view = pg.ImageItem(background=[1,1,1])
+        self.view.setAutoDownsample(True)
         p1.getViewBox().invertY(True)
         if invertX:
             p1.getViewBox().invertX(True)
@@ -381,21 +381,21 @@ class CamWidget(QWidget):
     def update(self):
         # handle the excitation module
         if hasattr(self.cam,'excitation_trigger'):
-            if self.frame_buffer is None:
-                self.frame_buffer = np.zeros([
-                    self.cam.cam.h.value,
-                    self.cam.cam.w.value,
-                    3], dtype = self.cam.cam.dtype)
             cframe = self.cam.nframes.value
-            tmp = self.cam.get_img(cframe)
-            nchan = self.cam.excitation_trigger.nchannels.value
-            self.frame_buffer[:,:,
-                              np.mod(cframe,
-                                     nchan)] = tmp.squeeze()
-            return self.image(self.frame_buffer,cframe)
+            frame_buffer = self.cam.get_img_with_virtual_channels()
+            if self.parent.downsample_cameras and not self.reference_toggle.value:
+                return self.image(cv2.pyrDown(frame_buffer),cframe)
+            else:
+                return self.image(frame_buffer,cframe)
+                
         else:
             frame = self.cam.get_img()
         if not frame is None:
+            sp = frame.shape
+            if self.parent.downsample_cameras and not self.reference_toggle.value:
+                frame = cv2.pyrDown(frame)
+            if not len(frame.shape) == len(sp):
+                frame = frame.reshape((*frame.shape[:2],sp[-1]))
             self.image(frame,self.cam.nframes.value)
             
     def addActions(self):
@@ -526,7 +526,6 @@ class CamWidget(QWidget):
 
                 print('Selected {0}'.format(filename))
             else:
-
                 self.reference_toggle.checkbox.disconnect()
                 self.reference_toggle.checkbox.setChecked(True)
                 self.reference_toggle.link(self.toggle_reference)
@@ -562,6 +561,7 @@ class CamWidget(QWidget):
     def histogramWin(self):
         if self.hist is None:
             histTab = QDockWidget("histogram cam {0}".format(self.iCam), self)
+            histTab.setObjectName("histogram cam {0}".format(self.iCam))
             widget = QWidget()
             layout = QGridLayout()
             widget.setLayout(layout)
@@ -616,12 +616,14 @@ class CamWidget(QWidget):
             self.hist.setLevels(np.iinfo(dt).min,np.iinfo(dt).max)
 
         
-    def addROI(self,roi = None):
+    def addROI(self,roi = None,smoothing_k = 1):
         if self.roiwidget is None:
             self.roiwidget = ROIPlotWidget(roi_target = self.p1,
                                            view = self.view,
-                                           parent = self)
+                                           parent = self,
+                                           smoothing_k = smoothing_k)
             roiTab = QDockWidget("roi cam {0}".format(self.iCam), self)
+            roiTab.setObjectName("roi cam {0}".format(self.iCam))
             roiTab.setWidget(self.roiwidget)
             roiTab.setAllowedAreas(Qt.LeftDockWidgetArea |
                                    Qt.RightDockWidgetArea |
@@ -634,6 +636,7 @@ class CamWidget(QWidget):
                                       ,roiTab)
             roiTab.setFloating(True)
             roiTab.resize(600,150)
+            self.roiwidget.qtab = roiTab # to place it later if needed
             
             def closetab(ev):
                 # This probably does not clean up memory...
@@ -672,8 +675,10 @@ class CamWidget(QWidget):
             if not os.path.isdir(folder):
                 os.makedirs(folder)
             from tifffile import imsave
+            if len(frame.shape)==3:
+                frame = frame.transpose([2,0,1]).squeeze()
             imsave(str(filename),
-                   frame.transpose([2,0,1]).squeeze(),
+                   frame,
                    metadata = {
                        'Camera':str(self.iCam)})
             display('Saved camera frame for cam: {0}'.format(self.iCam))
@@ -690,6 +695,7 @@ class CamWidget(QWidget):
             return
         self.eyeTracker = MPTracker(drawProcessedFrame=True)
         self.trackerTab = QDockWidget("mptracker cam {0}".format(self.iCam), self)
+        self.trackerTab.setObjectName("mptracker cam {0}".format(self.iCam))
         self.eyeTracker.parameters['crTrack'] = True
         self.eyeTracker.parameters['sequentialCRMode'] = False
         self.eyeTracker.parameters['sequentialPupilMode'] = False
@@ -760,17 +766,17 @@ class CamWidget(QWidget):
                     frame = self.eyeTracker.img
 
             self.text.setText(self.string.format(nframe))
-            if not self.displaychannel == -1:
+            if not self.displaychannel == -1 and len(frame.shape) > 2:
                 frame = frame[:,:,self.displaychannel]
 
             if self.parameters['reference_channel'] is None:
-                if self.displaychannel == -1 and frame.shape[2]==2:
+                if self.displaychannel == -1 and len(frame.shape) > 2 and frame.shape[2]==2:
                     f = frame.copy()
                     frame = np.zeros((f.shape[0],f.shape[1],3),dtype = f.dtype)
                     frame[:,:,1] = f[:,:,0]
                     frame[:,:,2] = f[:,:,1]
                 self.view.setImage(frame.squeeze(),
-                                   autoLevels=self.autoRange,autoDownsample=True)
+                                   autoLevels=self.autoRange, autoDownsample=True)
             else:
                 frame = frame.squeeze()
                 ref = self.parameters['reference_channel']
@@ -780,13 +786,16 @@ class CamWidget(QWidget):
 
 
 class ROIPlotWidget(QWidget):
-    def __init__(self, roi_target= None,view=None,npoints = 1200,parent = None):
+    def __init__(self, roi_target= None, view=None,
+                 npoints = 1200, parent = None, smoothing_k = 1):
         super(ROIPlotWidget,self).__init__()	
         layout = QGridLayout()
         self.parent=parent
         self.setLayout(layout)
         self.view = view
+        self.qtab = None
         self.roi_target = roi_target
+        self.smoothing_k = smoothing_k
         win = pg.GraphicsLayoutWidget()
         self.p1 = win.addPlot()
         self.p1.getAxis('bottom').setPen('k') 
@@ -796,6 +805,7 @@ class ROIPlotWidget(QWidget):
         self.rois = []
         self.plots = []
         self.buffers = []
+        self.baseline = []
 
     def add_roi(self,roi = None):
         pencolor = colors[
@@ -813,6 +823,7 @@ class ROIPlotWidget(QWidget):
         buf[0,:] = np.nan
         buf[1,:] = 0
         self.buffers.append(buf)
+        self.baseline.append(0)
 
     def items(self):
         return self.rois
@@ -825,7 +836,7 @@ class ROIPlotWidget(QWidget):
     def reset(self):
         for ib in range(len(self.buffers)):
             self.buffers[ib][0,:] = np.nan
-        
+            self.baseline[ib] = 0
     def update(self,img,iFrame):
         
         ichan = -1
@@ -843,7 +854,11 @@ class ROIPlotWidget(QWidget):
                 r = np.mean(roi.getArrayRegion(img[:,:,ichan], self.view)).copy()
             buf = np.roll(self.buffers[i], -1, axis = 1)
             buf[0,-1] = ctime
-            buf[1,-1] = r
+            alpha = 1
+            if not np.isnan(r):
+                alpha = np.clip(self.smoothing_k,0,1)
+                self.baseline[i] +=  alpha*(r-self.baseline[i])
+            buf[1,-1] = r - self.baseline[i]
             self.buffers[i] = buf
             ii = (~np.isnan(buf[0,:])) & (~np.isnan(buf[1,:]))
             plot.setData(x = buf[0,ii],
@@ -857,6 +872,7 @@ class CamStimTriggerWidget(QWidget):
             ino = CamStimInterface(port = port,outQ = outQ)
         self.ino = ino
         self.cam = cam
+        self.setObjectName("CamStimTrigger")
         form = QFormLayout()
         if not ino is None:
             def disarm():

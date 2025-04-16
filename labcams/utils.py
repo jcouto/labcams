@@ -30,6 +30,7 @@ from tqdm import tqdm
 import numpy as np
 import time
 import pandas as pd
+MAX_QUEUE_SIZE = 1500
 
 tstart = [time.time()]
 

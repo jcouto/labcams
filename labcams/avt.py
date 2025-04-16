@@ -42,7 +42,9 @@ def AVT_get_ids():
     return camsIds,camsModel
 
 class AVTCam(GenericCam):    
-    def __init__(self, cam_id = None, out_q = None,
+    def __init__(self, cam_id = None,
+                 name = '',
+                 out_q = None,
                  start_trigger = None,
                  stop_trigger = None,
                  save_trigger = None,

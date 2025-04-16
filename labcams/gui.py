@@ -69,7 +69,7 @@ class LabCamsGUI(QMainWindow):
             self.hardware_trigger_event.set()
         else:
             self.hardware_trigger_event.clear()
-
+        
         self.parameters = parameters
         self.app = app
         self.plugins = []
@@ -78,6 +78,10 @@ class LabCamsGUI(QMainWindow):
         self.cam_descriptions = camDescriptions
         self.zmqsocket = None
         self.udpsocket = None
+        if not 'downsample_display' in self.parameters.keys():
+            self.downsample_cameras = False
+        else:
+            self.downsample_cameras = self.parameters['downsample_display']
         if server:
             if not 'server_refresh_time' in self.parameters.keys():
                 self.parameters['server_refresh_time'] = 5
@@ -152,6 +156,8 @@ class LabCamsGUI(QMainWindow):
                     ino = self.cams[-1].excitation_trigger,
                     cam = self.cams[-1].cam)
                 self.camstim_tab = QDockWidget("Camera excitation control",self)
+                self.camstim_tab.setObjectName("Cam stim")
+
                 self.camstim_tab.setWidget(self.excitation_trigger_widget)
                 self.addDockWidget(
                     Qt.LeftDockWidgetArea,
@@ -175,6 +181,14 @@ class LabCamsGUI(QMainWindow):
         
         self.recController.saveOnStartToggle.setChecked(self.save_on_start)
         self.recController.softTriggerToggle.setChecked(self.software_trigger)
+        self.settings = QSettings('labcams','labcams')
+        try:
+            self.restoreGeometry(self.settings.value("geometry", ""))
+            self.restoreState(self.settings.value("windowState",""))
+        except Exception as err:
+            print(err)
+            display("Could not restore locations")
+
 
     def set_experiment_name(self,expname):
         # Makes sure that the experiment name has the right slashes.
@@ -242,11 +256,29 @@ class LabCamsGUI(QMainWindow):
                 fname = pjoin(os.path.dirname(foldername),'snapshots',
                               shared_date[:]+'_{0}.tif'.format(dataname))
                 from tifffile import imsave
+                if len(frame.shape) > 2:
+                    frame = frame.transpose([2,0,1]).squeeze()
+                    
                 imsave(fname,
-                       frame.transpose([2,0,1]).squeeze(),
+                       frame,
                        metadata = {
                            'Camera':str(icam)})
-            self.server_reply(msg = 'snapshots',address = address) 
+            self.server_reply(msg = 'snapshots',address = address)
+        elif message['action'].lower() == 'startplugin':
+            # starts a plugin remotely if not there yet.
+            pluginname = message['value']
+            loaded_plugins = [p.name for p in self.plugins]
+            if pluginname in loaded_plugins:
+                print('{0} plugin is already loaded. '.format(pluginname))
+            else:
+                for l in self.plugins_handles:
+                    if pluginname == l['name']:
+                        display('Loading {0}'.format(l['name']))
+                        self.plugins.append(l['plugin'](self))
+        elif message['action'].lower() == 'pluginmsg':
+            for p in self.plugins:
+                p.parse_command(message['value'])
+                
         elif message['action'].lower() == 'load_reference':
             foldername = message['value']
             if not os.path.exists(foldername):
@@ -270,7 +302,12 @@ class LabCamsGUI(QMainWindow):
             self.udpsocket.sendto(b'ok=bye',address)
             self.server_reply(msg = 'bye',address = address) 
             self.close()
-        
+
+    def experiment_pluginmenu_trigger(self,q):
+        for l in self.plugins_handles:
+            if q.text() == l['name']:
+                display('Loading {0}'.format(l['name']))
+                self.plugins.append(l['plugin'](self))
     def experiment_menu_trigger(self,q):
         if q.text() == 'Set refresh time':
             self.timer.stop()
@@ -279,7 +316,6 @@ class LabCamsGUI(QMainWindow):
             if res[1]:
                 self.update_frequency = res[0]
             self.timer.start(self.update_frequency)
-            #display(q.text()+ "clicked. ")
         
     def initUI(self):
         # Menu
@@ -288,14 +324,28 @@ class LabCamsGUI(QMainWindow):
 )
         bar = self.menuBar()
         editmenu = bar.addMenu("Options")
+        toggle_downsample = QActionCheckBox(self,'Downsample display',
+                                            self.downsample_cameras)
+        def tdownsample():
+            self.downsample_cameras = not self.downsample_cameras
+            toggle_downsample.checkbox.setChecked(self.downsample_cameras)
+        toggle_downsample.link(tdownsample)
+        editmenu.addAction(toggle_downsample)
         editmenu.addAction("Set refresh time")
         editmenu.triggered[QAction].connect(self.experiment_menu_trigger)
+        pluginmenu = bar.addMenu("Plugins")
+        from .plugins import load_plugins
+        self.plugins_handles = load_plugins()
+        for l in self.plugins_handles: 
+             pluginmenu.addAction(l['name'])
+             pluginmenu.triggered[QAction].connect(self.experiment_pluginmenu_trigger)
         self.setWindowTitle("labcams")
         self.tabs = []
         self.camwidgets = []
         self.recController = RecordingControlWidget(self)
         #self.setCentralWidget(self.recController)
         self.recControllerTab = QDockWidget("",self)
+        self.recControllerTab.setObjectName("control_acquisition")
         self.recControllerTab.setWidget(self.recController)
         self.addDockWidget(
             Qt.TopDockWidgetArea,
@@ -306,6 +356,7 @@ class LabCamsGUI(QMainWindow):
             if self.saveflags[c]:
                 tt +=  ' - ' + self.cam_descriptions[c]['name'] +' ' 
             self.tabs.append(QDockWidget("Camera: "+str(c) + tt,self))
+            self.tabs[-1].setObjectName("camera"+str(c))
             if hasattr(cam.cam,"h") and hasattr(cam.cam,"w"): # then it must be a camera
                 self.camwidgets.append(CamWidget(frame = np.zeros((cam.cam.h.value,
                                                                    cam.cam.w.value,
@@ -331,15 +382,7 @@ class LabCamsGUI(QMainWindow):
             self.addDockWidget(
                 Qt.BottomDockWidgetArea,
                 self.tabs[-1])
-            
-            # there can only be one of these for now?
-            if hasattr(self,'camstim_widget'):
-                self.camstim_tab = QDockWidget("Camera excitation control",self)
-                self.camstim_tab.setWidget(self.camstim_widget)
-                self.addDockWidget(
-                    Qt.LeftDockWidgetArea,
-                self.camstim_tab)
-            display('Init view: ' + str(c))
+            display('Initialized camera view: ' + str(c))
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_timer)
         self.timer.start(self.update_frequency)
@@ -368,6 +411,10 @@ class LabCamsGUI(QMainWindow):
                 print(e, fname, exc_tb.tb_lineno)
             
     def closeEvent(self,event):
+        # try to save settings?
+        
+        self.settings.setValue('geometry',self.saveGeometry())
+        self.settings.setValue('windowState',self.saveState())
         if hasattr(self,'server_timer'):
             self.server_timer.stop()
             if hasattr(self,'udpsocket') and not self.udpsocket is None:
@@ -383,7 +430,6 @@ class LabCamsGUI(QMainWindow):
 
 
 def main():
-
     from argparse import ArgumentParser, RawDescriptionHelpFormatter
     import os
     import json
@@ -456,4 +502,6 @@ def main():
     sys.exit(app.exec_())
     
 if __name__ == '__main__':
+    from multiprocessing import set_start_method
+    set_start_method("spawn")
     main()

@@ -22,6 +22,7 @@ from .cams import *
 class BaslerCam(GenericCam):
     def __init__(self,
                  cam_id = None,
+                 name = '',
                  start_trigger = None,
                  stop_trigger = None,
                  save_trigger = None,
@@ -38,6 +39,7 @@ class BaslerCam(GenericCam):
                  recorderpar=None,
                  **kwargs):
         super(BaslerCam,self).__init__(cam_id = cam_id,
+                                       name = name,
                                        out_q = out_q,
                                        start_trigger = start_trigger,
                                        stop_trigger = stop_trigger,

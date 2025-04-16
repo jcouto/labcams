@@ -20,6 +20,7 @@ from .cams import *
 class XimeaCam(GenericCam):
     def __init__(self,
                  cam_id = None,
+                 name = '',
                  start_trigger = None,
                  stop_trigger = None,
                  save_trigger = None,                 
@@ -32,6 +33,7 @@ class XimeaCam(GenericCam):
                  recorderpar = None,
                  **kwargs):
         super(XimeaCam,self).__init__(cam_id = cam_id,
+                                      name = name,
                                       out_q = out_q,
                                       start_trigger = None,
                                       stop_trigger = None,
