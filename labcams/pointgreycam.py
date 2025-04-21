@@ -146,7 +146,7 @@ class PointGreyCam(GenericCam):
                                           start_trigger = start_trigger,
                                           stop_trigger = stop_trigger,
                                           save_trigger = save_trigger,                 
-                                          recorderpar=recorderpar)
+                                          recorderpar = recorderpar)
         self.drivername = 'PointGrey'
         self.hardware_trigger = hardware_trigger
         if self.hardware_trigger is None:

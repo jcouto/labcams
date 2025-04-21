@@ -877,7 +877,6 @@ Please install nidaqmx using pip and NIDAQmx from the National Instruments websi
                           stop_trigger = self.stop_trigger,
                           save_trigger = self.save_trigger,
                           out_q = self.recorder_q,
-                          hardware_trigger = self.hardware_trigger_event,
                           **parameters)
     def close(self):
         self.stop_acquisition()
