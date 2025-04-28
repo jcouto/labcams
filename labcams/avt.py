@@ -15,6 +15,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from .cams import *
+from queue import Queue
+
+import copy
 # Allied Vision Technologies cameras
 try:
     import vmbpy
@@ -23,6 +26,19 @@ except:
     os.system('python -m pip install vmbpy')
     import vmbpy
 
+class FrameHandler():
+    def __init__(self):
+        self.queue = Queue(100)
+
+    def get(self):
+        return self.queue.get(True,timeout = 0.01)
+    
+    def __call__(self,cam,stream,frame):
+        if frame.get_status() == vmbpy.FrameStatus.Complete:
+            self.queue.put((copy.deepcopy(frame),
+                            int(cam.LineStatus.get())))
+        cam.queue_frame(frame)
+                           
 def get_camera(camera_id):
     with vmbpy.VmbSystem.get_instance() as vmb:
         if camera_id:
@@ -146,9 +162,6 @@ Available serials are:
         #    self.nchan.value = frame.shape[2] 
         self.dtype = np.uint8 #frame.dtype
         self._init_variables(self.dtype)
-        #self._cam_init()
-        #import ipdb
-        #ipdb.set_trace()
         display("[AVT {0}] - got info from camera.".format(self.cam_id))
 
     def set_exposure(self,exposure=None):
@@ -206,6 +219,7 @@ Available serials are:
             pass
         else:
             if not self.cam is None:
+                self.cam.AcquisitionFrameRateMode.set('Basic')
                 self.frame_rate = min(self.cam.AcquisitionFrameRate.get_range()[1],
                                       self.frame_rate)
                 
@@ -272,34 +286,37 @@ Available serials are:
             self.set_exposure(self.exposure)
         self.set_gain(self.gain)
         self.set_gamma(self.gamma)        
-        self.cam.LineSelector = 'Line0'
-        self.cam.LineMode = 'Input'
+        self.cam.LineSelector.set('Line0')
+        self.cam.LineMode.set('Input')
         # the line status is not returned by the frame.
         self.camera_ready.set()
+        
+        
+    def _cam_startacquisition(self):
+        self._t = time.time() 
+        self.handler = FrameHandler()
+        self.cam.start_streaming(self.handler,10) 
 
+    def _cam_loop(self):        
+        try:
+            frame,status = self.handler.get()
+        except Exception as err:
+            return (None,(None,None,None))
         
-    def _start_acquisition(self):
-        self.cam.start_streaming()
-        
-    def _cam_loop(self):
-        #frame = self.cam.get_frame()
-        if self.frame_buffer is None:
-            self.frame_buffer = self.cam.get_frame_generator(None)
-        frame = next(self.frame_buffer)
-        ff = frame.as_numpy_ndarray().squeeze().copy()
-        frameid = frame._frame.frameID #self.nframes.value + 1
+        ff = frame.as_numpy_ndarray().squeeze()
+        frameid = frame._frame.frameID
         timestamp = frame.get_timestamp()
-        return ff,(frameid,timestamp,self.cam.LineStatus)
+        return ff,(frameid,timestamp,status)
     
-    def _stop_acquisition(self):
+    def _cam_stopacquisition(self):
         self.cam.stop_streaming()
-        self.frame_buffer = None
-
+        
     def _cam_close(self, do_stop = True):
         if not self.cam is None:
             if do_stop:
                 self._cam_stopacquisition()
             self.cam.__exit__(None,None,None)
             self.cam = None
+        if not self.drv is None:
             self.drv.__exit__(None,None,None)
             self.drv = None
