@@ -4,6 +4,11 @@ class BasePlugin():
     def __init__(self,gui,name):
         self.gui = gui
         self.name = name
+
+    def start_timer(self, freq = 5):
+        self.gui.plugin_timer.stop()
+        self.gui.plugin_timer.start(freq)
+
     def update(self):
         pass
     

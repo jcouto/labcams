@@ -512,7 +512,10 @@ class Camera(object):
             recorderpar = self.recorder_parameters
         else:
             recorderpar = None # Use a queue recorder
-                
+        if 'frameRate' in kwargs.keys():
+            import warnings
+            warnings.warn('LABCAMS - Deprecated parameter, use "frame_rate" instead of "frameRate".')
+            kwargs['frame_rate'] = kwargs['frameRate']
         params = dict(kwargs,
                       name = self.name,
                       recorderpar = recorderpar)
@@ -877,7 +880,6 @@ Please install nidaqmx using pip and NIDAQmx from the National Instruments websi
                           stop_trigger = self.stop_trigger,
                           save_trigger = self.save_trigger,
                           out_q = self.recorder_q,
-                          hardware_trigger = self.hardware_trigger_event,
                           **parameters)
     def close(self):
         self.stop_acquisition()
@@ -892,5 +894,7 @@ Please install nidaqmx using pip and NIDAQmx from the National Instruments websi
         if not self.writer is None:
             display('Waiting for the writer process to close.')
             self.writer.join()
-
+            display(f'Writer {self.name} closed.')
+        display(f'Camera {self.name} closed.')
+        
         
