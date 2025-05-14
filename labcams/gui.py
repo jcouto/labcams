@@ -122,16 +122,8 @@ class LabCamsGUI(QMainWindow):
             self.parameters['recorder_frames_per_file'] = 0
 
         camdrivers = [cam['driver'].lower() for cam in camDescriptions]
-        if 'avt' in camdrivers:
-            from .avt import AVT_get_ids
-            try:
-                avtids,avtnames = AVT_get_ids()
-            except Exception as e:
-                display('[ERROR] AVT  camera error? Connections? Parameters?')
-                print(e)
         self.camQueues = []
         self.saveflags = []
-        connected_avt_cams = []
         for c,cam in enumerate(self.cam_descriptions):
             display("Connecting to camera [" + str(c) + '] : '+cam['name'])
             if not 'save_data' in cam.keys():   # to disable the saving for an individual camera
