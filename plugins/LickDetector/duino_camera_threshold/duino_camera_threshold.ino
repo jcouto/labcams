@@ -1,6 +1,6 @@
 const byte PIN0 = 1;
 const byte PIN1 = 2;
-#define USE_CAPACITIVE
+//#define USE_CAPACITIVE
 #define LICK0 22
 #define LICK1 23
 float lick0_value = 0.0;
