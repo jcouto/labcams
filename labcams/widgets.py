@@ -838,7 +838,6 @@ class ROIPlotWidget(QWidget):
             self.buffers[ib][0,:] = np.nan
             self.baseline[ib] = 0
     def update(self,img,iFrame):
-        
         ichan = -1
         if not self.parent is None:
             ichan = self.parent.displaychannel

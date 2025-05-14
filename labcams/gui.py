@@ -122,16 +122,8 @@ class LabCamsGUI(QMainWindow):
             self.parameters['recorder_frames_per_file'] = 0
 
         camdrivers = [cam['driver'].lower() for cam in camDescriptions]
-        if 'avt' in camdrivers:
-            from .avt import AVT_get_ids
-            try:
-                avtids,avtnames = AVT_get_ids()
-            except Exception as e:
-                display('[ERROR] AVT  camera error? Connections? Parameters?')
-                print(e)
         self.camQueues = []
         self.saveflags = []
-        connected_avt_cams = []
         for c,cam in enumerate(self.cam_descriptions):
             display("Connecting to camera [" + str(c) + '] : '+cam['name'])
             if not 'save_data' in cam.keys():   # to disable the saving for an individual camera
@@ -386,9 +378,22 @@ class LabCamsGUI(QMainWindow):
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_timer)
         self.timer.start(self.update_frequency)
+        self.plugin_timer = QTimer()
+        self.plugin_timer.timeout.connect(self.update_plugin_timer)
         #self.move(0, 0)
         self.show()
-            	
+
+    def update_plugin_timer(self):
+        for p in self.plugins:  # update plugins
+            try:
+                p.update()
+            except Exception as err:
+                display('Could not update plugin')
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                fname = os.path.split(
+                    exc_tb.tb_frame.f_code.co_filename)[1]
+                print(err, fname, exc_tb.tb_lineno)
+        
     def update_timer(self):
         for c,cam in enumerate(self.cams):
             self.camwidgets[c].update()
@@ -400,15 +405,7 @@ class LabCamsGUI(QMainWindow):
                 fname = os.path.split(
                     exc_tb.tb_frame.f_code.co_filename)[1]
                 print(e, fname, exc_tb.tb_lineno)
-        for p in self.plugins:  # update plugins
-            try:
-                p.update()
-            except Exception as err:
-                display('Could not update plugin')
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                fname = os.path.split(
-                    exc_tb.tb_frame.f_code.co_filename)[1]
-                print(e, fname, exc_tb.tb_lineno)
+
             
     def closeEvent(self,event):
         # try to save settings?
@@ -419,7 +416,9 @@ class LabCamsGUI(QMainWindow):
             self.server_timer.stop()
             if hasattr(self,'udpsocket') and not self.udpsocket is None:
                 self.udpsocket.close()
-        self.timer.stop()            
+        self.timer.stop()
+        self.plugin_timer.stop()
+
         display('Acquisition stopped (close event).')
         for cam in self.cams:
             cam.stop_acquisition()
